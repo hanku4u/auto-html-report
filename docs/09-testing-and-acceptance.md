@@ -55,7 +55,12 @@ audit that has quietly stopped objecting looks exactly like a suite that is pass
 3. **No live external services.** PostgreSQL is the one exception, and it self-skips without
    `AUTO_INFORM_TEST_POSTGRES_DSN`.
 4. **No dependence on test order.** In particular, registry tests must not depend on whether
-   `import_builtin_blocks()` has already run in the same process.
+   `import_builtin_blocks()` has already run in the same process. A sharper form of the same rule, learned
+   the hard way: **a test that snapshots process-global state must snapshot it in its fully-populated
+   form**, because restoring a wiped table and a cleared "already scanned" flag does not repopulate
+   anything — the modules are in `sys.modules` by then, so `import_module` returns them from cache and
+   their registration side effects never run again. The registry test module did exactly this and failed
+   three tests when run alone while the full suite stayed green, which is what this rule predicts.
 5. **Deterministic output.** `run_id` and timestamps are injected in tests, so golden files can be
    compared byte for byte.
 6. **A test for something that depends on state beyond its arguments needs a competing object alive.**

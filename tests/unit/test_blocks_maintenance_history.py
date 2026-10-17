@@ -60,18 +60,35 @@ def test_collect_should_ask_for_the_tools_history_with_the_requested_window() ->
     assert http.calls[0].params == {"days": 7}
 
 
-def test_collect_should_take_its_timeout_from_settings() -> None:
-    # given a configured block timeout
+def test_collect_should_keep_the_http_timeout_within_the_blocks_own_budget() -> None:
+    # given the shipped defaults, where the global HTTP timeout (60 s) is *longer* than this block's own
+    # framework budget (30 s)
     http = _http()
+    block = MaintenanceHistoryBlock(tool_id="T-104")
 
-    # when a block collects
-    MaintenanceHistoryBlock(tool_id="T-104").collect(
-        make_report_context(http=http, settings=Settings(block_timeout_seconds=12.5))
-    )
+    # when it collects
+    block.collect(make_report_context(http=http))
 
-    # then the call carried it. The framework cannot interrupt a running thread, so a call without a
-    # timeout is a block that can outlive its own budget (docs/02-block-authoring.md §6.2)
-    assert http.calls[0].timeout == 12.5
+    # then the call carried the block's budget, not the global default. Passing the default was the
+    # original defect here: a call allowed to run past the budget is abandoned mid-flight, because the
+    # framework cannot kill a thread -- it merely stops waiting (docs/02-block-authoring.md §6.2)
+    assert http.calls[0].timeout == 30.0
+    assert http.calls[0].timeout == block.timeout_seconds
+
+
+def test_collect_should_never_pass_a_timeout_longer_than_its_budget() -> None:
+    # given a deliberately generous global default, far longer than the block declares
+    http = _http()
+    block = MaintenanceHistoryBlock(tool_id="T-104")
+    settings = Settings(block_timeout_seconds=600.0)
+
+    # when it collects
+    block.collect(make_report_context(http=http, settings=settings))
+
+    # then the transport timeout stays inside the budget whatever the global setting says. This is the
+    # property rather than one example of it, and it is the check that would have caught the mismatch
+    budget = block.timeout_seconds or settings.block_timeout_seconds
+    assert http.calls[0].timeout <= budget
 
 
 def test_collect_with_a_degraded_service_should_raise_a_transient_error() -> None:

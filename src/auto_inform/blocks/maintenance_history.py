@@ -52,7 +52,11 @@ class MaintenanceHistoryBlock(Block[list[MaintenanceRecord]]):
         payload = context.http.get_json(
             f"/maintenance/{self._tool_id}",
             params={"days": self._days},
-            timeout=context.settings.block_timeout_seconds,
+            # The transport must not outlive the block's own budget. It would be easy to reach for the
+            # global default here, but that is 60 s while this block's budget is 30 s -- and the
+            # framework cannot kill a thread, so the call would be abandoned mid-flight and logged as
+            # an overrun. This is the block's *effective* budget: its own override, else the default.
+            timeout=self.timeout_seconds or context.settings.block_timeout_seconds,
         )
         if payload.get("status") == "degraded":
             # The transport succeeded; the service is telling us it cannot answer properly yet. That is

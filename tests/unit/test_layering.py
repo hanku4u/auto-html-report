@@ -91,6 +91,13 @@ PLUGIN_FORBIDDEN = (
     "auto_inform.infrastructure",
 )
 
+#: Modules directly under the package root -- everything except the composition root itself. They are
+#: shared utilities and the registry, which legitimately reach into the layers but must never acquire a
+#: concrete adapter or the configuration that builds one. An audit that skipped them let `registry.py`
+#: grow a store dependency unnoticed, since the layer rules enumerate directories and root modules are
+#: not in one.
+ROOT_FORBIDDEN = ("auto_inform.infrastructure",)
+
 
 @dataclass(frozen=True)
 class Rule:
@@ -102,13 +109,14 @@ class Rule:
 
 
 #: The composition root is deliberately absent: it exists to wire the layers together, and that is the
-#: one place where every import is fine.
+#: one place where every import is fine. The `root` rule covers the *other* modules at that level.
 RULES: dict[str, Rule] = {
     "domain": Rule("domain", forbidden=DOMAIN_FORBIDDEN),
     "application": Rule("application", allowed=APPLICATION_ALLOWED),
     "rendering": Rule("rendering", forbidden=RENDERING_FORBIDDEN),
     "blocks": Rule("blocks", forbidden=PLUGIN_FORBIDDEN),
     "reports": Rule("reports", forbidden=PLUGIN_FORBIDDEN),
+    "root": Rule("root", forbidden=ROOT_FORBIDDEN),
 }
 
 
@@ -126,6 +134,10 @@ class ModuleImports:
 
 def _matches(module: str, prefixes: tuple[str, ...]) -> bool:
     return any(module == prefix or module.startswith(f"{prefix}.") for prefix in prefixes)
+
+
+#: The package itself. Imported by :mod:`auto_inform.__init__`, so a layer importing it is a cycle.
+_ROOT_PACKAGE = "auto_inform"
 
 
 def _package_parts(path: Path, import_root: Path) -> tuple[str, ...] | None:
@@ -232,8 +244,8 @@ def _read_imports(path: Path, *, import_root: Path = IMPORT_ROOT) -> ModuleImpor
             # The package root itself is a container, not a dependency: ``from auto_inform import
             # _naming`` depends on ``auto_inform._naming``, which is recorded just below. Recording the
             # bare root as well would make any allowlist entry for it match every submodule by prefix,
-            # which is the opposite of what an allowlist is for. A bare ``import auto_inform`` is still
-            # recorded, and still a violation for a layer that may not import the composition root.
+            # which is the opposite of what an allowlist is for. A bare ``import auto_inform`` *is*
+            # recorded, and :func:`violations` reports it whatever the rule style -- see `_ROOT_PACKAGE`.
             if resolved != "auto_inform":
                 target.add(resolved)
             target.update(f"{resolved}.{alias.name}" for alias in node.names)
@@ -270,10 +282,23 @@ def violations(
     else:
         judged = {module for module in ours if _matches(module, forbidden)}
 
-    return judged | imports.unjudgeable
+    # A bare `import auto_inform` is reported in *every* rule style, not merely judged by the rule's
+    # own list: the composition root imports the layers, so a layer importing it back is a cycle. Under
+    # the denylist rules the bare name would otherwise match no forbidden prefix and pass.
+    root_import = {_ROOT_PACKAGE} if _ROOT_PACKAGE in imports.runtime else set()
+
+    return judged | imports.unjudgeable | root_import
 
 
 def _layer_files(layer: str) -> list[Path]:
+    """The files a layer's rule governs.
+
+    ``root`` is the one layer that is not a directory: it is the modules *directly* under the package,
+    minus ``__init__.py``, which is the composition root and the single unconditional exemption.
+    """
+    if layer == "root":
+        return sorted(path for path in PACKAGE.glob("*.py") if path.name != "__init__.py")
+
     directory = PACKAGE / layer
     return sorted(directory.glob("*.py")) if directory.is_dir() else []
 
@@ -522,3 +547,53 @@ def test_the_layering_audit_should_still_forbid_reaching_rendering_through_the_r
     assert "auto_inform.rendering" in violations(
         path, allowed=APPLICATION_ALLOWED, import_root=root
     )
+
+
+def test_the_root_modules_should_be_audited() -> None:
+    # given the layers the audit covers
+    audited = {path for _, path in LAYERED_MODULES}
+
+    # when the list is inspected
+    # then the modules directly under the package are in it, registry.py included -- it is a normal
+    # module that reaches into two layers, and an audit that enumerated directories only left it, and any
+    # future root module, ungoverned. Compared as paths, because a set of bare names cannot tell the
+    # composition root from a subpackage's __init__.py, which *is* audited
+    assert PACKAGE / "registry.py" in audited
+    assert PACKAGE / "__init__.py" not in audited
+
+
+def test_the_layering_audit_should_flag_a_root_module_reaching_for_an_adapter(
+    tmp_path: Path,
+) -> None:
+    # given a root module that acquired a store dependency, which is the shape of decay the root rule
+    # exists to catch
+    path, root = _control_module(
+        tmp_path,
+        "domain",
+        "from auto_inform.infrastructure.stores.sqlite_store import SqliteEventStore\n",
+    )
+
+    # when the root rule is applied
+    # then it objects. Without the rule this file would pass, since no layer directory contains it
+    assert "auto_inform.infrastructure.stores.sqlite_store" in violations(
+        path, forbidden=ROOT_FORBIDDEN, import_root=root
+    )
+
+
+@pytest.mark.parametrize(
+    ("style", "kwargs"),
+    [
+        ("denylist", {"forbidden": DOMAIN_FORBIDDEN}),
+        ("allowlist", {"allowed": APPLICATION_ALLOWED}),
+    ],
+)
+def test_the_layering_audit_should_flag_a_bare_import_of_the_composition_root(
+    tmp_path: Path, style: str, kwargs: dict[str, object]
+) -> None:
+    # given a layer module importing the composition root -- a cycle, since that module imports the layers
+    path, root = _control_module(tmp_path, "domain", "import auto_inform\n")
+
+    # when the rule is applied, in either style
+    # then it objects both times. Under a denylist the bare name matches no forbidden prefix, so it used
+    # to pass silently -- the comment claiming otherwise was the review's fourth finding
+    assert violations(path, import_root=root, **kwargs) == {"auto_inform"}  # type: ignore[arg-type]

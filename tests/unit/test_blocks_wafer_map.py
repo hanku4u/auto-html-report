@@ -75,17 +75,20 @@ def test_collect_should_ask_for_the_lots_bin_map() -> None:
     assert http.paths == (PATH,)
 
 
-def test_collect_should_take_its_timeout_from_settings() -> None:
-    # given a configured block timeout
+def test_collect_should_keep_the_http_timeout_within_the_blocks_budget() -> None:
+    # given a block that declares no budget override, so its budget *is* the global default
     http = _http()
+    block = WaferMapBlock(lot_id="LOT-88213")
+    settings = Settings(block_timeout_seconds=9.0)
 
     # when a block collects
-    WaferMapBlock(lot_id="LOT-88213").collect(
-        make_report_context(http=http, settings=Settings(block_timeout_seconds=9.0))
-    )
+    block.collect(make_report_context(http=http, settings=settings))
 
-    # then the call carried it, so the block cannot outlive its budget
-    assert http.calls[0].timeout == 9.0
+    # then the call sits inside the budget -- equal to it here, since there is no override. The property
+    # is what matters: a transport timeout longer than the block's budget means a call abandoned
+    # mid-flight, because the framework cannot kill a thread
+    budget = block.timeout_seconds or settings.block_timeout_seconds
+    assert http.calls[0].timeout == budget == 9.0
 
 
 # --- render -------------------------------------------------------------------

@@ -117,8 +117,10 @@ and nothing would have noticed.
 4. `blocks/` and `reports/` import from `domain/` and the rendering helpers — never from `application/`
    or `infrastructure/`. They receive everything they need through `ReportContext` and their own
    constructor parameters.
-5. `rendering/` imports `domain/` and the standard library, plus Jinja2 and matplotlib in the modules that
-   need them — never `application/` or `infrastructure/`.
+6. Modules directly under the package root — `registry.py`, `_naming.py`, `_version.py` — may reach into
+   the layers but must never acquire a concrete adapter or the configuration that builds one: their rule
+   forbids `infrastructure/`. They were ungoverned until the audit learned to enumerate them, which is how
+   `registry.py` could have grown a store dependency with nobody the wiser.
 
 **Type-only imports are not judged.** An annotation under `if TYPE_CHECKING:` is erased at runtime and
 creates no dependency, which is the principle behind rule 1's exception. That exception is still
@@ -133,6 +135,10 @@ this package runs that root first, so `auto_inform.domain.block` cannot be impor
 or infrastructure layer present". What the rule actually guarantees is a fact about the source — the
 domain modules do not depend upward — which is what keeps them testable and the dependency arrows
 pointing inward.
+
+**And no layer may import that root back.** It imports the layers, so a layer importing it is a cycle.
+The audit reports a bare `import auto_inform` in *every* layer, whatever that layer's rule style — under
+the denylist rules the bare name matches no forbidden prefix and would otherwise pass silently.
 
 ## 5. The two pipelines
 
