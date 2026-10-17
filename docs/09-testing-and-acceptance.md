@@ -20,6 +20,24 @@ replaces: docs/SPEC.md §9, §13
 | Figures | Smoke test only: build a figure, assert the URI starts `data:image/png;base64,`, and assert no figures remain open afterwards. Never assert on pixels. |
 | Thread safety | Sixteen blocks in parallel, half of which render figures: no exception, stable row order. This is the test that catches a missing figure lock. |
 | Configuration | Explicit `Settings` mappings, never `os.environ`. The env-var to attribute map in [07 §1.1](07-configuration-and-logging.md#11-environment-variable-to-settings-attribute-map) is asserted, so the table cannot drift from the code. |
+| Layering | `tests/unit/test_layering.py` reads every module's imports and asserts the rules in [01 §4](01-overview.md#4-architectural-overview), with a negative control so the audit cannot pass vacuously. An import hook cannot do this job: importing any submodule runs the composition root, which wires every layer on purpose. |
+| Documentation set | `tests/unit/test_doc_conventions.py` and `test_doc_links.py` assert what used to be checked by hand — that the `pyproject.toml` snippet equals the real file, that the ADR range quoted in two places matches the entries, that numbering and frontmatter hold, that oversized documents carry a Dev plan, and that every cross-reference resolves to a heading that exists. |
+| Time doubles | `tests/support/clocks.py` provides the `FakeClock`, whose contract is specified in [§1.1](#11-the-fakeclock-contract) and pinned by its own tests. |
+
+### 1.1 The FakeClock contract
+
+Every timeout and retry-backoff test from stage 5 onward rests on one double, so its three properties are
+specified here rather than assumed wherever it is first used:
+
+1. **`now()` and `monotonic()` advance together**, from a single origin. A test that moved one without the
+   other would be exercising a clock the framework can never see.
+2. **Every requested `sleep()` is recorded, in order.** That is what makes a backoff schedule assertable
+   as data — `clock.sleeps == (1.0, 2.0, 4.0)` — instead of something inferred from elapsed real time.
+3. **`sleep()` never waits.** It moves the clock instead, which is how a sixty-second timeout is tested in
+   microseconds.
+
+Two smaller guards come with it: a negative interval raises rather than rewinding time, and a naive
+`start` raises rather than making every rendered timestamp wrong by the host's offset.
 
 ## 2. Hermeticity rules
 
@@ -36,6 +54,12 @@ These are hard requirements, not preferences. A test that breaks them is a defec
    `import_builtin_blocks()` has already run in the same process.
 5. **Deterministic output.** `run_id` and timestamps are injected in tests, so golden files can be
    compared byte for byte.
+6. **A test for something that depends on state beyond its arguments needs a competing object alive.**
+   When a function touches process-global state — the current figure, a module cache, a connection — the
+   test must hold a decoy alongside the subject of the test, or it only proves the function works when it
+   is the only thing in the process. Stage 3 shipped a wrong-chart bug exactly that way: every test had
+   one figure alive, so `pyplot.savefig` saving the *wrong* figure looked correct for 134 tests
+   (ADR-0025). The same trap is waiting in the event store and the template cache.
 
 ## 3. Acceptance criteria
 

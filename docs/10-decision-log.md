@@ -1,6 +1,6 @@
 ---
 status: proposed
-description: ADR-0001 to ADR-0025 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
+description: ADR-0001 to ADR-0026 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
 replaces: docs/SPEC.md §11, §12
 ---
 
@@ -324,6 +324,33 @@ write blocks against.
 
 ---
 
+### ADR-0026 — The layering rules are enforced by reading imports, and were wrong as written
+
+**Context:** `docs/01` §4 stated four layering rules "enforced by review, and later by an import-linter in
+CI" — which in practice meant not enforced at all. Turning them into a check found two problems with the
+rules themselves. Rule 2 forbade `application/` from importing `infrastructure/` in any form, yet
+`application/context.py` imports `Settings` from it deliberately and for good reason. And rule 1 claimed
+the domain layer "can still be imported, tested and reasoned about with no application or infrastructure
+layer present", which is unachievable: importing any module under the package runs
+`auto_inform/__init__.py`, the composition root, which imports every layer on purpose so that
+`from auto_inform import Block` works.
+
+**Decision:** the rules are enforced statically, by `tests/unit/test_layering.py`, which reads each
+module's imports with `ast` and separates runtime imports from those under `if TYPE_CHECKING:`. The rules
+themselves were corrected: `application/` may reference the `Settings` *type* but never a concrete
+adapter; `rendering/` gained an explicit rule; the composition root is named as the one exempt module; and
+the domain's standalone-importability claim was replaced with the fact it actually guarantees — the domain
+modules do not depend upward.
+
+**Consequences:** the invariant is real now, and specific enough to be useful: the domain exception is
+*pinned* to the two documented context names, so a third fails the test and forces the document to change.
+Each fix is guarded against a vacuous pass by negative controls, because an audit that silently stopped
+objecting is worse than no audit. Rejected: the import-hook test originally planned, for the
+composition-root reason above; and an off-the-shelf import linter, which would have added a pinned
+dependency to express five rules that fit on a page.
+
+---
+
 ## Corrections carried into this document set
 
 These are not decisions. They are defects in the original single-document specification, plus one
@@ -351,6 +378,9 @@ each one was actually addressed rather than quietly dropped.
 | `02` and `06` claimed the framework serialises figure *creation*; the framework can only serialise the saving it performs itself | [02 §2](02-block-authoring.md#2-collect--the-io-phase), [06 §5](06-output-html.md#5-figures) |
 | `06 §4` advertised `from auto_inform import escape, html_table, figure_to_data_uri` while the package exported nothing | [06 §4](06-output-html.md#4-the-trust-boundary) |
 | `detailed` was said to show "the whole recorded message", but no `white-space` rule preserved its newlines, so it rendered as one run-on line | [06 §6](06-output-html.md#6-row-check-and-error-markup) |
+| Rule 2 forbade `application/` from importing `infrastructure/` at all, yet `application/context.py` imports `Settings` from it deliberately — the rule was false as written | [01 §4](01-overview.md#4-architectural-overview), ADR-0026 |
+| Rule 1 claimed the domain layer could be imported with no application or infrastructure layer present, which the composition root makes impossible | [01 §4](01-overview.md#4-architectural-overview), ADR-0026 |
+| The layering rules were documented as enforced "by review, and later by an import-linter in CI" — a euphemism for unenforced, until `test_layering.py` existed | [09 §1](09-testing-and-acceptance.md#1-strategy-by-layer) |
 
 ## Open questions
 
