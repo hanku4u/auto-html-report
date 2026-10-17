@@ -132,8 +132,9 @@ PROCESSING JOB  (e.g. every hour via CI scheduler)
 
 ```
 auto-inform/
-├── pyproject.toml                  # hatchling; deps, extras, package data
-├── requirements.txt                # exact pins for CI (see 08-packaging.md)
+├── pyproject.toml                  # uv_build; exact pins, extras, dependency groups
+├── uv.lock                         # resolved dependency closure (committed)
+├── .python-version                 # 3.11 — the supported floor
 ├── README.md
 ├── docs/                           # this specification set
 ├── src/

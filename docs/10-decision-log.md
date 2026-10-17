@@ -1,6 +1,6 @@
 ---
 status: proposed
-description: ADR-0001 to ADR-0020 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
+description: ADR-0001 to ADR-0021 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
 replaces: docs/SPEC.md §11, §12
 ---
 
@@ -147,9 +147,12 @@ nobody asked for. Tests construct `Settings` directly, bypassing the environment
 ### ADR-0015 — Installed from git, not published to PyPI
 
 **Context:** internal tool.
-**Decision:** `pip install "auto_inform @ git+…"`, with extras for optional backends.
-**Consequences:** no release process to maintain; CI must pin a tag or SHA, because pip caches git
-installs and an unpinned `@main` will eventually serve a stale package at the worst possible moment.
+**Decision:** installed from git, with extras for optional backends:
+`uv add "auto_inform[s3] @ git+…@<tag-or-sha>"`. Plain pip remains supported for consumers who do not
+use uv.
+**Consequences:** no release process to maintain; consumers must pin a tag or SHA, because uv and pip
+both cache git sources, and an unpinned `@main` will eventually serve a stale package at the worst
+possible moment.
 
 ### ADR-0016 — Report definitions are Python, not declarative config
 
@@ -205,6 +208,27 @@ so the single-writer guarantee in ADR-0007 holds at any setting.
 needs it. Raising it multiplies in-flight HTTP calls by the per-report block pool, so it must be
 sized against API rate limits rather than CPU. Sharding a very large job by event type across
 several jobs is usually a better answer than one very wide job.
+
+### ADR-0021 — uv owns dependency management; exact pins stay, `requirements.txt` goes
+
+**Context:** the initial specification carried a `requirements.txt` with exact pins, inherited from
+spec conventions that belong to a different project. The owner rejected it: this is a Python project
+and uv is the tool.
+
+**Decision:** uv manages dependencies. Direct dependencies carry exact `==` pins in `pyproject.toml`;
+the resolved transitive closure, with hashes, lives in a committed `uv.lock`; development tools live in
+a PEP 735 `dev` dependency group rather than an extra, so they never enter published metadata;
+`.python-version` pins `3.11`, the supported floor. The build backend is `uv_build`. `requirements.txt`
+is deleted.
+
+**Consequences:** reproducible environments on CI and on developer machines alike, and the classic
+"package data missing from the wheel" failure disappears — verified against `uv 0.13.0`, where
+`uv_build` packages everything inside `src/auto_inform/` with no `force-include` or `artifacts`
+configuration. The subtlety worth remembering, documented in
+[08 §2](08-packaging.md#2-dependency-changes): **a lockfile does not constrain consumers.** A package
+installed from git resolves against `pyproject.toml` and never reads our `uv.lock`, so the exact pins
+were retained rather than replaced by ranges. The project's one deliberate non-exact `requires` is
+`[build-system] requires`, which uv itself generates and which never reaches a consumer's runtime.
 
 ---
 

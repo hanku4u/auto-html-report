@@ -44,7 +44,7 @@ code.
 
 | # | Criterion | Verified by |
 | --- | --- | --- |
-| 1 | `pip install "auto_inform @ git+…"` succeeds from a clean virtualenv and `import auto_inform` works | CI packaging job |
+| 1 | `uv add "auto_inform @ git+…"` succeeds in a clean environment and `import auto_inform` works | CI packaging job |
 | 2 | A tag or commit SHA install is documented and works | CI packaging job, second variant |
 | 3 | `generate_report()` returns HTML containing exactly one row per block, in definition order | Golden-file test, two blocks |
 | 4 | Row order is identical whether the first block or the last block finishes first | Ordering test with inverted completion order |
@@ -64,7 +64,7 @@ code.
 | 18 | A permanently failing event does not starve later events behind it in the queue | Two events, the older permanently failing, `limit=1` |
 | 19 | With `AUTO_INFORM_MAX_CONCURRENT_REPORTS > 1`, store methods are only ever called from the main thread | Store spy recording calling thread |
 | 20 | `Settings` attribute names match the documented env-var mapping, and secrets never appear in `repr()` | Mapping test plus redaction test |
-| 21 | `mypy --strict` and `ruff` pass | CI |
+| 21 | `mypy` (strict via config) and `ruff` pass, and `uv lock --check` confirms the lockfile is in sync | CI |
 | 22 | Postgres and S3 paths are exercised without live services | Injected stub clients; Postgres suite self-skips without a DSN |
 
 ## 4. Test naming
@@ -84,8 +84,18 @@ name is the only documentation anyone reads.
 
 ## 5. CI
 
-A single GitHub Actions workflow: install (`pip install -e ".[dev]"`), `ruff check`, `ruff format
---check`, `mypy --strict`, `pytest`. No services, no secrets, no network.
+A single GitHub Actions workflow, using uv for everything:
+
+```bash
+uv sync --frozen          # install from the committed lockfile, no re-resolution
+uv lock --check           # fail if pyproject.toml and uv.lock have drifted
+uv run ruff check
+uv run ruff format --check
+uv run mypy
+uv run pytest
+```
+
+No services, no secrets, no network beyond fetching the pinned packages once.
 
 > **Scope caveat, carried from the original specification:** CI setup was **recommended, not
 > mandated** as a v1 requirement by the product owner. The workflow above is the recommended shape,

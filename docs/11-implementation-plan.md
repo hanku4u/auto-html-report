@@ -15,12 +15,13 @@ and 3 respectively, both before any job scaffolding exists.
 
 ## Stage 1 — Packaging skeleton
 
-`src/` layout, `pyproject.toml` with the exact pins from [08](08-packaging.md), `requirements.txt`,
-`.gitignore`, `README.md` stub, ruff and mypy configuration.
+`src/` layout, `pyproject.toml` and `uv.lock` carrying the exact pins from
+[08](08-packaging.md), `.python-version` pinned to `3.11`, `.gitignore`, `README.md` stub, ruff and
+mypy configuration.
 
-**Done when:** a clean virtualenv can install the package with `pip install -e ".[dev]"` from a
-checked-out tree, and `ruff check`, `ruff format --check` and `mypy --strict` pass on an empty
-package.
+**Done when:** `uv sync --frozen` installs the package from a checked-out tree into a clean
+environment, `uv lock --check` passes, and `uv run ruff check`, `uv run ruff format --check` and
+`uv run mypy` pass on an empty package.
 
 ## Stage 2 — Domain layer
 

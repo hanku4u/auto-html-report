@@ -1,6 +1,6 @@
 ---
 status: proposed
-description: Distribution name, exact dependency pins, optional extras, package data, and install instructions for CI.
+description: Distribution name, uv-managed exact dependency pins, optional extras, package data, and install instructions for CI.
 replaces: docs/SPEC.md §8
 ---
 
@@ -13,7 +13,8 @@ replaces: docs/SPEC.md §8
 | Distribution name | `auto-inform` |
 | Import name | `auto_inform` |
 | Repository | `git@github.com:hanku4u/auto-inform.git` |
-| Requires Python | `>=3.11` |
+| Requires Python | `>=3.11` (`.python-version` pinned to `3.11`) |
+| Dependency manager | `uv` (ADR-0021) |
 | Published to PyPI | No (ADR-0015) |
 | Installed from | git tag or commit SHA |
 
@@ -23,9 +24,16 @@ underscore form**: `auto_inform[s3]`.
 
 ## 2. Dependency changes
 
-This document introduces the project's dependency set. Every pin below is exact, per the project's
-pinning convention; floating ranges are not acceptable. All of the runtime pins were resolved
-against the package index at the time of writing.
+The project uses [uv](https://docs.astral.sh/uv/) for dependency management. Every direct dependency
+below is pinned exactly with `==`, per the project's pinning convention; floating ranges are not
+acceptable. The resolved transitive closure, with hashes, lives in the committed `uv.lock`. All pins
+were resolved against the package index at the time of writing.
+
+> **Why exact pins survive alongside a lockfile.** `uv.lock` governs *this repository's* development
+> and CI environments. It is not shipped in the wheel and no consumer reads it: a package installed
+> from git resolves against `pyproject.toml` alone. So the lock makes *our* builds reproducible, while
+> the `==` pins are the only thing that makes *consumers'* installs deterministic. Keep both. See
+> ADR-0021.
 
 ### 2.1 New runtime dependencies
 
@@ -49,27 +57,37 @@ against the package index at the time of writing.
 | `ruff` | `==0.17.1` | Linting and formatting. |
 | `mypy` | `==2.4.0` | Static typing; `strict` mode is required. |
 
-Any further development tool must be added to both `pyproject.toml` and `requirements.txt` with an
-exact pin at the moment it is introduced, not afterwards.
+Development tools live in the PEP 735 `dev` dependency group, not in an extra, so they are never part
+of the published metadata. Any further development tool must be added to that group with an exact pin
+at the moment it is introduced, not afterwards, and `uv lock` re-run in the same change.
 
 ### 2.4 Transitive dependencies
 
-Transitive dependencies are **not** pinned in this document, and they are not yet recorded in
-`requirements.txt`: that file currently carries the top-level pins only, with the closure to be
-appended by `pip freeze` once the development environment is first built — see the note at the foot
-of [../requirements.txt](../requirements.txt). Once generated, the closure is committed and reviewed
-as part of that change. Nothing here depends on a transitive pin remaining stable, and no code
-imports a transitive package directly.
+Transitive dependencies are **not** listed in this document. `uv.lock` records the fully resolved
+closure, with hashes, and is committed so that CI and developer machines resolve identically.
+Regenerate it with `uv lock` whenever a direct pin changes, and never hand-edit it.
 
-Coverage tooling is deliberately **not** included in the `dev` extra. Coverage percentage is not an
+Nothing here depends on a transitive pin remaining stable, and no code imports a transitive package
+directly.
+
+### 2.5 The one deliberate range
+
+`[build-system] requires` uses a range — `uv_build>=0.13.0,<0.14.0` — because the build backend has to
+be provisioned *before* the project's own lockfile can be honoured. This is uv's own generated
+convention and the only non-exact `requires` in the project. It never reaches a consumer's runtime
+environment.
+
+Coverage tooling is deliberately **not** included in the `dev` group. Coverage percentage is not an
 enforced gate in v1 ([09 §5](09-testing-and-acceptance.md#5-ci)); the acceptance criteria are.
 
 ## 3. `pyproject.toml`
 
 ```toml
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+# The one deliberate range in the project: the build backend must be provisioned
+# before our own lockfile can be honoured. uv's own generated convention.
+requires = ["uv_build>=0.13.0,<0.14.0"]
+build-backend = "uv_build"
 
 [project]
 name = "auto-inform"
@@ -84,14 +102,13 @@ dependencies = [
 [project.optional-dependencies]
 postgres = ["psycopg[binary]==3.3.6"]
 s3       = ["boto3==1.43.114"]
-all      = ["auto_inform[postgres,s3]"]
-dev      = ["pytest==9.1.1", "ruff==0.17.1", "mypy==2.4.0"]
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/auto_inform"]
-
-[tool.hatch.build.targets.wheel.force-include]
-"src/auto_inform/rendering/templates" = "auto_inform/rendering/templates"
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+    "ruff==0.17.1",
+    "mypy==2.4.0",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -107,55 +124,69 @@ python_version = "3.11"
 strict = true
 ```
 
-## 4. `requirements.txt`
+There is **no `all` extra**: consumers who want both backends spell `auto_inform[postgres,s3]`
+directly, which avoids a self-referential dependency that resolvers have no reason to accept.
 
-`requirements.txt` at the repository root records the fully-pinned environment for CI: runtime,
-optional and development dependencies together, each with a comment naming its group. It exists so
-that a CI run is reproducible and so that this document has a single place to be consistent with.
+## 4. `uv.lock`
 
-Consumers installing the package do **not** use it — they use the package's own extras, which carry
-the same pins. See [../requirements.txt](../requirements.txt).
+`uv.lock` at the repository root records the fully resolved dependency closure — direct and
+transitive — with hashes, and is committed. It exists so that CI and a developer's machine resolve to
+byte-identical package sets, and so that this document has a single place to stay consistent with.
 
-## 5. Two packaging details that will otherwise cost an afternoon
+- Regenerate it with `uv lock` whenever a direct pin changes, in the same commit as the change.
+- Never hand-edit it, and never resolve a conflict inside it by choosing sides; regenerate instead.
+- CI runs `uv lock --check` to fail loudly when the lockfile and `pyproject.toml` have drifted.
+- It is **not** shipped in the wheel or sdist, and consumers never read it. That asymmetry is why §2
+  keeps exact pins rather than delegating pinning to the lock (ADR-0021).
 
-1. **Templates are package data.** The Jinja2 shell must be included in the wheel (`force-include`
-   above, or hatchling's `artifacts`/`include` — note the American spelling there, because that is
-   the tool's actual key name), and loaded with `importlib.resources`, never
-   `Path(__file__).parent / "templates"`. That path does not exist in a zipped wheel or inside some
-   container layers, and the failure appears only after deployment.
-2. **`src/` layout is mandatory.** It prevents `import auto_inform` from resolving to the source tree
-   during tests, which hides packaging errors until install time. CI must install the package
-   (`pip install -e ".[dev]"`) rather than run pytest against the raw directory.
+## 5. Two packaging details that used to cost an afternoon
+
+1. **Templates are package data, and `uv_build` ships them automatically.** Verified against
+   `uv 0.13.0`: a file at `src/auto_inform/rendering/templates/report.html.j2` appears in the built
+   wheel with no configuration at all — no `force-include`, no `artifacts` key, no
+   `include_package_data`. Everything inside the module directory is packaged. The rule that still
+   applies is **load it with `importlib.resources`**, never `Path(__file__).parent / "templates"`:
+   that path does not exist in a zipped wheel or inside some container layers, and the failure
+   appears only after deployment.
+2. **The `src/` layout is mandatory, and `uv_build` infers the module name from the project name.**
+   `name = "auto-inform"` produces `src/auto_inform/`, so the hyphen-to-underscore mapping is
+   automatic — do not second-guess it with a manual `module-name` override. The layout also stops
+   `import auto_inform` from resolving to the source tree during tests, which would hide packaging
+   errors until install time. CI installs the package (`uv sync --frozen`) rather than running pytest
+   against the raw directory.
 
 ## 6. Installation
 
 ```bash
-# latest from main
-pip install "auto_inform @ git+https://github.com/hanku4u/auto-inform.git"
+# into a uv-managed project, pinned to a tag or commit SHA
+uv add "auto_inform[s3] @ git+https://github.com/hanku4u/auto-inform.git@v0.1.0"
 
-# with optional backends
-pip install "auto_inform[postgres,s3] @ git+https://github.com/hanku4u/auto-inform.git"
+# latest from main (unpinned — expect surprises)
+uv add "auto_inform @ git+https://github.com/hanku4u/auto-inform.git"
 
-# recommended for CI: pin to a tag or commit SHA for reproducible builds
-pip install "auto_inform[s3] @ git+https://github.com/hanku4u/auto-inform.git@v0.1.0"
+# plain pip works too, and still needs the underscore form
+pip install "auto_inform[postgres,s3] @ git+https://github.com/hanku4u/auto-inform.git@v0.1.0"
 ```
 
-> **Gotcha:** pip caches git checkouts. When re-installing an unpinned `@main` in CI you may get a
-> stale copy — pin a tag or SHA, or pass `--force-reinstall --no-cache-dir`. This has burned every
-> team that has ever done this, and it belongs in the README as well as here.
+> **Gotcha:** uv and pip both cache git sources, so an unpinned `@main` can serve a stale package at
+> the worst possible moment. Pinning a tag or SHA is the fix, not a workaround; `--refresh` (uv) and
+> `--force-reinstall --no-cache-dir` (pip) are the escape hatches when you genuinely need to chase a
+> moving ref. This belongs in the README as well as here.
 
 A tag is not created by this work. `v0.1.0` is the intended first tag; until it exists, pin a commit
 SHA.
 
 ## Testing
 
-- A packaging test job in CI installs from a clean virtualenv using the documented command and
+- A packaging test job in CI installs from a clean environment using the documented command and
   imports the package, so a missing template or a `src/` layout mistake fails at install time rather
   than at first report.
-- A test asserts `importlib.resources.files("auto_inform.rendering")` can read the template, which
-  catches a `force-include` regression without needing a wheel build.
+- A test asserts `importlib.resources.files("auto_inform.rendering")` can read the template. With
+  `uv_build` there is no `force-include` to regress, but the resource-loading path itself still can.
 - `requires-python` is asserted against the interpreter running CI, so the floor cannot drift below
   what matplotlib needs.
+- `uv lock --check` passes, and `uv sync --frozen` succeeds from the committed lockfile alone with no
+  network re-resolution.
 
 ## Open questions
 

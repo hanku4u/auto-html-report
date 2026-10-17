@@ -58,13 +58,19 @@ This set specifies **auto_inform v0.1** — package version `0.1.0`, see
   across documents is not useful, so the second form is normal here.
 - The rule exists so that no document is large enough to be un-reviewable and un-sequencable at once.
   It is a prompt to write a plan, not a filing requirement to be argued past.
+- **Exempt:** append-only reference documents that specify no build work. Today that is
+  [10-decision-log.md](10-decision-log.md) only — a decision log necessarily grows without bound and
+  has nothing to stage. Once it passes a few hundred lines, split it into
+  `docs/adr/NNNN-short-title.md` files rather than bolting a plan onto it.
 
 ### Dependencies
 
+- This project uses [uv](https://docs.astral.sh/uv/) for dependency management. Direct dependencies
+  are declared in `pyproject.toml` with exact `==` pins; the resolved transitive closure lives in the
+  committed `uv.lock`. There is no `requirements.txt`.
 - Documents that introduce or alter a third-party dependency must document it in a
-  **Dependency changes** section, listing the exact pin, consistent with
-  [../requirements.txt](../requirements.txt) and `pyproject.toml`. Floating version ranges are not
-  acceptable in this project; see [08-packaging.md](08-packaging.md).
+  **Dependency changes** section, listing the exact pin, consistent with `pyproject.toml`. Floating
+  version ranges are not acceptable in this project; see [08-packaging.md](08-packaging.md).
 
 ### Acceptance criteria
 
@@ -86,7 +92,7 @@ This set specifies **auto_inform v0.1** — package version `0.1.0`, see
 | 07 | [07-configuration-and-logging.md](07-configuration-and-logging.md) | proposed | Environment variables and their `Settings` attributes, the HTTP stub, and the structured logging contract. |
 | 08 | [08-packaging.md](08-packaging.md) | proposed | Distribution name, exact dependency pins, optional extras, package data, and install instructions. |
 | 09 | [09-testing-and-acceptance.md](09-testing-and-acceptance.md) | proposed | The testing strategy per layer, hermeticity rules, and the v1 acceptance criteria. |
-| 10 | [10-decision-log.md](10-decision-log.md) | proposed | ADR-0001 to ADR-0020: each ratified decision, its context, and the alternatives rejected. |
+| 10 | [10-decision-log.md](10-decision-log.md) | proposed | ADR-0001 to ADR-0021: each ratified decision, its context, and the alternatives rejected. |
 | 11 | [11-implementation-plan.md](11-implementation-plan.md) | proposed | The staged build order for v1, with review boundaries and a definition of done per stage. |
 
 ## Reading order by role
