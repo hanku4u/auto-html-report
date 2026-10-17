@@ -80,6 +80,11 @@ class ReportResult:
     location: OutputLocation | None    # None when no writer was supplied
 ```
 
+**A deliberate non-invariant:** nothing validates that `rows` corresponds one-to-one with
+`definition.blocks`. The assembly pipeline is the only producer, so the check would be validating a
+state the framework never creates. A hand-built `Report` in a test is free to be inconsistent, and
+that is intentional.
+
 ## 2. The three public entry points
 
 ```python
@@ -268,6 +273,16 @@ needs to log does so in `collect()`.
 The event being processed is **not** carried on `ReportContext`: a `ReportFactory` binds the event's
 fields into each block's constructor instead, so a block cannot silently depend on ambient state
 (§3).
+
+The four context types are defined in an `auto_inform/application/context.py` module, not in
+`domain/`: they bundle injected dependencies, and putting them in the domain would invert the
+layering. `domain/block.py` names two of them under `TYPE_CHECKING` only — see
+[01 §4](01-overview.md#4-architectural-overview) rule 1.
+
+`Clock` is a two-method port rather than a single `now()`: `now()` returns wall-clock time for
+timestamps a human reads, and `monotonic()` returns a non-decreasing value for measuring elapsed
+time, which must not jump because the machine's clock was adjusted. Timeouts and retry backoff are
+built on the second, which is what makes them testable against a fake.
 
 The five factory helpers that build these objects from the environment — `load_settings`,
 `configure_logging`, `new_report_context`, `new_discovery_context`, `build_output_writer` — are

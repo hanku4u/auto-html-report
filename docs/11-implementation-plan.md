@@ -29,8 +29,15 @@ environment, `uv lock --check` passes, and `uv run ruff check`, `uv run ruff for
 dependencies beyond the standard library. `BlockStatus`, `EventStatus`, `BlockOutcome`,
 `ReportDefinition`, `ReportRow`, `Report`, `ReportResult`, the exception hierarchy.
 
+**Amended during implementation:** the domain layer also required the *type declarations* it names
+in its signatures — `application/context.py`, `application/ports.py` and the shape of
+`infrastructure/settings.py` — because a signature referring to a type that does not exist cannot be
+type-checked. Those modules carry their data only; the behaviour they will eventually hold
+(`load_settings` and redaction in stage 7, the HTTP client in stage 7, the event store in stage 8)
+still lands in its own stage. This was an ordering defect in the plan, not a scope decision.
+
 **Done when:** unit tests cover duplicate-name rejection, empty-block-list rejection, frozen
-semantics, and the `all_succeeded` / `failed_rows` agreement.
+semantics, and the `all_succeeded` / `failed_rows` agreement. **Completed 2026-10-17**
 
 ## Stage 3 — Rendering layer
 
