@@ -194,6 +194,9 @@ The naive implementation is wrong, so the rule is explicit:
 - The calling thread reads `future.result(...)` with an outer backstop of
   `attempt_timeout * total_attempts + sum(backoffs) + grace`. Hitting it yields `TIMED_OUT` rather
   than an exception escaping the pipeline.
+- Both layers of enforcement are driven by the injected `Clock`: budgets are measured with
+  `monotonic()` and every wait goes through `sleep()`. That is what allows a fake clock to produce a
+  deterministic `TIMED_OUT` with no real waiting — see [03 §5](03-report-api.md#5-the-injected-contexts).
 
 > **Gotcha — Python cannot kill a thread.** A block that overruns is *abandoned*: the future is
 > marked failed, the run continues, and the orphaned thread keeps running until its own I/O call

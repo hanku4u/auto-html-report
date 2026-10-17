@@ -128,6 +128,11 @@ The header's `Run` and `Generated` values come from `Report.run_id` and `Report.
 `metadata` entries are appended in insertion order after them. The document is rendered by
 `render_report(report)`, a pure function with no clock access of its own.
 
+The footer's version comes from `get_version()`, resolved at runtime
+([08 §7](08-packaging.md#7-version-resolution)). It is environment data rather than report data, so it
+is deliberately not threaded through `Report` or `RenderContext`, and the golden-file tests normalise
+that one token ([09 §1](09-testing-and-acceptance.md#1-strategy-by-layer)).
+
 ## 4. The trust boundary
 
 The page shell is rendered with Jinja2 with `autoescape=True`. **Every framework interpolation is

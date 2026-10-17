@@ -187,6 +187,36 @@ pip install "auto_inform[postgres,s3] @ git+https://github.com/hanku4u/auto-info
 A tag is not created by this work. `v0.1.0` is the intended first tag; until it exists, pin a commit
 SHA.
 
+## 7. Version resolution
+
+The installed distribution's version is read at runtime, never stored:
+
+```python
+# src/auto_inform/_version.py
+def get_version() -> str:
+    """Return the installed distribution's version, or UNKNOWN_VERSION if not installed."""
+```
+
+`pyproject.toml` is the single source of truth. Nothing in the package writes down a second copy, for
+the same reason `requirements.txt` was removed: a second copy of the truth drifts (ADR-0021). See
+ADR-0023 for the decision and what was rejected.
+
+Two properties are load-bearing, and both were verified rather than assumed:
+
+- **The not-installed path is real.** Reading metadata from a source tree with the package not
+  installed raises `PackageNotFoundError`, so the fallback is not defensive decoration. It reports
+  `0+unknown` — deliberately not a plausible release number, because a report footer should never
+  claim a version that was never built.
+- **The lookup is name-normalised.** Both `auto-inform` and `auto_inform` resolve, so the constant in
+  `_version.py` cannot become a portability trap.
+
+**Deferred, with a trigger.** A VCS-derived version (`uv-dynamic-versioning` or `hatch-vcs`, with
+`dynamic = ["version"]`) is the better long-term answer, because it makes the git tag *be* the version
+and drift structurally impossible — which suits ADR-0015's install-from-a-tag model exactly. Adopt it
+at the first release, or the first time a tag and `pyproject.toml` disagree, whichever comes first.
+Until then it is scaffolding around a release process that does not exist, and it would add a pinned
+build-time dependency needing its own entry in §2.
+
 ## Testing
 
 - A packaging test job in CI installs from a clean environment using the documented command and
