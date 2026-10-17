@@ -1,6 +1,6 @@
 ---
 status: proposed
-description: ADR-0001 to ADR-0023 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
+description: ADR-0001 to ADR-0024 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
 replaces: docs/SPEC.md §11, §12
 ---
 
@@ -273,6 +273,29 @@ the version through `RenderContext` (a documented public signature change for a 
 
 ---
 
+### ADR-0024 — The stylesheet reaches the document through a template include
+
+**Context:** stage 3 found, by inspecting a generated document rather than trusting the test suite,
+that the inlined CSS had arrived full of HTML entities: `font-family: &#34;Segoe UI&#34;` and
+`&lt;style&gt;` inside a comment. The stylesheet was being injected as a template *variable*, so
+autoescaping escaped it -- and entities are not decoded inside a `<style>` element, so that CSS was
+broken, and a future `>` child combinator would have broken it worse. The obvious fix, `{{ stylesheet |
+safe }}`, would have added a second `|safe` filter and quietly falsified the single-trust-boundary
+claim in §4 of [06](06-output-html.md#4-the-trust-boundary).
+
+**Decision:** the stylesheet is loaded into the Jinja environment as a template and pulled in with
+`{% include "report.css" %}`. Literal template text is never autoescaped, so the CSS survives intact,
+and row HTML remains the only interpolation in the codebase requiring `|safe`.
+
+**Consequences:** the CSS is parsed as Jinja template syntax, so a future rule containing `{{`, `{%`
+or `{#` would break rendering -- loudly, at render time, not silently. Two guards keep the invariant
+honest: a test asserts that the template contains exactly one `|safe`, and another asserts the audit of
+a rendered document finds no external loads. Rejected: `|safe` on the stylesheet, which trades a real
+invariant for a convenience; and inlining the CSS into the template file, which would bury 200 lines of
+stylesheet inside the markup it styles.
+
+---
+
 ## Corrections carried into this document set
 
 These are not decisions. They are defects in the original single-document specification, plus one
@@ -294,6 +317,8 @@ each one was actually addressed rather than quietly dropped.
 | `ReportRow.check` could only ever hold `""` | ADR-0018 |
 | **Introduced by the split:** the context dataclasses from the original §4.4 (`ReportContext`, `RenderContext`, `DiscoveryContext`, `RunMetadata`) and their thread-safety gotcha were referenced throughout the new set but defined nowhere, so no document specified what a block actually receives | [03 §5](03-report-api.md#5-the-injected-contexts) |
 | **Introduced by the split:** the "CI is recommended, not mandated" scope caveat was dropped, silently hardening a recommendation into a requirement | [09 §5](09-testing-and-acceptance.md#5-ci) |
+| `AUTO_INFORM_ERROR_DETAIL=detailed` was said to add the exception's `__cause__` chain, which no renderer can do: `BlockOutcome` carries a summarised type and message and no cause chain | [06 §6](06-output-html.md#6-row-check-and-error-markup) |
+| The `data-block` example did not match its own row's Item text, leaving it ambiguous whether the attribute identifies the block type or the row | [06 §6](06-output-html.md#6-row-check-and-error-markup) |
 
 ## Open questions
 

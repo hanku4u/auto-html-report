@@ -171,12 +171,14 @@ auto-inform/
 │       │       └── s3_writer.py
 │       ├── rendering/
 │       │   ├── shell.py            # render_report(): report -> full HTML document
-│       │   ├── cells.py            # row/cell markup, error cell
+│       │   ├── cells.py            # row view models, error cell
 │       │   ├── escaping.py         # escape(), html_table() helpers for block authors
 │       │   ├── figures.py          # figure_to_data_uri() — matplotlib, Agg backend
 │       │   └── templates/
-│       │       └── report.html.j2  # page shell (package data)
+│       │       ├── report.html.j2  # page shell (package data)
+│       │       └── report.css      # inlined stylesheet, included by the template
 │       ├── _version.py            # resolves the version at runtime; source of truth is pyproject.toml
+│       ├── _naming.py             # slug(): shared by the row id and the report filename (stage 6)
 │       ├── registry.py             # register_block/get_block, register_report/get_report_factory
 │       ├── blocks/                 # built-in blocks: internal plugin modules
 │       │   ├── __init__.py         # import_builtin_blocks() package scan
@@ -188,6 +190,7 @@ auto-inform/
     ├── unit/                       # domain, rendering, registry: no I/O
     ├── integration/                # sqlite store round-trip, local writer, runners (fakes)
     ├── golden/                     # expected HTML snapshots for the output contract
+    ├── support/                    # shared builders, the golden fixture, the containment audit
     └── conftest.py                 # FakeEventStore, FakeHttpClient, frozen clock
 ```
 

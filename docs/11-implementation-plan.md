@@ -51,7 +51,14 @@ deserves review before blocks are written against it.
 
 **Done when:** golden-file tests produce the document in [06 §3](06-output-html.md#3-document-skeleton),
 the containment test passes with and without an anchor, and the figure smoke test leaves
-`plt.get_fignums()` empty.
+`plt.get_fignums()` empty. **Completed 2026-10-17**
+
+**Amended during implementation:** three things this description did not foresee. The stylesheet ships
+as a template that the document `include`s rather than an interpolated variable, because autoescaping
+sends entities into `<style>`, where they are not decoded (ADR-0024). `auto_inform/_naming.py` was
+added, because the row identifier and the stage-6 filename both need the same slug rules and one
+implementation stops them disagreeing. And the golden fixture uses three blocks rather than two,
+because §6's error cell is part of the contract the snapshot exists to make executable.
 
 ## Stage 4 — Registry and the first two built-in blocks
 

@@ -46,7 +46,7 @@ code.
 | --- | --- | --- |
 | 1 | `uv add "auto_inform @ git+…"` succeeds in a clean environment and `import auto_inform` works | CI packaging job |
 | 2 | A tag or commit SHA install is documented and works | CI packaging job, second variant |
-| 3 | `generate_report()` returns HTML containing exactly one row per block, in definition order | Golden-file test, two blocks |
+| 3 | `generate_report()` returns HTML containing exactly one row per block, in definition order | Golden-file test (three-block fixture) |
 | 4 | Row order is identical whether the first block or the last block finishes first | Ordering test with inverted completion order |
 | 5 | A block that raises produces an error cell; the other rows still render; the document is still written | Three blocks, one failing |
 | 6 | A block exceeding its timeout is marked `TIMED_OUT` and the run completes | Slow fake block |

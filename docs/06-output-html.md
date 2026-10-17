@@ -227,7 +227,7 @@ class WaferMapBlock(Block[np.ndarray]):
 ## 6. Row, check and error markup
 
 ```html
-<tr class="ai-row" data-block="maintenance-history">
+<tr class="ai-row" data-block="maintenance-history-t-104">
   <td class="ai-cell ai-cell--item">Maintenance history — T-104</td>
   <td class="ai-cell ai-cell--data">
     <!-- block.render() output, inserted verbatim -->
@@ -239,6 +239,12 @@ class WaferMapBlock(Block[np.ndarray]):
 The **Check** cell is emitted empty but structurally present, so a future version can add an
 interactive checkbox or a status glyph without changing the document structure (ADR-0018). It is
 rendered by the framework and never by a block.
+
+> **Corrected during implementation:** the `data-block` value above was `maintenance-history` in an
+> earlier draft, which did not match its own row's Item text. It is the **slug of the Item text**, not
+> of the block type. Two instances of one block type routinely appear in the same report —
+> `Maintenance — T-104` and `Maintenance — T-112` — so a type-derived id would collide, and uniqueness
+> is exactly the property a future `(run_id, block)` sign-off key depends on.
 
 ```html
 <td class="ai-cell ai-cell--data ai-cell--error">
@@ -254,8 +260,14 @@ rendered by the framework and never by a block.
 - Error text is derived from the exception type and a truncated message **only**. Tracebacks go to
   the log, never into the document: reports get emailed to people who should not be reading stack
   frames, and stack frames leak internal hostnames and file paths.
-- `AUTO_INFORM_ERROR_DETAIL=summary` (default) shows type plus first line. `detailed` adds the
-  exception's `__cause__` chain summary. There is no "full traceback in HTML" mode, on purpose.
+- `AUTO_INFORM_ERROR_DETAIL=summary` (default) shows the exception type plus the first line of the
+  message, truncated to 160 characters. `detailed` shows the whole recorded message. Neither ever
+  shows a traceback: there is no "full traceback in HTML" mode, on purpose.
+- **Corrected during implementation:** the original text said `detailed` adds the exception's
+  `__cause__` chain summary. It cannot, from the data a renderer has: `BlockOutcome` carries an
+  already-summarised `error_type` and `error_message` and no cause chain, and the collection stage is
+  the only place the exception object itself is in hand. Widening this properly would mean a new field
+  on `BlockOutcome` — stage 5's territory — not a change to the error cell.
 - Error cells are distinguishable without colour alone (`⚠` glyph plus class), for accessibility and
   for black-and-white printing.
 
@@ -269,6 +281,10 @@ rendered by the framework and never by a block.
 - **No JavaScript in v1.** Sorting and filtering are explicitly deferred. Note that inline JS would
   *not* break containment — it would break *email clients and locked-down viewers*, which is the
   real constraint. The document is a report, not a dashboard.
+- The stylesheet ships as its own file and reaches the document through a template `include`, not as an
+  interpolated variable. Injecting it as a variable would send it through autoescaping, and entities
+  are **not** decoded inside `<style>`: `font-family: "Segoe UI"` would arrive as
+  `&#34;Segoe UI&#34;` and stop being a font name. See ADR-0024.
 - Minimal `@media print`: no page break inside a row, header repeats per page.
 
 ## Testing

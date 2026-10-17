@@ -115,6 +115,9 @@ dev = [
 testpaths = ["tests"]
 addopts = "-q --strict-markers"
 markers = ["postgres: requires AUTO_INFORM_TEST_POSTGRES_DSN"]
+# Lets tests import the shared builders as tests.support.*. The repository root holds no package
+# named auto_inform (that lives under src/), so this cannot shadow the installed distribution.
+pythonpath = ["."]
 
 [tool.ruff]
 line-length = 100
