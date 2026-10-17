@@ -1,6 +1,6 @@
 ---
 status: proposed
-description: ADR-0001 to ADR-0021 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
+description: ADR-0001 to ADR-0023 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
 replaces: docs/SPEC.md §11, §12
 ---
 
@@ -229,6 +229,47 @@ configuration. The subtlety worth remembering, documented in
 installed from git resolves against `pyproject.toml` and never reads our `uv.lock`, so the exact pins
 were retained rather than replaced by ranges. The project's one deliberate non-exact `requires` is
 `[build-system] requires`, which uv itself generates and which never reaches a consumer's runtime.
+
+---
+
+### ADR-0022 — Clock is the framework's single seam for time
+
+**Context:** the specification never defined the `Clock` port's interface, yet stage 2 needed it to
+type the contexts, and two requirements depend on it: timeouts and retry backoff must be testable
+without real waiting ([09 §2](09-testing-and-acceptance.md#2-hermeticity-rules)), and reported
+durations must not go negative when the machine's clock is stepped.
+
+**Decision:** three methods. `now()` for wall-clock timestamps a human reads or that must be
+comparable across processes; `monotonic()` for measuring *elapsed* time — durations, timeouts,
+backoff; and `sleep()` as the only way the framework is permitted to wait.
+
+**Consequences:** retry backoff becomes assertable data instead of three real seconds asleep, and
+stage 5 can drive its timeout backstop from the injected clock rather than a real-time wait — which
+is what makes the hermeticity rule achievable rather than aspirational. A `Clock` that can sleep is
+arguably a "time service" rather than a clock; the name is kept because the layout tree and two
+documents already say `Clock`, and churning three specs over a word is not worth it. Rejected: a
+separate `Sleeper` port, purer on single-responsibility but a second injected dependency threaded
+through four context dataclasses for one concern; and keeping real `time.monotonic`/`time.sleep` with
+short real budgets in tests, which works but cannot assert a backoff schedule.
+
+### ADR-0023 — The version is resolved at runtime; no stored literal
+
+**Context:** the layout listed `_version.py` as "single source of the package version" while
+`pyproject.toml` also declared `version = "0.1.0"`, and nothing said how two copies would stay in
+sync. The HTML footer prints the version, so this had to be settled before stage 3.
+
+**Decision:** `get_version()` reads `importlib.metadata` at runtime and returns `0+unknown` when the
+package is not installed. `pyproject.toml` remains the only place a version is written. A
+VCS-derived version is deferred with an explicit trigger: adopt it at the first release, or the first
+time a tag and `pyproject.toml` disagree, whichever comes first.
+
+**Consequences:** one source of truth, no new dependency, and a footer that cannot claim a version
+that was never built — the not-installed path was verified to raise, not assumed. The residual risk is
+drift between a git tag and the declared version, which the trigger addresses and which ADR-0015's
+tag-pinning convention makes likely to surface quickly. Rejected: a literal `__version__` (a second
+copy of the truth, the same failure mode that removed `requirements.txt`); VCS-derived versions now (a
+pinned build-time dependency and scaffolding for a release process that does not exist); and threading
+the version through `RenderContext` (a documented public signature change for a cosmetic footer).
 
 ---
 

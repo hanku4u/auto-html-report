@@ -279,10 +279,13 @@ The four context types are defined in an `auto_inform/application/context.py` mo
 layering. `domain/block.py` names two of them under `TYPE_CHECKING` only — see
 [01 §4](01-overview.md#4-architectural-overview) rule 1.
 
-`Clock` is a two-method port rather than a single `now()`: `now()` returns wall-clock time for
-timestamps a human reads, and `monotonic()` returns a non-decreasing value for measuring elapsed
-time, which must not jump because the machine's clock was adjusted. Timeouts and retry backoff are
-built on the second, which is what makes them testable against a fake.
+`Clock` is a three-method port rather than a single `now()`. `now()` returns wall-clock time for
+timestamps a human reads; `monotonic()` returns a non-decreasing value for measuring *elapsed* time —
+durations, timeouts and retry backoff — because a wall clock stepped by NTP mid-run can yield a
+negative duration or a timeout that never fires. `sleep()` is the only way the framework waits, and
+putting the wait behind the same seam is what makes the hermetic testing rule in
+[09 §2](09-testing-and-acceptance.md#2-hermeticity-rules) achievable rather than aspirational. The
+default implementation lands in stage 7. See ADR-0022.
 
 The five factory helpers that build these objects from the environment — `load_settings`,
 `configure_logging`, `new_report_context`, `new_discovery_context`, `build_output_writer` — are

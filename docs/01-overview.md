@@ -160,6 +160,7 @@ auto-inform/
 │       │   └── ports.py            # Protocols: EventStore, OutputWriter, HttpClient, Clock
 │       ├── infrastructure/
 │       │   ├── settings.py         # env-var parsing -> Settings (frozen)
+│       │   ├── clock.py            # SystemClock: the real now()/monotonic()/sleep() (stage 7)
 │       │   ├── logging_setup.py    # JSON / console formatters, configure_logging()
 │       │   ├── http_stub.py        # StubHttpClient (canned fixtures, no network)
 │       │   ├── stores/
@@ -175,7 +176,7 @@ auto-inform/
 │       │   ├── figures.py          # figure_to_data_uri() — matplotlib, Agg backend
 │       │   └── templates/
 │       │       └── report.html.j2  # page shell (package data)
-│       ├── _version.py            # single source of the package version
+│       ├── _version.py            # resolves the version at runtime; source of truth is pyproject.toml
 │       ├── registry.py             # register_block/get_block, register_report/get_report_factory
 │       ├── blocks/                 # built-in blocks: internal plugin modules
 │       │   ├── __init__.py         # import_builtin_blocks() package scan

@@ -14,14 +14,22 @@ from typing import Any, Protocol
 
 
 class Clock(Protocol):
-    """Time, injected so that timeouts and retry backoff are testable.
+    """The framework's single seam for time.
 
-    Two methods rather than one because they answer different questions: ``now()`` is wall-clock
-    time for timestamps that a human reads, while ``monotonic()`` is a non-decreasing value for
-    measuring elapsed time, which must not jump because the machine's clock was adjusted.
+    Three methods rather than one because they answer different questions, and using one for
+    another's job is how timing bugs get in:
 
-    Note: ``docs/07-configuration-and-logging.md`` does not specify this interface, so it is defined
-    here by the requirements of the timeout accounting in ``docs/02`` §6.2.
+    * ``now()`` is wall-clock time, for timestamps a human reads or that must be comparable across
+      processes -- ``RunMetadata.started_at``, ``Report.generated_at``, ``Event.discovered_at``.
+    * ``monotonic()`` is a non-decreasing value for measuring *elapsed* time -- durations, retry
+      backoff, timeout budgets. Wall clock is wrong for this: an NTP step mid-run can produce a
+      negative duration or a timeout that never fires.
+    * ``sleep()`` is the only way the framework waits. Putting the wait behind the same seam is what
+      makes the hermetic testing rule in ``docs/09`` §2 achievable: a fake clock records the delays
+      it was asked for, so a backoff schedule is asserted as data rather than costing real seconds.
+
+    The specification did not define this interface; it is recorded in ADR-0022. The default
+    implementation, and the ``SystemClock`` that backs it, land with stage 7.
     """
 
     def now(self) -> datetime:
@@ -30,6 +38,14 @@ class Clock(Protocol):
 
     def monotonic(self) -> float:
         """Seconds from an arbitrary origin, for measuring elapsed time. Never goes backwards."""
+        ...
+
+    def sleep(self, seconds: float) -> None:
+        """Block the calling thread for at least ``seconds``.
+
+        This is the seam a fake replaces, not a general-purpose delay: nothing in the framework may
+        wait any other way, or the backoff and timeout tests stop being hermetic.
+        """
         ...
 
 
