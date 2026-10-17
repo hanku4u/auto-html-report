@@ -236,7 +236,7 @@ were retained rather than replaced by ranges. The project's one deliberate non-e
 
 **Context:** the specification never defined the `Clock` port's interface, yet stage 2 needed it to
 type the contexts, and two requirements depend on it: timeouts and retry backoff must be testable
-without real waiting ([09 §2](09-testing-and-acceptance.md#2-hermeticity-rules)), and reported
+without real waiting ([09 §2](09-testing-and-acceptance.md#2-test-rules)), and reported
 durations must not go negative when the machine's clock is stepped.
 
 **Decision:** three methods. `now()` for wall-clock timestamps a human reads or that must be

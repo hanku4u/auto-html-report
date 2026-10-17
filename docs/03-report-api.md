@@ -284,7 +284,7 @@ timestamps a human reads; `monotonic()` returns a non-decreasing value for measu
 durations, timeouts and retry backoff — because a wall clock stepped by NTP mid-run can yield a
 negative duration or a timeout that never fires. `sleep()` is the only way the framework waits, and
 putting the wait behind the same seam is what makes the hermetic testing rule in
-[09 §2](09-testing-and-acceptance.md#2-hermeticity-rules) achievable rather than aspirational. The
+[09 §2](09-testing-and-acceptance.md#2-test-rules) achievable rather than aspirational. The
 default implementation lands in stage 7. See ADR-0022.
 
 The five factory helpers that build these objects from the environment — `load_settings`,
