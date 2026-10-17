@@ -153,6 +153,11 @@ escape(user_supplied_string)                              # explicit escape
 figure_to_data_uri(fig)                                   # no user data involved
 ```
 
+All of these are exported from `auto_inform` itself, as is `figure_lock` (§5). The author-facing
+surface landed in stage 3 rather than stage 6 because stage 4 writes blocks from exactly these
+examples; stage 6 completes it with the writers, stores, job runners and exit codes
+([11](11-implementation-plan.md)).
+
 A block that hand-writes f-strings around API payloads is an XSS bug waiting for a hostile string in
 a vendor name. The blast radius is small while the report is a local file — but these files are also
 pushed to S3 and forwarded by email, so payload text is treated as untrusted input. See ADR-0012.
@@ -177,16 +182,31 @@ def figure_to_data_uri(figure: matplotlib.figure.Figure, *, dpi: int = 100) -> s
 
 Rules for the implementation:
 
-- `matplotlib.use("Agg")` is called **before** `matplotlib.pyplot` is imported, inside
-  `rendering/figures.py`. There is no display in CI, and importing pyplot first is the classic
-  headless-CI trap.
-- matplotlib is **imported lazily** — only when a block actually calls `figure_to_data_uri()`.
-  Reports built only from HTML tables therefore start fast and stay light.
-- matplotlib is **not thread-safe**. A module-level `threading.Lock` in `figures.py` serialises
-  figure creation and saving. Charts are usually the slowest part of a report, so this costs less
-  than it sounds; the lock is held for rendering only and never across a network call.
-- `plt.close(fig)` runs in a `finally` block. Without it, long-running processes accumulate figures
-  until matplotlib's figure-count warning floods the log.
+- `matplotlib.use("Agg")` is pinned inside `rendering/figures.py`, before any figure is created. There
+  is no display in CI, and reaching a GUI backend there is the classic headless failure.
+- matplotlib is **imported lazily** — only when a block actually touches the figure helpers. Reports
+  built only from HTML tables therefore start fast and stay light.
+- matplotlib is **not thread-safe, and that covers creating and closing figures just as much as saving
+  them.** `figures.py` owns one re-entrant lock. `figure_to_data_uri()` takes it while saving, but
+  **a block must take it around its own matplotlib work** — create, draw, save, close — with
+  `figure_lock()`, because the framework cannot serialise work it does not perform. See ADR-0025.
+
+  ```python
+  with figure_lock():                       # also pins the Agg backend, before anything exists
+      fig, ax = plt.subplots(figsize=(4, 3), dpi=100)
+      try:
+          ax.imshow(data, cmap="RdYlGn")
+          fig.tight_layout()
+          uri = figure_to_data_uri(fig)     # re-entrant: safe inside this block
+      finally:
+          plt.close(fig)
+  ```
+
+  The cost is real and accepted: every chart in a report is serialised, so twelve charts gain no
+  parallelism among themselves. That is the price of matplotlib's process-global state, and a process
+  per block is rejected in ADR-0005.
+- `plt.close(fig)` runs in a `finally` block, inside the lock. Without the close, long-running processes
+  accumulate figures until matplotlib's figure-count warning floods the log.
 - Because figures are created in `render()`, which is pure by contract, figure creation must not
   depend on anything outside the data passed in.
 
@@ -195,7 +215,7 @@ Rules for the implementation:
 import matplotlib.pyplot as plt
 import numpy as np
 
-from auto_inform import Block, ReportContext, RenderContext, figure_to_data_uri
+from auto_inform import Block, ReportContext, RenderContext, figure_lock, figure_to_data_uri
 
 
 class WaferMapBlock(Block[np.ndarray]):
@@ -209,15 +229,16 @@ class WaferMapBlock(Block[np.ndarray]):
         return np.random.default_rng(0).random((25, 25))  # noqa: NPY002
 
     def render(self, data: np.ndarray, context: RenderContext) -> str:
-        fig, ax = plt.subplots(figsize=(4, 3), dpi=100)
-        try:
-            ax.imshow(data, cmap="RdYlGn", interpolation="nearest")
-            ax.set_title(f"{self._lot_id} bin map")
-            fig.tight_layout()
-            uri = figure_to_data_uri(fig)
-            return f'<img class="ai-figure" src="{uri}" alt="Wafer bin map for {self._lot_id}">'
-        finally:
-            plt.close(fig)
+        with figure_lock():                       # pins Agg, then serialises everything below
+            fig, ax = plt.subplots(figsize=(4, 3), dpi=100)
+            try:
+                ax.imshow(data, cmap="RdYlGn", interpolation="nearest")
+                ax.set_title(f"{self._lot_id} bin map")
+                fig.tight_layout()
+                uri = figure_to_data_uri(fig)
+                return f'<img class="ai-figure" src="{uri}" alt="Wafer bin map for {self._lot_id}">'
+            finally:
+                plt.close(fig)
 ```
 
 > Note the `alt` attribute is built from `self._lot_id`, a constructor parameter. Had it come from
@@ -227,7 +248,7 @@ class WaferMapBlock(Block[np.ndarray]):
 ## 6. Row, check and error markup
 
 ```html
-<tr class="ai-row" data-block="maintenance-history">
+<tr class="ai-row" data-block="maintenance-history-t-104">
   <td class="ai-cell ai-cell--item">Maintenance history — T-104</td>
   <td class="ai-cell ai-cell--data">
     <!-- block.render() output, inserted verbatim -->
@@ -239,6 +260,17 @@ class WaferMapBlock(Block[np.ndarray]):
 The **Check** cell is emitted empty but structurally present, so a future version can add an
 interactive checkbox or a status glyph without changing the document structure (ADR-0018). It is
 rendered by the framework and never by a block.
+
+> **Corrected during implementation:** the `data-block` value above was `maintenance-history` in an
+> earlier draft, which did not match its own row's Item text. It is the **slug of the Item text**, not
+> of the block type. Two instances of one block type routinely appear in the same report —
+> `Maintenance — T-104` and `Maintenance — T-112` — so a type-derived id would collide, and uniqueness
+> is exactly the property a future `(run_id, block)` sign-off key depends on.
+>
+> Slugging alone does **not** deliver that uniqueness: `R&D maintenance` and `R D maintenance` both
+> slug to `r-d-maintenance`, as do two long Item texts sharing a prefix. Collisions are therefore
+> resolved in display order with a numeric suffix (`r-d-maintenance-2`), so a given report always
+> yields the same ids and no two rows share one.
 
 ```html
 <td class="ai-cell ai-cell--data ai-cell--error">
@@ -254,10 +286,25 @@ rendered by the framework and never by a block.
 - Error text is derived from the exception type and a truncated message **only**. Tracebacks go to
   the log, never into the document: reports get emailed to people who should not be reading stack
   frames, and stack frames leak internal hostnames and file paths.
-- `AUTO_INFORM_ERROR_DETAIL=summary` (default) shows type plus first line. `detailed` adds the
-  exception's `__cause__` chain summary. There is no "full traceback in HTML" mode, on purpose.
+- `AUTO_INFORM_ERROR_DETAIL=summary` (default) shows the exception type plus the first line of the
+  message, truncated to 160 characters. `detailed` shows the whole recorded message. Neither ever
+  shows a traceback: there is no "full traceback in HTML" mode, on purpose.
+- **Corrected during implementation:** the original text said `detailed` adds the exception's
+  `__cause__` chain summary. It cannot, from the data a renderer has: `BlockOutcome` carries an
+  already-summarised `error_type` and `error_message` and no cause chain, and the collection stage is
+  the only place the exception object itself is in hand. Widening this properly would mean a new field
+  on `BlockOutcome` — stage 5's territory — not a change to the error cell.
+- The message is rendered with its newlines preserved (the stylesheet sets `white-space: pre-wrap`), so
+  `detailed` really does show more than one line rather than a run-on. An unrecognised `error_detail`
+  value raises rather than silently meaning "the most verbose option available", and a message whose
+  first line is blank shows the next line that has content rather than an empty span.
 - Error cells are distinguishable without colour alone (`⚠` glyph plus class), for accessibility and
   for black-and-white printing.
+- `role="alert"` on the error `<div>` is **deliberate, and the one accessibility choice here worth
+  revisiting with feedback.** `alert` is an ARIA live region, whose purpose is content that changes
+  after load, whereas this document is static — and some screen readers announce such a region on
+  load. In practice a report has zero or one failed block, where that announcement is helpful; a report
+  with twelve failed blocks will produce twelve of them. Recorded as a choice, not an oversight.
 
 ## 7. Styling
 
@@ -269,6 +316,10 @@ rendered by the framework and never by a block.
 - **No JavaScript in v1.** Sorting and filtering are explicitly deferred. Note that inline JS would
   *not* break containment — it would break *email clients and locked-down viewers*, which is the
   real constraint. The document is a report, not a dashboard.
+- The stylesheet ships as its own file and reaches the document through a template `include`, not as an
+  interpolated variable. Injecting it as a variable would send it through autoescaping, and entities
+  are **not** decoded inside `<style>`: `font-family: "Segoe UI"` would arrive as
+  `&#34;Segoe UI&#34;` and stop being a font name. See ADR-0024.
 - Minimal `@media print`: no page break inside a row, header repeats per page.
 
 ## Testing

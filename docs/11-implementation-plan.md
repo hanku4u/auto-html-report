@@ -51,7 +51,22 @@ deserves review before blocks are written against it.
 
 **Done when:** golden-file tests produce the document in [06 §3](06-output-html.md#3-document-skeleton),
 the containment test passes with and without an anchor, and the figure smoke test leaves
-`plt.get_fignums()` empty.
+`plt.get_fignums()` empty. **Completed 2026-10-17**
+
+**Amended during implementation:** three things this description did not foresee. The stylesheet ships
+as a template that the document `include`s rather than an interpolated variable, because autoescaping
+sends entities into `<style>`, where they are not decoded (ADR-0024). `auto_inform/_naming.py` was
+added, because the row identifier and the stage-6 filename both need the same slug rules and one
+implementation stops them disagreeing. And the golden fixture uses three blocks rather than two,
+because §6's error cell is part of the contract the snapshot exists to make executable.
+
+**Post-review corrections (2026-10-17):** a review of this stage found that `figure_to_data_uri`
+serialised pyplot's *current* figure rather than the one it was given, so a report with more than one
+chart embedded the wrong image; that the documents claimed figure creation was serialised when only the
+save could be; that `data-block` uniqueness was claimed but slugging does not provide it; and three
+smaller mismatches in the error cell and the advertised imports. All are fixed, and the figure contract
+is recorded in ADR-0025. The stage's tests grew from 134 to 147, including a concurrency test that
+asserts each thread embeds its *own* figure rather than merely that eight payloads arrived.
 
 ## Stage 4 — Registry and the first two built-in blocks
 
