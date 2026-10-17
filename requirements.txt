@@ -1,0 +1,43 @@
+# auto_inform — exact dependency pins
+#
+# Purpose: a fully-pinned environment so that CI is reproducible and so that
+# docs/08-packaging.md has a single place to stay consistent with.
+#
+# Consumers installing the package do NOT use this file. They use the package's
+# own extras, which carry the same pins:
+#     pip install "auto_inform[postgres,s3] @ git+https://github.com/hanku4u/auto-inform.git@<tag-or-sha>"
+#
+# Rules
+#   1. Every pin in this file is exact. Floating ranges are not acceptable in
+#      this project. See docs/08-packaging.md §2.
+#   2. Top-level pins below are hand-maintained and must match pyproject.toml.
+#   3. Transitive dependencies are NOT hand-written. They are appended by
+#      running `pip freeze` in a clean environment built from this file, and
+#      that output is committed as part of the same change. Do not invent them.
+#
+# Status: top-level pins only. The transitive closure is pending first build of
+# the development environment. See "Pending" at the foot of this file.
+
+# --- runtime (required by every install) -------------------------------------
+jinja2==3.1.6
+matplotlib==3.11.2
+
+# --- optional backends ------------------------------------------------------
+# Installed via the `postgres` and `s3` extras. Pinned here because CI exercises
+# both code paths, with the external services themselves stubbed or skipped.
+psycopg[binary]==3.3.6
+boto3==1.43.114
+
+# --- development and CI -----------------------------------------------------
+pytest==9.1.1
+ruff==0.17.1
+mypy==2.4.0
+
+# --- transitive closure -----------------------------------------------------
+# Pending: append `pip freeze` output here when the environment is first built.
+#   python -m venv .venv && . .venv/bin/activate
+#   pip install -r requirements.txt && pip freeze
+#
+# That output must be reviewed, not pasted blind: a pin appearing here without a
+# corresponding top-level entry above means something is leaking into the
+# dependency set that nobody chose.
