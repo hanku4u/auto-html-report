@@ -1,0 +1,50 @@
+[build-system]
+# The one deliberate range in the project: the build backend must be provisioned
+# before our own lockfile can be honoured. uv's own generated convention.
+requires = ["uv_build>=0.13.0,<0.14.0"]
+build-backend = "uv_build"
+
+[project]
+name = "auto-inform"
+version = "0.1.0"
+description = "Dynamic HTML report generator: composable blocks, concurrent collection, one file."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "jinja2==3.1.6",
+    "matplotlib==3.11.2",
+]
+
+[project.optional-dependencies]
+postgres = ["psycopg[binary]==3.3.6"]
+s3       = ["boto3==1.43.114"]
+
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+    "ruff==0.17.1",
+    "mypy==2.4.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = ["postgres: requires AUTO_INFORM_TEST_POSTGRES_DSN"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.format]
+# Ruff's formatter also formats Python snippets embedded in Markdown. docs/ is specification
+# prose containing illustrative snippets, not code, and formatting them rewrites the deliberate
+# comment alignment that makes them readable. This costs no lint coverage: `ruff check` does not
+# lint Markdown. Without this, `uv run ruff format --check` fails on the specification itself.
+exclude = ["docs", "*.md"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+# mypy has no default target: without this, a bare `uv run mypy` fails with
+# "Missing target module, package, files, or command."
+files = ["src", "tests"]

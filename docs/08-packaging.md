@@ -93,6 +93,7 @@ build-backend = "uv_build"
 name = "auto-inform"
 version = "0.1.0"
 description = "Dynamic HTML report generator: composable blocks, concurrent collection, one file."
+readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "jinja2==3.1.6",
@@ -119,9 +120,19 @@ markers = ["postgres: requires AUTO_INFORM_TEST_POSTGRES_DSN"]
 line-length = 100
 target-version = "py311"
 
+[tool.ruff.format]
+# Ruff's formatter also formats Python snippets embedded in Markdown. docs/ is specification
+# prose containing illustrative snippets, not code, and formatting them rewrites the deliberate
+# comment alignment that makes them readable. This costs no lint coverage: `ruff check` does not
+# lint Markdown. Without this, `uv run ruff format --check` fails on the specification itself.
+exclude = ["docs", "*.md"]
+
 [tool.mypy]
 python_version = "3.11"
 strict = true
+# mypy has no default target: without this, a bare `uv run mypy` fails with
+# "Missing target module, package, files, or command."
+files = ["src", "tests"]
 ```
 
 There is **no `all` extra**: consumers who want both backends spell `auto_inform[postgres,s3]`

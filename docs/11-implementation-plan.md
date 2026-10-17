@@ -21,7 +21,7 @@ mypy configuration.
 
 **Done when:** `uv sync --frozen` installs the package from a checked-out tree into a clean
 environment, `uv lock --check` passes, and `uv run ruff check`, `uv run ruff format --check` and
-`uv run mypy` pass on an empty package.
+`uv run mypy` pass on an empty package. **Completed 2026-10-17**
 
 ## Stage 2 — Domain layer
 
