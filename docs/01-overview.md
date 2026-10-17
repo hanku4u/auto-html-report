@@ -95,20 +95,34 @@ network and the framework testable without a bucket.
 └────────────────┘               └──────────────────────┘
 ```
 
-**Rules enforced by review, and later by an import-linter in CI:**
+**Rules enforced by `tests/unit/test_layering.py`, module by module.** They were previously "enforced by
+review", which is to say not enforced: the failure mode is a stray import written into the wrong file,
+and nothing would have noticed.
 
-1. `domain/` imports nothing from `application/`, `infrastructure/` or `rendering/` **at runtime**.
-   One deliberate exception exists: `domain/block.py` names `ReportContext` and `RenderContext` in
-   its method signatures, and imports them under `if TYPE_CHECKING:`. A type annotation is not a
-   runtime dependency — the import is erased — so the domain layer can still be imported, tested and
-   reasoned about with no application or infrastructure layer present. Blocks annotate the same
-   names, so mypy checks that their overrides are compatible.
-2. `application/` imports `domain/` and `ports` only — never `infrastructure/` or `rendering/`.
+1. `domain/` imports nothing from `application/`, `infrastructure/` or `rendering/` **at runtime**. One
+   deliberate exception exists: `domain/block.py` names `ReportContext` and `RenderContext` in its method
+   signatures and imports them under `if TYPE_CHECKING:`. A type annotation creates no runtime
+   dependency, and the audit permits *exactly* those two names — a third fails the test, so the exception
+   stays bounded and visible rather than accumulating.
+2. `application/` may reference `infrastructure.settings.Settings`, because the contexts carry it and it
+   is a configuration *value*, not an adapter. It must never reach for a concrete adapter —
+   `infrastructure.stores`, `infrastructure.writers`, `infrastructure.http_stub` — nor for `rendering`.
+   Those arrive by injection, per rule 3.
 3. Concrete stores and writers are injected by the caller, or built by a small factory that reads
    `Settings`.
-4. Blocks live in `blocks/` and import from `domain/` and the rendering helpers — never from
-   `infrastructure/`. They receive everything they need through `ReportContext` and their own
+4. `blocks/` and `reports/` import from `domain/` and the rendering helpers — never from `application/`
+   or `infrastructure/`. They receive everything they need through `ReportContext` and their own
    constructor parameters.
+5. `rendering/` imports `domain/` and the standard library, plus Jinja2 and matplotlib in the modules that
+   need them — never `application/` or `infrastructure/`.
+
+**The composition root is exempt.** `auto_inform/__init__.py` exists to wire the layers together so that
+`from auto_inform import Block` works, and it legitimately imports all of them. One consequence is worth
+stating plainly, because an earlier version of rule 1 claimed otherwise: importing *any* module under
+this package runs that root first, so `auto_inform.domain.block` cannot be imported "with no application
+or infrastructure layer present". What the rule actually guarantees is a fact about the source — the
+domain modules do not depend upward — which is what keeps them testable and the dependency arrows
+pointing inward.
 
 ## 5. The two pipelines
 
