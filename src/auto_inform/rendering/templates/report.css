@@ -161,6 +161,9 @@
 
 .ai-error__message {
   overflow-wrap: anywhere;
+  /* `detailed` mode emits the whole recorded message, newlines included. Without this, HTML collapses
+   * those newlines and "shows the whole message" renders as one run-on line. */
+  white-space: pre-wrap;
 }
 
 .ai-error__meta {

@@ -19,18 +19,24 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import Final, Literal
 
-from auto_inform._naming import slug
+from auto_inform._naming import DEFAULT_MAX_LENGTH, slug
 from auto_inform.domain.block import BlockOutcome, BlockStatus
 from auto_inform.domain.report import Report, ReportRow
 from auto_inform.rendering.escaping import escape
 
 ErrorDetail = Literal["summary", "detailed"]
 
+#: The accepted detail levels, checked at runtime. The ``Literal`` type is documentation for a typed
+#: caller and no defence at all against a value that came from a string -- an environment variable, say.
+_ERROR_DETAILS: Final[tuple[str, ...]] = ("summary", "detailed")
+
 #: How much of an error message the summary view shows. Long enough to be actionable, short enough
 #: not to turn one cell into a wall of text.
 _SUMMARY_MAX_CHARS = 160
+
+_NO_DETAIL_RECORDED = "no further detail was recorded"
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,19 +54,25 @@ class RowView:
 
 
 def build_row_views(rows: Sequence[ReportRow]) -> tuple[RowView, ...]:
-    """Flatten rows for the template, preserving order.
+    """Flatten rows for the template, preserving order and making ``block_id`` unique.
 
-    ``block_id`` is the slug of the row's Item text rather than of its block type. Two instances of
-    one block type routinely appear in the same report -- "Maintenance -- T-104" and "Maintenance --
-    T-112" -- so a type-derived id would collide, and uniqueness is the property that matters for the
+    ``block_id`` is the slug of the row's Item text rather than of its block type. Two instances of one
+    block type routinely appear in the same report -- "Maintenance -- T-104" and "Maintenance -- T-112"
+    -- so a type-derived id would collide, and uniqueness is the property that matters for the
     ``(run_id, block)`` key a future sign-off store would need (ADR-0018).
+
+    Slugging alone does **not** give that uniqueness: "R&D maintenance" and "R D maintenance" both slug
+    to ``r-d-maintenance``, as do truncated long texts sharing a prefix. Collisions are therefore
+    resolved here, in display order, with a numeric suffix -- so the same report always yields the same
+    ids, and a reader can still tell which row is which.
     """
+    used: set[str] = set()
     return tuple(
         RowView(
             item=row.item,
             html=row.html,
             is_error=row.outcome.status is not BlockStatus.OK,
-            block_id=slug(row.item, fallback="block"),
+            block_id=_unique_block_id(row.item, used),
         )
         for row in rows
     )
@@ -71,6 +83,25 @@ def build_report_rows(report: Report) -> tuple[RowView, ...]:
     return build_row_views(report.rows)
 
 
+def _unique_block_id(item: str, used: set[str]) -> str:
+    """A slug of ``item`` that is not already in ``used``, which is extended in place."""
+    candidate = slug(item, fallback="block")
+    if candidate not in used:
+        used.add(candidate)
+        return candidate
+
+    counter = 2
+    while True:
+        suffix = f"-{counter}"
+        # Shorten the base to make room, so the disambiguated id still respects the length cap.
+        base = slug(item, max_length=DEFAULT_MAX_LENGTH - len(suffix), fallback="block")
+        candidate = f"{base}{suffix}"
+        if candidate not in used:
+            used.add(candidate)
+            return candidate
+        counter += 1
+
+
 def error_cell_html(outcome: BlockOutcome, *, detail: ErrorDetail = "summary") -> str:
     """Return the inner HTML of the Data cell for a failed block.
 
@@ -78,14 +109,18 @@ def error_cell_html(outcome: BlockOutcome, *, detail: ErrorDetail = "summary") -
     trusted region. A message carrying an angle bracket is a message that must not become markup.
 
     ``detail`` controls how much of the message is shown: ``summary`` (the default) keeps the first
-    line, ``detailed`` the whole recorded message. Neither ever shows a traceback -- tracebacks go to
-    the log, since a report gets forwarded to people who should not be reading stack frames.
+    non-blank line, ``detailed`` the whole recorded message. Neither ever shows a traceback --
+    tracebacks go to the log, since a report gets forwarded to people who should not be reading stack
+    frames. An unrecognised value raises rather than silently meaning "the most verbose option
+    available", which is the wrong way for a typo to fail.
     """
+    if detail not in _ERROR_DETAILS:
+        raise ValueError(f"unknown error detail {detail!r}; expected one of {_ERROR_DETAILS}")
     if outcome.status is BlockStatus.OK:
         raise ValueError("error_cell_html called for an outcome that succeeded")
 
     error_type = outcome.error_type or _default_error_type(outcome)
-    message = outcome.error_message or "no further detail was recorded"
+    message = outcome.error_message or _NO_DETAIL_RECORDED
     if detail == "summary":
         message = _first_line(message)[:_SUMMARY_MAX_CHARS]
 
@@ -110,7 +145,16 @@ def _default_error_type(outcome: BlockOutcome) -> str:
 
 
 def _first_line(message: str) -> str:
-    return message.splitlines()[0].strip() if message.strip() else "no further detail was recorded"
+    """The first line with content in it, so a message that merely starts with a newline still shows.
+
+    Taking ``splitlines[0]`` unconditionally was a defect here: a message beginning with a blank line
+    produced an empty message span, which is the "looks like a layout bug" outcome the fallback exists
+    to prevent.
+    """
+    for line in message.splitlines():
+        if line.strip():
+            return line.strip()
+    return _NO_DETAIL_RECORDED
 
 
 def _attempts_phrase(attempts: int) -> str:

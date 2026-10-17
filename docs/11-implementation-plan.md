@@ -60,6 +60,14 @@ added, because the row identifier and the stage-6 filename both need the same sl
 implementation stops them disagreeing. And the golden fixture uses three blocks rather than two,
 because §6's error cell is part of the contract the snapshot exists to make executable.
 
+**Post-review corrections (2026-10-17):** a review of this stage found that `figure_to_data_uri`
+serialised pyplot's *current* figure rather than the one it was given, so a report with more than one
+chart embedded the wrong image; that the documents claimed figure creation was serialised when only the
+save could be; that `data-block` uniqueness was claimed but slugging does not provide it; and three
+smaller mismatches in the error cell and the advertised imports. All are fixed, and the figure contract
+is recorded in ADR-0025. The stage's tests grew from 134 to 147, including a concurrency test that
+asserts each thread embeds its *own* figure rather than merely that eight payloads arrived.
+
 ## Stage 4 — Registry and the first two built-in blocks
 
 `registry.py` with lazy `import_builtin_blocks()`, plus `blocks/maintenance_history.py` and

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import pytest
 
+from auto_inform._naming import DEFAULT_MAX_LENGTH
 from auto_inform.domain.block import BlockStatus
 from auto_inform.rendering.cells import build_row_views, error_cell_html
 from tests.support.builders import make_outcome, make_report, make_row
@@ -201,3 +202,108 @@ def test_error_cell_html_for_a_successful_outcome_should_raise_value_error() -> 
     # caller confusing status with success
     with pytest.raises(ValueError, match="succeeded"):
         error_cell_html(outcome)
+
+
+def test_error_cell_html_with_an_unknown_detail_level_should_raise_value_error() -> None:
+    # given a detail level that is not one of the two documented values -- a typo, or a value that
+    # arrived as a string rather than through the Literal type
+    outcome = make_outcome("Flaky", BlockStatus.FAILED, error_message="first\nsecond")
+
+    # when the error cell is built
+    # then it is refused, rather than silently meaning "the most verbose option available" and
+    # widening what the report exposes
+    with pytest.raises(ValueError, match="unknown error detail"):
+        error_cell_html(outcome, detail="Detailed")  # type: ignore[arg-type]
+
+
+def test_error_cell_html_with_a_message_starting_with_a_blank_line_should_show_the_next_line() -> (
+    None
+):
+    # given a message whose first line is empty, which a chained summary routinely produces
+    outcome = make_outcome("Flaky", BlockStatus.FAILED, error_message="\nsecond line has content")
+
+    # when the summary view is built
+    cell = error_cell_html(outcome, detail="summary")
+
+    # then it shows the second line rather than an empty span, which is precisely the "looks like a
+    # layout bug" outcome this fallback exists to prevent
+    assert "second line has content" in cell
+    assert '<span class="ai-error__message"></span>' not in cell
+
+
+def test_error_cell_html_with_an_entirely_blank_message_should_say_so() -> None:
+    # given a message with nothing in it but whitespace
+    outcome = make_outcome("Flaky", BlockStatus.FAILED, error_message="\n\n   \n")
+
+    # when the summary view is built
+    # then it falls back rather than rendering an empty span
+    assert "no further detail was recorded" in error_cell_html(outcome, detail="summary")
+
+
+# --- block id uniqueness -------------------------------------------------------
+
+
+def test_build_row_views_should_disambiguate_item_texts_that_slug_identically() -> None:
+    # given two Item texts that differ but slug to the same token -- a real collision, not a contrived
+    # one: the ampersand and the space both become a hyphen
+    report = make_report(make_row("R&D maintenance"), make_row("R D maintenance"))
+
+    # when the views are built
+    # then the ids differ. Slugging alone does not give uniqueness, and uniqueness is the property the
+    # future (run_id, block) sign-off key depends on (ADR-0018)
+    first, second = build_row_views(report.rows)
+
+    assert first.block_id == "r-d-maintenance"
+    assert second.block_id == "r-d-maintenance-2"
+
+
+@pytest.mark.parametrize(
+    ("first_item", "second_item"),
+    [
+        ("R&D maintenance", "R D maintenance"),
+        ("A/B check", "A-B check"),
+        ("Line 4 — T-104", "Line 4 / T-104"),
+    ],
+)
+def test_build_row_views_should_keep_ids_unique_across_every_known_collision(
+    first_item: str, second_item: str
+) -> None:
+    # given each pair of distinct Item texts known to slug identically
+    report = make_report(make_row(first_item), make_row(second_item))
+
+    # when the views are built
+    # then no two rows share an id
+    ids = [view.block_id for view in build_row_views(report.rows)]
+    assert len(set(ids)) == 2, ids
+
+
+def test_build_row_views_should_keep_a_disambiguated_id_within_the_length_cap() -> None:
+    # given two long Item texts sharing a prefix, so their capped slugs also collide
+    long_item = "Maintenance window for tool T-104 during the October shutdown period"
+    report = make_report(make_row(long_item), make_row(f"{long_item} (repeat)"))
+
+    # when the views are built
+    # then both ids respect the documented cap and still differ, which is what makes the suffix safe
+    # to use in a filename or an S3 key as well as an attribute
+    ids = [view.block_id for view in build_row_views(report.rows)]
+
+    assert len(set(ids)) == 2
+    assert all(len(value) <= DEFAULT_MAX_LENGTH for value in ids)
+
+
+def test_build_row_views_should_disambiguate_in_display_order_deterministically() -> None:
+    # given the same colliding pair, built twice
+    items = ["R&D maintenance", "R D maintenance"]
+    first_pass = [
+        view.block_id for view in build_row_views(make_report(*map(make_row, items)).rows)
+    ]
+    # and the same pair in the opposite order
+    second_pass = [
+        view.block_id for view in build_row_views(make_report(*map(make_row, reversed(items))).rows)
+    ]
+
+    # when both are built
+    # then the suffix follows display order, so a given report always yields the same ids -- a report
+    # that renumbered its rows between runs would break any store keyed on them
+    assert first_pass == ["r-d-maintenance", "r-d-maintenance-2"]
+    assert second_pass == ["r-d-maintenance", "r-d-maintenance-2"]

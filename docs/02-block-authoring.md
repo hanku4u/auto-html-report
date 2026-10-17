@@ -82,8 +82,10 @@ the sanctioned escape hatch and is why insertion order is never a data-dependenc
 - **Must honour its timeout.** The framework cannot interrupt a running thread, so a block that
   ignores `timeout=` on its HTTP calls will outlive its own budget. See
   [§6.2 Timeout accounting](#62-timeout-accounting).
-- **Must not create matplotlib figures.** Figure creation belongs in `render()`, where the
-  framework serialises it. See [06](06-output-html.md#5-figures).
+- **Figure creation belongs in `render()`, and it must be wrapped in `figure_lock()`.** Matplotlib is
+  not thread-safe, and the framework can only serialise the matplotlib work it performs itself — the
+  save. Creating a figure happens in the block's own code, so the block holds the lock while it
+  creates, draws, saves and closes. See [06](06-output-html.md#5-figures) and ADR-0025.
 - Should raise `TransientBlockError` or `PermanentBlockError` (below) to control whether the
   framework retries it. Any other exception is treated as permanent.
 
@@ -253,8 +255,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from auto_inform import Block, ReportContext, RenderContext, html_table
-from auto_inform.domain.block import TransientBlockError
+from auto_inform import Block, ReportContext, RenderContext, TransientBlockError, html_table
 
 
 @dataclass(frozen=True, slots=True)

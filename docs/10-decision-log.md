@@ -1,6 +1,6 @@
 ---
 status: proposed
-description: ADR-0001 to ADR-0024 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
+description: ADR-0001 to ADR-0025 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
 replaces: docs/SPEC.md §11, §12
 ---
 
@@ -296,6 +296,34 @@ stylesheet inside the markup it styles.
 
 ---
 
+### ADR-0025 — Serialise matplotlib, and save the figure you were given
+
+**Context:** a review of stage 3 found two defects in `figures.py` that the whole test suite had passed
+over. The first was a wrong-artefact bug: the helper called `pyplot.savefig`, which takes no figure
+argument and saves whatever pyplot considers *current*, so with more than one figure alive it embedded
+the wrong chart. Confirmed by probe: the figure it was handed serialised to 4594 bytes, the current
+figure to 11317, and the helper returned the latter. Every existing test had exactly one figure alive,
+so every existing test passed. The second was that `docs/02` and `docs/06` both claimed the framework
+serialises figure *creation*, which it cannot: creation happens in a block's `render()`, through
+`plt.subplots()`, in code this module never sees.
+
+**Decision:** `figure_to_data_uri` calls ``figure.savefig``, never the pyplot function. The module owns
+one **re-entrant** lock; `figure_to_data_uri` takes it around the save, and block authors take it around
+all of their own matplotlib work — create, draw, save, close — through a `figure_lock()` context
+manager, which also pins the Agg backend before anything exists. Both documents were corrected to state
+that requirement rather than to claim a guarantee the design cannot give.
+
+**Consequences:** the wrong-figure class of bug is closed, and the locking is honest about its extent.
+The cost is that charts are serialised across a report, so many charts gain no parallelism — accepted,
+because matplotlib's global state leaves no cheap alternative and a process per block is already
+rejected in ADR-0005. Re-entrancy matters for usability rather than elegance: the documented pattern
+holds the lock across the save, and a plain `Lock` would deadlock there. Rejected: exporting a
+higher-level "render my figure" helper, which would have to guess at subplot layouts; and leaving the
+lock out of block code, which would keep a real thread-safety hazard in the path stage 4 is about to
+write blocks against.
+
+---
+
 ## Corrections carried into this document set
 
 These are not decisions. They are defects in the original single-document specification, plus one
@@ -319,6 +347,10 @@ each one was actually addressed rather than quietly dropped.
 | **Introduced by the split:** the "CI is recommended, not mandated" scope caveat was dropped, silently hardening a recommendation into a requirement | [09 §5](09-testing-and-acceptance.md#5-ci) |
 | `AUTO_INFORM_ERROR_DETAIL=detailed` was said to add the exception's `__cause__` chain, which no renderer can do: `BlockOutcome` carries a summarised type and message and no cause chain | [06 §6](06-output-html.md#6-row-check-and-error-markup) |
 | The `data-block` example did not match its own row's Item text, leaving it ambiguous whether the attribute identifies the block type or the row | [06 §6](06-output-html.md#6-row-check-and-error-markup) |
+| `data-block` uniqueness was claimed as the basis for a future `(run_id, block)` sign-off key, but slugging distinct Item texts can collide (`R&D maintenance` and `R D maintenance`, or two long texts sharing a prefix), so uniqueness was never actually enforced | [06 §6](06-output-html.md#6-row-check-and-error-markup) |
+| `02` and `06` claimed the framework serialises figure *creation*; the framework can only serialise the saving it performs itself | [02 §2](02-block-authoring.md#2-collect--the-io-phase), [06 §5](06-output-html.md#5-figures) |
+| `06 §4` advertised `from auto_inform import escape, html_table, figure_to_data_uri` while the package exported nothing | [06 §4](06-output-html.md#4-the-trust-boundary) |
+| `detailed` was said to show "the whole recorded message", but no `white-space` rule preserved its newlines, so it rendered as one run-on line | [06 §6](06-output-html.md#6-row-check-and-error-markup) |
 
 ## Open questions
 
