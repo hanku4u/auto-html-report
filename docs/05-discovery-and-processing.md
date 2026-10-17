@@ -295,7 +295,7 @@ records a `ConfigurationError` and exits `2`.
   order.
 - A fake clock and a fake sleep make retry backoff and timeouts deterministic — no `time.sleep`, no
   real wall-clock assertions. Hermeticity is a hard requirement; see
-  [09](09-testing-and-acceptance.md).
+  [09 §2](09-testing-and-acceptance.md#2-test-rules).
 - `exit_code_for` is tested as a pure function over synthetic runs, one test per precedence rank
   and one for a tie between ranks.
 

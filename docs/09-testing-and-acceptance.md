@@ -39,9 +39,12 @@ specified here rather than assumed wherever it is first used:
 Two smaller guards come with it: a negative interval raises rather than rewinding time, and a naive
 `start` raises rather than making every rendered timestamp wrong by the host's offset.
 
-## 2. Hermeticity rules
+## 2. Test rules
 
-These are hard requirements, not preferences. A test that breaks them is a defect.
+These are hard requirements, not preferences. A test that breaks them is a defect. The first five are about
+hermeticity — a test that cannot run the same way twice, or that needs the network. The last two are about
+strength, and they rest on the same uncomfortable fact: **a test that cannot fail is not a test**, and an
+audit that has quietly stopped objecting looks exactly like a suite that is passing.
 
 1. **No network access.** Every HTTP interaction goes through a fake or `StubHttpClient`. A test
    that needs a live API cannot run in CI and must not exist.
@@ -60,6 +63,15 @@ These are hard requirements, not preferences. A test that breaks them is a defec
    is the only thing in the process. Stage 3 shipped a wrong-chart bug exactly that way: every test had
    one figure alive, so `pyplot.savefig` saving the *wrong* figure looked correct for 134 tests
    (ADR-0025). The same trap is waiting in the event store and the template cache.
+7. **An audit needs a control that would fail if the audit broke.** Anything asserting an invariant *about
+   other code* — the layering rules, the document conventions, the containment check — must ship a probe
+   that the audit has to object to, and that probe has to fail if the logic it guards is removed. The
+   controls in `tests/unit/test_layering.py`, `test_doc_links.py` and `test_rendering_containment.py` are
+   the models. Three examples from this project, every one of them found by probing rather than by the
+   suite: the layering audit passed every rule while relative imports bypassed all of them; the anchor
+   audit disagreed with the documents it was checking while reporting itself correct; and nothing pinned
+   the application rule to its allowlist, so degrading it to "no denylist, no allowlist" would have
+   enforced nothing and still passed.
 
 ## 3. Acceptance criteria
 
