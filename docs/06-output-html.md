@@ -13,6 +13,9 @@ so is escaping.
 ## 1. Writers
 
 ```python
+# Defined in auto_inform/domain/report.py, despite being produced only by writers: a pure value
+# type belongs in the domain, and ReportResult references it, so putting it in the application layer
+# would invert the dependency.
 @dataclass(frozen=True, slots=True)
 class OutputLocation:
     kind: str          # "file" | "s3"

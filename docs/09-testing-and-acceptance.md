@@ -87,8 +87,8 @@ name is the only documentation anyone reads.
 A single GitHub Actions workflow, using uv for everything:
 
 ```bash
-uv sync --frozen          # install from the committed lockfile, no re-resolution
-uv lock --check           # fail if pyproject.toml and uv.lock have drifted
+uv sync --frozen --all-extras   # install the pinned environment, including both extras
+uv lock --check                 # fail if pyproject.toml and uv.lock have drifted
 uv run ruff check
 uv run ruff format --check
 uv run mypy
@@ -96,6 +96,11 @@ uv run pytest
 ```
 
 No services, no secrets, no network beyond fetching the pinned packages once.
+
+`--all-extras` is required rather than cosmetic. `uv lock` resolves optional extras, but
+`uv sync` does not install them unless asked, so without this flag `psycopg` and `boto3` are missing
+from the CI environment and criterion 22 — which exercises both code paths against stubs and a
+self-skipping database suite — could never pass.
 
 > **Scope caveat, carried from the original specification:** CI setup was **recommended, not
 > mandated** as a v1 requirement by the product owner. The workflow above is the recommended shape,

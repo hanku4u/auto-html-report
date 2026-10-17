@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# uv and virtualenvs
+.venv/
+
+# build artefacts
+dist/
+build/
+
+# tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# auto_inform output. Reports and the event store are generated artefacts:
+# they carry production data and never belong in the repository.
+# See docs/06-output-html.md and docs/04-events-and-stores.md.
+reports/
+*.sqlite3

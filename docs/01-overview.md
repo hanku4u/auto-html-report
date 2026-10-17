@@ -97,7 +97,12 @@ network and the framework testable without a bucket.
 
 **Rules enforced by review, and later by an import-linter in CI:**
 
-1. `domain/` imports nothing from `application/`, `infrastructure/` or `rendering/`.
+1. `domain/` imports nothing from `application/`, `infrastructure/` or `rendering/` **at runtime**.
+   One deliberate exception exists: `domain/block.py` names `ReportContext` and `RenderContext` in
+   its method signatures, and imports them under `if TYPE_CHECKING:`. A type annotation is not a
+   runtime dependency — the import is erased — so the domain layer can still be imported, tested and
+   reasoned about with no application or infrastructure layer present. Blocks annotate the same
+   names, so mypy checks that their overrides are compatible.
 2. `application/` imports `domain/` and `ports` only — never `infrastructure/` or `rendering/`.
 3. Concrete stores and writers are injected by the caller, or built by a small factory that reads
    `Settings`.
@@ -148,6 +153,7 @@ auto-inform/
 │       ├── application/
 │       │   ├── collect_blocks.py   # concurrency, timeouts, retries
 │       │   ├── generate_report.py  # definition -> Report  (public entry point)
+│       │   ├── context.py          # ReportContext, RenderContext, DiscoveryContext, RunMetadata
 │       │   ├── discovery.py        # run_discovery
 │       │   ├── processing.py       # run_processing
 │       │   ├── exit_codes.py       # ExitCode, exit_code_for()

@@ -29,7 +29,9 @@ responsibility, because only the factory knows what a given event type means. Se
 ## 2. The EventStore port
 
 ```python
-# auto_inform/application/ports.py
+# Shown together for readability, but these two live in different layers:
+#   EventStatus -> auto_inform/domain/event.py   (a pure domain state)
+#   SaveResult and EventStore -> auto_inform/application/ports.py   (a port and its result type)
 class EventStatus(StrEnum):
     NEW = "NEW"
     PROCESSED = "PROCESSED"
