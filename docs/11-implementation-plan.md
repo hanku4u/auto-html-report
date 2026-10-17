@@ -74,7 +74,17 @@ asserts each thread embeds its *own* figure rather than merely that eight payloa
 `blocks/wafer_map.py` written against the stub HTTP client.
 
 **Done when:** the registry rejects a duplicate `display_name`, the scan is idempotent, and both
-blocks render correctly from canned fixtures.
+blocks render correctly from canned fixtures. **Completed 2026-10-17**
+
+**Amended during implementation:** three things this description did not settle. `numpy` is now a declared
+direct dependency rather than a transitive one, because the wafer-map block imports it
+([08 §2](08-packaging.md#2-dependency-changes)) — the spec-snippet check caught the drift of adding it to
+`pyproject.toml` alone. matplotlib is imported *inside* the block's `render()` rather than at module
+scope, because the registry scan imports every module in `blocks/`, so a module-level `pyplot` import
+would make every process that looks a block up pay for matplotlib — the cost the lazy import exists to
+avoid, now pinned by a subprocess test. And the tests use a fake client in `tests/support/http.py` rather
+than the production `StubHttpClient`, which stays in stage 7: the blocks need only the port, and a test
+double should not wait on a shipped fixture.
 
 ## Stage 5 — Concurrent collection
 

@@ -222,6 +222,18 @@ because `pkgutil` scans are easy to trigger twice in a long-lived process.
 > `get_block("my_block")` fails depending on import order. Passing instances explicitly always
 > works and is the recommended path for client-authored blocks.
 
+The key is the class-level `display_name`, never the instance's `name`: the registry answers "give me
+the maintenance-history block", while an instance's name exists to tell two rows of one type apart. A
+consequence worth stating: **a block that sets no `display_name` cannot be registered**, because there
+is nothing to key on. Such a block is still perfectly usable — pass instances to a `ReportDefinition`
+explicitly — and the error says so rather than leaving the author guessing.
+
+Nothing scans `auto_inform.reports` by the same mechanism. A report factory registers itself when its
+module is imported, so a job script imports the modules it needs (see
+[05 §6](05-discovery-and-processing.md#6-example-job-scripts)); `get_report_factory` says as much in its
+error message, because from its point of view "no factory for this type" and "the module was never
+imported" look identical.
+
 ## 5. The injected contexts
 
 Four frozen dataclasses carry everything a block or discoverer is allowed to depend on. They are

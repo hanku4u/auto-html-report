@@ -41,6 +41,7 @@ were resolved against the package index at the time of writing.
 | --- | --- | --- | --- |
 | `jinja2` | `==3.1.6` | Renders the page shell, autoescaped by default (ADR-0010). | Single template, loaded via `importlib.resources`. |
 | `matplotlib` | `==3.11.2` | Renders charts to PNG for embedding (ADR-0009). | Imported lazily, so HTML-only reports never load it. Its own `requires_python` is `>=3.11`, which independently confirms the Python floor. |
+| `numpy` | `==2.4.6` | Numeric block data is handled as arrays: the wafer-map block types its payload as an `ndarray`. | Was already present transitively through matplotlib, which requires `>=1.23`. Pinned explicitly now that a block imports it directly, because importing an undeclared transitive dependency is how a dependency set rots. |
 
 ### 2.2 New optional dependencies
 
@@ -98,6 +99,7 @@ requires-python = ">=3.11"
 dependencies = [
     "jinja2==3.1.6",
     "matplotlib==3.11.2",
+    "numpy==2.4.6",
 ]
 
 [project.optional-dependencies]

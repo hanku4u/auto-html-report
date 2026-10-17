@@ -243,7 +243,15 @@ class WaferMapBlock(Block[np.ndarray]):
 
 > Note the `alt` attribute is built from `self._lot_id`, a constructor parameter. Had it come from
 > an API payload, it would need `escape()` first — a hand-written f-string inside an attribute is
-> exactly where people forget.
+> exactly where people forget. The shipped block escapes it anyway, because a report factory fills that
+> parameter from an event payload in practice.
+
+**The shipped block differs from this example in two ways, both deliberate.** Its `collect()` fetches
+the bin map through the injected client rather than returning random data — the body above is abbreviated
+to keep the figure pattern visible, and every block that needs outside data goes through the port. And it
+imports `pyplot` *inside* `render()`: the registry scan imports every module in `blocks/`, so a
+module-level import would make every process that looks a block up pay for matplotlib, which is precisely
+the cost the lazy import exists to avoid.
 
 ## 6. Row, check and error markup
 

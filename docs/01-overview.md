@@ -205,7 +205,7 @@ auto-inform/
 │       ├── _naming.py             # slug(): shared by the row id and the report filename (stage 6)
 │       ├── registry.py             # register_block/get_block, register_report/get_report_factory
 │       ├── blocks/                 # built-in blocks: internal plugin modules
-│       │   ├── __init__.py         # import_builtin_blocks() package scan
+│       │   ├── __init__.py         # the package docstring; the scan lives in registry.py
 │       │   ├── maintenance_history.py
 │       │   └── wafer_map.py
 │       └── reports/                # predefined report factories, one module per family
@@ -214,7 +214,8 @@ auto-inform/
     ├── unit/                       # domain, rendering, registry: no I/O
     ├── integration/                # sqlite store round-trip, local writer, runners (fakes)
     ├── golden/                     # expected HTML snapshots for the output contract
-    ├── support/                    # shared builders, the golden fixture, the containment audit
+    ├── support/                    # shared test doubles and builders: the HTTP fake, context
+    │                               # builders, clocks, the golden fixture, the containment audit
     └── conftest.py                 # FakeEventStore, FakeHttpClient, frozen clock
 ```
 
