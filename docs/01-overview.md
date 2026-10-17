@@ -104,10 +104,14 @@ and nothing would have noticed.
    signatures and imports them under `if TYPE_CHECKING:`. A type annotation creates no runtime
    dependency, and the audit permits *exactly* those two names — a third fails the test, so the exception
    stays bounded and visible rather than accumulating.
-2. `application/` may reference `infrastructure.settings.Settings`, because the contexts carry it and it
-   is a configuration *value*, not an adapter. It must never reach for a concrete adapter —
-   `infrastructure.stores`, `infrastructure.writers`, `infrastructure.http_stub` — nor for `rendering`.
-   Those arrive by injection, per rule 3.
+2. `application/` may import its own layer, `domain/`, the `Settings` *value* type
+   (`infrastructure.settings`), and the shared private helpers at the package root (`_naming`,
+   `_version`) — in either the `from auto_inform._naming import slug` or the
+   `from auto_inform import _naming` form. Nothing else under `auto_inform` — in particular no concrete
+   adapter (`infrastructure.stores`, `infrastructure.writers`, `infrastructure.http_stub`, a real clock)
+   and no `rendering`. Those arrive by injection, per rule 3. The audit enforces this as an **allowlist**,
+   so a newly added adapter is forbidden by default rather than permitted until somebody remembers to
+   extend a tuple; granting a genuine new permission means changing this rule as well as the test.
 3. Concrete stores and writers are injected by the caller, or built by a small factory that reads
    `Settings`.
 4. `blocks/` and `reports/` import from `domain/` and the rendering helpers — never from `application/`
@@ -115,6 +119,12 @@ and nothing would have noticed.
    constructor parameters.
 5. `rendering/` imports `domain/` and the standard library, plus Jinja2 and matplotlib in the modules that
    need them — never `application/` or `infrastructure/`.
+
+**Type-only imports are not judged.** An annotation under `if TYPE_CHECKING:` is erased at runtime and
+creates no dependency, which is the principle behind rule 1's exception. That exception is still
+*enumerated* there — the audit asserts the domain's type-only upward set is exactly the two context names
+— so it stays visible instead of accumulating. Everywhere else a type-only import is simply not a runtime
+dependency, and is not reported.
 
 **The composition root is exempt.** `auto_inform/__init__.py` exists to wire the layers together so that
 `from auto_inform import Block` works, and it legitimately imports all of them. One consequence is worth
