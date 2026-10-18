@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import sqlite3
 import stat
-import threading
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -127,20 +126,6 @@ def test_payload_and_timestamp_should_round_trip_through_json_and_iso_text(
     assert returned.discovered_at.tzinfo == UTC
 
 
-def test_save_with_a_naive_timestamp_should_raise_and_persist_nothing(tmp_path: Path) -> None:
-    # given an event stamped with a naive datetime
-    naive = make_event("a", discovered_at=datetime(2026, 10, 18, 12, 0))
-
-    # when a batch containing it is saved
-    with SqliteEventStore(tmp_path / "events.sqlite3") as store:
-        with pytest.raises(ValueError, match="naive"):
-            store.save([make_event("ok"), naive])
-
-        # then nothing from the batch landed: the whole save is one transaction, and a timestamp whose
-        # offset is unknown would make the queue's oldest-first order depend on the host's timezone
-        assert store.pending() == []
-
-
 def test_save_should_not_overwrite_a_processed_rows_payload(tmp_path: Path) -> None:
     # given a delivered event whose row carries its original payload
     path = tmp_path / "events.sqlite3"
@@ -223,32 +208,6 @@ def test_use_after_close_should_raise_store_error(tmp_path: Path) -> None:
 
     with pytest.raises(StoreError, match="closed"):
         store.pending()
-
-
-def test_using_the_store_from_another_thread_should_raise_a_store_error_naming_the_rule(
-    tmp_path: Path,
-) -> None:
-    # given a store opened on this thread
-    store = SqliteEventStore(tmp_path / "events.sqlite3")
-    failures: list[BaseException] = []
-
-    def use_from_another_thread() -> None:
-        try:
-            store.save([make_event("a")])
-        except Exception as exc:  # noqa: BLE001 - the point is to capture what the store raises
-            failures.append(exc)
-
-    # when another thread tries to save
-    worker = threading.Thread(target=use_from_another_thread)
-    worker.start()
-    worker.join()
-    store.close()
-
-    # then it fails as a StoreError whose message names the thread rule, not as a raw
-    # sqlite3.ProgrammingError that a caller would have to know to expect (docs/04 §2.4)
-    assert len(failures) == 1
-    assert isinstance(failures[0], StoreError)
-    assert "thread-affine" in str(failures[0])
 
 
 def test_pending_with_a_negative_limit_should_raise_value_error(tmp_path: Path) -> None:

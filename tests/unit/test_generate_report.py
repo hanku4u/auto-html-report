@@ -23,7 +23,7 @@ from auto_inform.blocks.maintenance_history import MaintenanceHistoryBlock
 from auto_inform.blocks.wafer_map import WaferMapBlock
 from auto_inform.domain.block import Block
 from auto_inform.domain.errors import OutputError, PermanentBlockError
-from auto_inform.domain.report import OutputLocation, ReportDefinition
+from auto_inform.domain.report import OutputLocation, Report, ReportDefinition
 from auto_inform.generate import generate_report, report_filename
 from auto_inform.infrastructure.settings import Settings
 from auto_inform.infrastructure.writers.local_writer import LocalDirectoryWriter
@@ -254,3 +254,26 @@ def test_generate_report_with_a_failing_writer_should_still_close_the_report_eve
     assert failed.exc_info is not None
     finished = next(r for r in caplog.records if r.message == "report.finish")
     assert getattr(finished, "output_uri", "missing") is None
+
+
+def test_a_renderer_failure_should_end_the_report_pair_with_failure_not_a_finish(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    # given a renderer that raises, as a bug in the renderer would
+    def explode(report: Report, *, error_detail: object) -> str:
+        raise RuntimeError("renderer bug")
+
+    monkeypatch.setattr("auto_inform.generate.render_report", explode)
+    caplog.set_level(logging.INFO)
+
+    # when a report is generated
+    with pytest.raises(RuntimeError, match="renderer bug"):
+        generate_report(_definition(_WorkBlock(name="Row")), context=make_report_context())
+
+    # then the pair ends with report.failed and there is no fabricated finish: before this, a failure
+    # after report.start left an orphaned start and a reader could not tell whether the run was still
+    # going
+    messages = [record.message for record in caplog.records]
+    assert "report.start" in messages
+    assert "report.failed" in messages
+    assert "report.finish" not in messages

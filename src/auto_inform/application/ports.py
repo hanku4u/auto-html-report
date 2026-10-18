@@ -97,11 +97,29 @@ class OutputWriter(Protocol):
     writer cannot disagree about naming (``docs/06-output-html.md`` §2). A failed write raises
     :class:`~auto_inform.domain.errors.OutputError`, and the caller must not treat the report as
     delivered -- see the processing job's ordering rule in ``docs/05`` §2.
+
+    Implementations **must be thread-safe**: the processing job may share one instance across concurrent
+    report workers (``AUTO_INFORM_MAX_CONCURRENT_REPORTS``). A writer that holds a non-thread-safe client
+    has to guard it itself, exactly as ``HttpClient`` implementations do.
     """
 
     def write(self, *, filename: str, content: str) -> OutputLocation:
         """Persist ``content`` under ``filename`` and report where it landed."""
         ...
+
+
+@dataclass(frozen=True, slots=True)
+class FailureRecord:
+    """What :meth:`EventStore.mark_failed` did, in the two facts its caller logs.
+
+    ``attempts`` is the new count after this failure, and ``retired`` says whether it reached the limit
+    and left the queue for ever (ADR-0019). The runner needs both because ``event.failed`` and
+    ``event.retired`` are part of the logging contract, and only the store knows the boundary -- reading
+    the limit in the caller and guessing would duplicate the retirement rule in a second place.
+    """
+
+    attempts: int
+    retired: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,8 +173,12 @@ class EventStore(Protocol):
         """
         ...
 
-    def mark_failed(self, event: Event, *, reason: str) -> None:
-        """Record one failed attempt; retire the event when it reaches the attempt limit (ADR-0019)."""
+    def mark_failed(self, event: Event, *, reason: str) -> FailureRecord:
+        """Record one failed attempt; retire the event when it reaches the attempt limit (ADR-0019).
+
+        Returns the new attempt count and whether the event retired, so the caller can log
+        ``event.failed`` and ``event.retired`` without re-deriving the store's decision.
+        """
         ...
 
     def close(self) -> None:

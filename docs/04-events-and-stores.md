@@ -101,7 +101,7 @@ policy; the port keeps the unbounded form because an operator inspecting a store
 | Call | Effect |
 | --- | --- |
 | `mark_processed(event, output_uri=…)` | `status = PROCESSED`, `processed_at = now`, `output_uri` recorded, `last_error` cleared. |
-| `mark_failed(event, reason=…)` | `attempts += 1`. If `attempts < max_attempts`, the row stays `NEW` so the next run retries it. If it reaches `max_attempts`, `status = FAILED` and the row is **retired** — it is never returned by `pending()` again. `last_error` always records the reason. |
+| `mark_failed(event, reason=…)` | `attempts += 1`. If `attempts < max_attempts`, the row stays `NEW` so the next run retries it. If it reaches `max_attempts`, `status = FAILED` and the row is **retired** — it is never returned by `pending()` again. `last_error` always records the reason. Returns a `FailureRecord(attempts, retired)`: the runner logs `event.failed` and `event.retired` from the store's own count rather than re-deriving the boundary in a second place. |
 
 Both transitions apply only to a row whose status is `NEW`. A call for an event that is already
 `PROCESSED` or retired raises `StoreError` rather than silently doing nothing, because a second

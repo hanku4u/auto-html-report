@@ -78,28 +78,30 @@ def generate_report(
         },
     )
 
-    rows = collect_blocks(
-        definition.blocks,
-        context=context,
-        report_title=definition.title,
-        generated_at=generated_at,
-    )
-    report = Report(
-        definition=definition,
-        rows=rows,
-        generated_at=generated_at,
-        run_id=context.run.run_id,
-    )
-    html = render_report(report, error_detail=context.settings.error_detail)
-
+    report: Report | None = None
+    html: str | None = None
     location = None
     try:
+        rows = collect_blocks(
+            definition.blocks,
+            context=context,
+            report_title=definition.title,
+            generated_at=generated_at,
+        )
+        report = Report(
+            definition=definition,
+            rows=rows,
+            generated_at=generated_at,
+            run_id=context.run.run_id,
+        )
+        html = render_report(report, error_detail=context.settings.error_detail)
+
         if writer is not None:
             location = writer.write(filename=report_filename(definition, report), content=html)
     except Exception as exc:
-        # The report-level pair stays complete: without this, the one path where nothing was written --
-        # the path a reader most needs to find -- leaves an orphaned `report.start` and no terminal event.
-        # error_type is carried like every other failure event, so a log query can group them.
+        # Every failure after `report.start` gets a terminal line. Before this, only the write path
+        # did, so a definition or renderer failure left an orphaned start and a reader could not tell
+        # whether the report was still running -- see the stage-9 amendment in docs/11.
         context.logger.exception(
             "report.failed",
             extra={
@@ -110,15 +112,23 @@ def generate_report(
         )
         raise
     finally:
-        context.logger.info(
-            "report.finish",
-            extra={
-                "run_id": context.run.run_id,
-                "report_title": definition.title,
-                "failed_blocks": len(report.failed_rows),
-                "duration_ms": round((context.clock.monotonic() - started) * 1000, 1),
-                "output_uri": location.uri if location is not None else None,
-            },
-        )
+        # Only when a document exists. `report.finish` says "the document was produced; here is where it
+        # went" -- so a failure before rendering ends with `report.failed` alone rather than a finish that
+        # claims a document nobody has. A write failure still gets both, with `output_uri: null`.
+        if report is not None and html is not None:
+            context.logger.info(
+                "report.finish",
+                extra={
+                    "run_id": context.run.run_id,
+                    "report_title": definition.title,
+                    "failed_blocks": len(report.failed_rows),
+                    "duration_ms": round((context.clock.monotonic() - started) * 1000, 1),
+                    "output_uri": location.uri if location is not None else None,
+                },
+            )
 
+    if (
+        report is None or html is None
+    ):  # pragma: no cover - unreachable without a re-raised exception
+        raise AssertionError("internal error: generate_report completed without a document")
     return ReportResult(report=report, html=html, location=location)
