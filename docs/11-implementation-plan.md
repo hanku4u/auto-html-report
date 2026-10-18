@@ -212,6 +212,11 @@ that concerns processing passes — including the two that specifically guard ag
 here: a failed upload not being marked `PROCESSED`, and store calls never originating off the main
 thread at any concurrency setting.
 
+**Also this stage:** the report-level failure event covers only the write path today. A crash inside
+collection or rendering leaves an orphaned `report.start`, because `generate_report`'s try/finally begins
+after rendering. Decide here whether the runner should own a broader `report.failed` or whether the
+event-level `event.failed` covers it, and make `07 §4`'s wording follow that decision.
+
 ## Stage 10 — Report factories, example jobs, and the README
 
 `reports/manufacturing.py` with the `WAFER_FAILURE` factory, the two example job scripts from

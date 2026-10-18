@@ -247,5 +247,10 @@ def test_generate_report_with_a_failing_writer_should_still_close_the_report_eve
     assert "report.start" in messages
     assert "report.failed" in messages
     assert "report.finish" in messages
+    failed = next(r for r in caplog.records if r.message == "report.failed")
+    # the contract table promises error_type, and every other failure event carries it. getattr because
+    # LogRecord's type says nothing about the fields a caller attaches to it
+    assert getattr(failed, "error_type", None) == "OutputError"
+    assert failed.exc_info is not None
     finished = next(r for r in caplog.records if r.message == "report.finish")
     assert getattr(finished, "output_uri", "missing") is None

@@ -96,12 +96,17 @@ def generate_report(
     try:
         if writer is not None:
             location = writer.write(filename=report_filename(definition, report), content=html)
-    except Exception:
+    except Exception as exc:
         # The report-level pair stays complete: without this, the one path where nothing was written --
         # the path a reader most needs to find -- leaves an orphaned `report.start` and no terminal event.
+        # error_type is carried like every other failure event, so a log query can group them.
         context.logger.exception(
             "report.failed",
-            extra={"run_id": context.run.run_id, "report_title": definition.title},
+            extra={
+                "run_id": context.run.run_id,
+                "report_title": definition.title,
+                "error_type": type(exc).__name__,
+            },
         )
         raise
     finally:

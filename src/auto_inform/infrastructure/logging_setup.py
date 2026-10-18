@@ -60,7 +60,8 @@ _OURS: Final = "_auto_inform_handler"
 
 #: The level names this project accepts. One list, shared with :func:`load_settings`, so the loader and
 #: the logging setup cannot disagree about what a valid level is -- they did, which is how `WARN` passed
-#: one and `info` failed the other.
+#: one and `info` failed the other. Owned here because validating a level is a logging concern; the
+#: loader importing it is the smaller oddity than `configure_logging` depending on `Settings`.
 VALID_LOG_LEVELS: Final = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 
 
