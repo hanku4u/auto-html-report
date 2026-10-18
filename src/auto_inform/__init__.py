@@ -2,9 +2,9 @@
 
 This module is the public surface: everything a block author, a report factory or a job script should
 import. It grew in stages -- the author-facing names in stage 3, the report model and entry point in
-stages 5 and 6, and the configuration factories in stage 7. Stages 8 onward complete it with the stores,
-the job runners and the exit codes, which is why a job script written today still needs the names from
-``docs/05`` §6 that have not landed yet.
+stages 5 and 6, the configuration factories in stage 7, and the event store and discovery job in
+stage 8. Stage 9 completes it with the processing job and the exit codes, which is why a job script
+written today still needs two names from ``docs/05`` §6 that have not landed yet.
 
 Nothing here imports matplotlib or pyplot eagerly: a report built only from HTML tables never pays for
 them, and a test in ``tests/unit/test_rendering_figures.py`` pins that in a subprocess.
@@ -12,8 +12,14 @@ them, and a test in ``tests/unit/test_rendering_figures.py`` pins that in a subp
 
 from __future__ import annotations
 
-from auto_inform.application.context import RenderContext, ReportContext
-from auto_inform.application.ports import OutputWriter
+from auto_inform.application.context import DiscoveryContext, RenderContext, ReportContext
+from auto_inform.application.discovery import (
+    Discoverer,
+    DiscoveryOutcome,
+    DiscoveryRun,
+    run_discovery,
+)
+from auto_inform.application.ports import EventStore, OutputWriter, SaveResult
 from auto_inform.domain.block import Block, BlockOutcome, BlockStatus
 from auto_inform.domain.errors import (
     AutoInformError,
@@ -24,6 +30,7 @@ from auto_inform.domain.errors import (
     StoreError,
     TransientBlockError,
 )
+from auto_inform.domain.event import Event, EventStatus
 from auto_inform.domain.report import (
     OutputLocation,
     Report,
@@ -40,7 +47,9 @@ from auto_inform.infrastructure.factories import (
 )
 from auto_inform.infrastructure.logging_setup import configure_logging
 from auto_inform.infrastructure.settings import Settings, load_settings
+from auto_inform.infrastructure.stores.sqlite_store import SqliteEventStore
 from auto_inform.infrastructure.writers.local_writer import LocalDirectoryWriter
+from auto_inform.registry import register_report
 from auto_inform.rendering.escaping import escape, html_table
 from auto_inform.rendering.figures import figure_lock, figure_to_data_uri
 
@@ -54,6 +63,13 @@ __all__ = [
     "BlockOutcome",
     "BlockStatus",
     "ConfigurationError",
+    "Discoverer",
+    "DiscoveryContext",
+    "DiscoveryOutcome",
+    "DiscoveryRun",
+    "Event",
+    "EventStatus",
+    "EventStore",
     "LocalDirectoryWriter",
     "OutputError",
     "OutputLocation",
@@ -65,7 +81,9 @@ __all__ = [
     "ReportDefinition",
     "ReportResult",
     "ReportRow",
+    "SaveResult",
     "Settings",
+    "SqliteEventStore",
     "StoreError",
     "SystemClock",
     "TransientBlockError",
@@ -79,5 +97,7 @@ __all__ = [
     "load_settings",
     "new_discovery_context",
     "new_report_context",
+    "register_report",
     "report_filename",
+    "run_discovery",
 ]

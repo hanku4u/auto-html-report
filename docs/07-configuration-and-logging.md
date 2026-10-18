@@ -44,6 +44,13 @@ every block.
 | `AUTO_INFORM_HTTP_API_TOKEN` | `http_api_token` | `str \| None` | `None` |
 | `AUTO_INFORM_HTTP_MAX_REDIRECTS` | `http_max_redirects` | `int` | `5` |
 
+Two integers have an upper bound as well as a floor, because the executor's arithmetic cannot survive
+them: `AUTO_INFORM_BLOCK_RETRIES` is capped at **10** — the backoff doubles per attempt, so a larger
+count overflows the hang-guard computation before any work starts — and `AUTO_INFORM_EVENT_MAX_ATTEMPTS`
+at **1000**, beyond which the value cannot be bound to SQLite's `INTEGER`. A block's own `max_retries`
+override is subject to the same cap, and the executor enforces both on a directly constructed
+`Settings`, because `load_settings` is not the only way to build one.
+
 Rules for `load_settings`:
 
 - **Report every invalid variable, not just the first.** A CI job that fails four times to reveal
@@ -159,7 +166,11 @@ one line per notable event. Every line carries `run_id`; every block line carrie
 | `block.abandoned` | `run_id`, `block`, `overrun_s` — a timed-out worker thread that outlived its budget |
 | `report.finish` | `run_id`, `report_title`, `failed_blocks`, `duration_ms`, `output_uri` |
 | `report.failed` | `run_id`, `report_title`, `error_type`, and the traceback — the document was rendered but could not be written. Emitted before `report.finish`, which then carries `output_uri: null`, so the report-level pair is complete on the failure path too. |
-| `discovery.finish` | `run_id`, `event_type`, `new`, `duplicates`, `duration_ms` |
+| `discovery.start` | `run_id`, `discoverer`, `attempt` |
+| `discovery.retry` | `run_id`, `discoverer`, `attempt`, `delay_s`, `error_type` |
+| `discovery.finish` | `run_id`, `discoverer`, `event_type`, `new`, `duplicates`, `duration_ms` — emitted after the events are persisted, and only on the success path |
+| `discovery.failed` | `run_id`, `discoverer`, `attempts`, `error_type`, `error_message`, and the traceback — the discoverer itself failed, so nothing from it was persisted |
+| `discovery.abandoned` | `run_id`, `discoverer`, `overrun_s` — a timed-out discoverer thread that outlived its budget |
 | `event.processed` | `run_id`, `event_type`, `event_id`, `output_uri` |
 | `event.failed` | `run_id`, `event_type`, `event_id`, `attempts`, `reason` |
 | `event.retired` | `run_id`, `event_type`, `event_id`, `attempts` — attempts exhausted, no longer retried |

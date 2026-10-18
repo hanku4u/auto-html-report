@@ -207,3 +207,17 @@ def test_repr_should_still_show_ordinary_values() -> None:
     # then the repr is useful, because a redacted-everything repr helps nobody
     text = repr(load_settings({"AUTO_INFORM_MAX_WORKERS": "3"}))
     assert "max_workers=3" in text
+
+
+def test_load_settings_with_an_excessive_retry_count_should_be_refused() -> None:
+    # given a retry count that would overflow the exponential backoff before any work starts
+    # when it is loaded
+    # then it is a configuration error at the edge, not an OverflowError from inside the executor
+    with pytest.raises(ConfigurationError, match="at most 10"):
+        load_settings({"AUTO_INFORM_BLOCK_RETRIES": "2000"})
+
+
+def test_load_settings_with_an_excessive_attempt_limit_should_be_refused() -> None:
+    # given an attempt limit beyond what SQLite's INTEGER can bind
+    with pytest.raises(ConfigurationError, match="at most 1000"):
+        load_settings({"AUTO_INFORM_EVENT_MAX_ATTEMPTS": "100000"})

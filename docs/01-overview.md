@@ -183,8 +183,8 @@ auto-inform/
 │       │   ├── report.py           # ReportDefinition, Report, ReportRow, ReportResult
 │       │   └── errors.py           # exception hierarchy
 │       ├── application/
-│       │   ├── collect_blocks.py   # concurrency, timeouts, retries
-│       │   ├── generate_report.py  # definition -> Report  (public entry point)
+│       │   ├── collect_blocks.py   # block collection: maps execution results to ReportRow
+│       │   ├── execution.py        # shared timeout/retry/hang-guard executor (ADR-0029)
 │       │   ├── context.py          # ReportContext, RenderContext, DiscoveryContext, RunMetadata
 │       │   ├── discovery.py        # run_discovery
 │       │   ├── processing.py       # run_processing

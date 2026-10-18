@@ -201,6 +201,51 @@ than one that fails at start-up. Stage 11 replaces that error with the real bran
 
 **Done when:** the shared store behaviour suite passes against SQLite, including the retirement
 boundary from ADR-0019, and a discovery run over a stub discoverer persists events idempotently.
+**Completed 2026-10-18**
+
+**Amended during implementation:** the execution rules were **extracted** from `collect_blocks` into
+`application/execution.py` rather than copied into discovery — see
+[ADR-0029](10-decision-log.md#adr-0029--timeout-retry-and-hang-guard-mechanics-live-in-one-executor).
+`05 §1` claimed they were parameterised "in `application/collect_blocks.py`"; that sentence now names
+the new module, because a document describing an implementation that moved is exactly the drift this
+project keeps catching. The extractor keeps the block success line **in the worker** through an
+`on_success` callback, so `block.finish` still appears when a block finishes rather than when the
+slowest sibling does.
+
+**Store preconditions:** `mark_processed` and `mark_failed` apply only to a `NEW` row and raise
+`StoreError` otherwise — recorded in `04 §2.3`, since the lifecycle table described the effect but not
+the precondition. Two observations are tested against the SQLite file with a plain connection because
+the port exposes no read-by-id method: a saved payload is never overwritten, and `last_error` is cleared
+by a later success. That gap is deliberate in v1 (an operator uses SQL); it is the first candidate for
+v0.2 if diagnosis through the API is ever wanted.
+
+**Noted, not fixed, with owners:** the remaining observations from the security review are scheduled
+rather than forgotten. **Stage 9** must pass `limit` on every `pending()` call and decide whether the port
+needs a defensive cap — an unbounded read plus one giant `save()` transaction can hold SQLite's write lock
+long enough for overlapping processing to hit the busy timeout — and must either state that one run per
+process is a requirement or hold a process-wide executor, so an abandoned worker occupies a slot instead
+of adding a thread per run. **Stage 11** must add a redaction filter before the real HTTP client lands, or
+document that discoverer exception text must not contain credentials. The console formatter's
+control-character escaping and the retry/attempt bounds were fixed in the second review round, below.
+
+**Second review (2026-10-18, after `c108f9a`):** eight findings, all addressed. The per-source contract
+check now covers **every `NOT NULL` field** — `event_id`, `source`, a non-datetime `discovered_at` and a
+non-mapping payload — because a NULL `source` reached the store and aborted the whole run, losing the peer
+source's events, which is precisely the failure the check exists to prevent. A corrupt stored row now
+raises `StoreError` naming the key instead of a raw `JSONDecodeError`. The console formatter escapes
+control characters in the message and in every value, so an upstream response body cannot forge a log
+line. Retry counts are bounded at the loader **and** in the executor (a count of 2000 overflowed the
+hang-guard arithmetic), and the attempt limit at 1000. `O_NOFOLLOW` is applied only where the platform has
+it, and the store's POSIX file-mode scope is written down beside the writer's. Two untested properties now
+have tests: the same-batch rollback when two feeds claim one key, and the `pending()` tie-break on equal
+`discovered_at`.
+
+**Also here:** the discovery events that were missing from the logging contract — `discovery.start`,
+`retry`, `failed` and `abandoned` — mirror the block vocabulary the shared executor emits, and
+`discovery.finish` gained the `discoverer` field, without which two sources producing the same event
+type were indistinguishable in the log. A documented-import test now resolves every
+`from auto_inform import ...` in the documentation set, with a shrinking allowlist for the two names
+stage 9 lands; it found a real defect immediately (`register_report` was documented and unexported).
 
 ## Stage 9 — The processing job and exit codes
 
@@ -216,6 +261,10 @@ thread at any concurrency setting.
 collection or rendering leaves an orphaned `report.start`, because `generate_report`'s try/finally begins
 after rendering. Decide here whether the runner should own a broader `report.failed` or whether the
 event-level `event.failed` covers it, and make `07 §4`'s wording follow that decision.
+
+**Also this stage:** `FakeEventStore` lands here. `05` and `09` already describe it as the in-memory
+double that drives every `run_*` test, and stage 8's discovery tests used the real SQLite store instead
+because the fake had no caller yet.
 
 ## Stage 10 — Report factories, example jobs, and the README
 

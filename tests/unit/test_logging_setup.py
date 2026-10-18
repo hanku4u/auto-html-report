@@ -32,13 +32,13 @@ def _restore_root_logger() -> Iterator[None]:
     root.setLevel(level)
 
 
-def _record(**extra: object) -> logging.LogRecord:
+def _record(msg: str = "block.finish", **extra: object) -> logging.LogRecord:
     record = logging.LogRecord(
         name="auto_inform",
         level=logging.INFO,
         pathname=__file__,
         lineno=1,
-        msg="block.finish",
+        msg=msg,
         args=(),
         exc_info=None,
     )
@@ -170,3 +170,27 @@ def test_configure_logging_should_accept_the_same_levels_as_the_loader(
     else:
         with pytest.raises(ConfigurationError, match="unknown log level"):
             configure_logging(level=level)
+
+
+def test_console_formatter_should_escape_control_characters_in_values() -> None:
+    # given a record whose fields came from an upstream API, complete with a forged line and an ANSI
+    # escape
+    record = _record(reason="line one\nINFO forged", run_id="x\x1b[31mred")
+
+    # when it is formatted for a terminal
+    line = ConsoleFormatter().format(record)
+
+    # then nothing starts a second line and the escape is visible text: a response body embedded in an
+    # exception message cannot masquerade as another log record
+    assert "\n" not in line
+    assert "reason=line one\\nINFO forged" in line
+    assert "run_id=x\\x1b[31mred" in line
+
+
+def test_console_formatter_should_keep_a_multiline_message_on_one_line() -> None:
+    # given an event name that itself contains a newline
+    record = _record(msg="line one\nINFO forged")
+
+    # when it is formatted
+    # then the message is escaped too, not just the extra fields
+    assert "\n" not in ConsoleFormatter().format(record)

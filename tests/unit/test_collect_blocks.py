@@ -18,11 +18,7 @@ from typing import cast
 
 import pytest
 
-from auto_inform.application.collect_blocks import (
-    _BACKSTOP_GRACE_SECONDS,
-    _hang_guard_seconds,
-    collect_blocks,
-)
+from auto_inform.application.collect_blocks import collect_blocks
 from auto_inform.application.context import RenderContext, ReportContext
 from auto_inform.domain.block import Block, BlockStatus
 from auto_inform.domain.errors import ConfigurationError, PermanentBlockError, TransientBlockError
@@ -367,20 +363,6 @@ def test_collect_blocks_should_abandon_stuck_blocks_within_one_guard(
     assert sum(1 for record in caplog.records if record.message == "block.abandoned") == 2
 
 
-def test_the_hang_guard_should_allow_every_attempt_plus_the_worst_case_backoff() -> None:
-    # given a block declaring a one-second budget, two retries and a one-second backoff base
-    block = _OverrunningBlock(name="Late")
-    context = make_report_context(settings=Settings(block_retries=2, retry_base_delay_seconds=1.0))
-
-    # when the guard is computed
-    # then it covers every attempt and the largest possible jitter, plus the grace period: three attempts
-    # at 1 s, and a worst-case backoff of (1*2^0 + 1) then (1*2^1 + 1), so 5 s. Asserted as arithmetic
-    # here so the integration test does not have to spend nine seconds proving it
-    assert _hang_guard_seconds(block, context) == pytest.approx(
-        1.0 * 3 + (1.0 + 1.0 + 2.0 + 1.0) + _BACKSTOP_GRACE_SECONDS
-    )
-
-
 # --- validation and logging ---------------------------------------------------
 
 
@@ -541,3 +523,49 @@ def test_collect_blocks_should_reject_a_non_positive_global_budget() -> None:
     # then it is refused at validation rather than producing a report of timeouts
     with pytest.raises(ConfigurationError, match="must be positive"):
         _collect([_WorkBlock(name="Row")], settings=Settings(block_timeout_seconds=0.0))
+
+
+def test_block_finish_should_be_emitted_by_the_worker_before_a_slow_sibling_returns() -> None:
+    # given a report with a fast block and a block that waits to observe the fast one's finish line.
+    # This is the control for `execution.py`'s on_success callback: moving that line into the caller's
+    # result loop keeps every other assertion green while turning progress logging into an end-of-run
+    # batch
+    saw_finish = threading.Event()
+
+    class _FinishSpy(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            if record.getMessage() == "block.finish" and getattr(record, "block", None) == "Fast":
+                saw_finish.set()
+
+    class _WaitingBlock(Block[int]):
+        def __init__(self, name: str) -> None:
+            super().__init__(name=name)
+            self.seen = False
+
+        def collect(self, context: ReportContext) -> int:
+            # Generous cap: on the happy path this returns the instant the fast worker logs. If the
+            # finish line were deferred to the end of the run, the wait expires and the assertion below
+            # fails -- and if the callbacks ran on the main thread, it could not fire at all.
+            self.seen = saw_finish.wait(timeout=2.0)
+            return 0
+
+        def render(self, data: int, context: RenderContext) -> str:
+            return "<p>slow</p>"
+
+    context = make_report_context()
+    handler = _FinishSpy()
+    previous_level = context.logger.level
+    context.logger.addHandler(handler)
+    context.logger.setLevel(logging.INFO)
+    slow = _WaitingBlock("Slow")
+
+    try:
+        # when the report is collected
+        rows = collect_blocks([_WorkBlock(name="Fast"), slow], context=context)
+    finally:
+        context.logger.removeHandler(handler)
+        context.logger.setLevel(previous_level)
+
+    # then the slow block saw the fast block's finish line while it was still running
+    assert [row.outcome.status for row in rows] == [BlockStatus.OK, BlockStatus.OK]
+    assert slow.seen, "block.finish was deferred until every block had finished"
