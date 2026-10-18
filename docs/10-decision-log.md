@@ -451,9 +451,10 @@ price that still reports `OUTPUT_ERROR`. `fail_events_with_failed_blocks` defaul
 the setting. A run is bounded by `AUTO_INFORM_PROCESSING_LIMIT` (default 500); an explicit `limit` can
 lower it and never raise it, and a caller that asks for more is clamped with a `processing.capped` line.
 Failure classification is by `isinstance`, not by exception name: a writer subclass is filed with
-`OutputError`, and a definition refused because of the event's data is `EventDataError` — ranked as a
-partial failure and counted as an attempt, so it retires rather than sitting at the head of an
-oldest-first queue for ever. Rejected: widening the application allowlist to the root (it would give every application
+`OutputError`, a definition refused because of the event's data is `EventDataError` — ranked as a partial
+failure and counted as an attempt, so it retires rather than sitting at the head of an oldest-first queue
+for ever — and a class from another library that merely shares a framework name is `UnclassifiedError`,
+so it can neither stop a run nor select an exit code. Rejected: widening the application allowlist to the root (it would give every application
 module a path to rendering); and leaving `mark_failed` returning `None` (the retirement boundary would be
 re-derived in the runner, in a second place, and could drift).
 

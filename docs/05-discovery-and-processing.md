@@ -133,6 +133,14 @@ Behavioural rules, each of which has a test in [09](09-testing-and-acceptance.md
 2. **A missing factory does not consume the event.** `ConfigurationError` is recorded against that
    event, the event is left `NEW`, and the run continues with other types. A half-deployed job must
    not silently eat events it cannot render.
+
+   **Consequence, stated plainly:** because no attempt is counted, ADR-0019's retirement never applies
+   to such an event, and `pending()` is oldest-first — so an event type that is *permanently*
+   unregistered (a factory that was removed, or a type nobody intends to handle) is returned at the head
+   of every run. With more of them than `AUTO_INFORM_PROCESSING_LIMIT`, they fill each batch and starve
+   the types behind them, while the run exits `2` on every schedule. The remedies are operational:
+   register the factory, run the job filtered to a handled type (`run_processing(event_type=...)`), or
+   retire the offending events with SQL.
 3. **`mark_processed` is called only after the writer returns.** A report that failed to upload must
    not be recorded as delivered, or it is lost with nobody the wiser.
 4. **A report whose blocks failed is still a report.** It was written successfully, and the error
@@ -217,10 +225,10 @@ wins, in this order:
 
 | Rank | Code | Applies when |
 | --- | --- | --- |
-| 1 | `CONFIGURATION_ERROR` (2) | An outcome recorded a `ConfigurationError`: no factory for that event's type, a definition the renderer refused, or a discoverer that broke its contract. |
+| 1 | `CONFIGURATION_ERROR` (2) | An outcome recorded a `ConfigurationError`: no factory for that event's type, or a discoverer that broke its contract. |
 | 2 | `STORE_ERROR` (3) | An outcome recorded a `StoreError`: a store call failed mid-run. |
 | 3 | `OUTPUT_ERROR` (4) | An outcome recorded an `OutputError`: a report was built but could not be written. |
-| 4 | `PARTIAL_FAILURE` (1) | Any other event failed to process, or a block failure was turned into a failed event by `AUTO_INFORM_FAIL_ON_BLOCK_ERROR`. |
+| 4 | `PARTIAL_FAILURE` (1) | Any other event failed to process — including a definition the renderer refused because of the event's own data (`EventDataError`), which is retried and eventually retired rather than blamed on the deployment — or a block failure was turned into a failed event by `AUTO_INFORM_FAIL_ON_BLOCK_ERROR`. |
 | 5 | `SUCCESS` (0) | None of the above. |
 
 Failures **outside** a run are not ranked by `exit_code_for`, because there is no run to pass it:

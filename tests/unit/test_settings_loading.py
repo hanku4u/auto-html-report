@@ -6,6 +6,7 @@ mapping tolerable to live with: every bad variable is reported at once, and secr
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 
 import pytest
@@ -247,3 +248,11 @@ def test_load_settings_with_an_excessive_concurrency_should_be_refused(
     # then it is refused at the edge with the bound in the message
     with pytest.raises(ConfigurationError, match=f"at most {bound}"):
         load_settings({variable: value})
+
+
+def test_processing_limit_should_be_keyword_only() -> None:
+    # given a field added to a public dataclass that already had a positional shape
+    # then it is keyword-only, so every positional argument after it keeps its meaning (the same rule
+    # ReportDefinition.event_id documents)
+    fields = {field.name: field for field in dataclasses.fields(Settings)}
+    assert fields["processing_limit"].kw_only is True

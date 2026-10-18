@@ -74,6 +74,15 @@ OUTPUT_FAILURE = "OutputError"
 #: counted as an attempt and ranked as a partial failure, not as a deployment error.
 EVENT_DATA_FAILURE = "EventDataError"
 BLOCK_FAILURE = "BlockError"
+#: An exception whose class name collides with a framework error but which is not one. It must not borrow
+#: the framework's control flow, and it must not pretend to be unclassifiable either.
+UNCLASSIFIED_FAILURE = "UnclassifiedError"
+
+#: The names the abort policy and the exit ranking key on. Only the ``isinstance`` checks in
+#: ``_classify_failure`` may produce them.
+_RESERVED_FAILURE_NAMES: frozenset[str] = frozenset(
+    {CONFIGURATION_FAILURE, STORE_FAILURE, OUTPUT_FAILURE}
+)
 
 #: Failure kinds that stop the run after being recorded. Both mean the environment is broken, not the
 #: event, so every later event would fail the same way.
@@ -157,6 +166,14 @@ def run_processing(
     )
 
     ceiling = context.settings.processing_limit
+    if ceiling < 1:
+        # `load_settings` bounds this, but Settings can be constructed directly -- the same defence
+        # `execution._validate` makes for the retry counts. A zero ceiling would process nothing and call
+        # it success, which is the failure the event-type filter check above exists to prevent.
+        raise ConfigurationError(
+            f"processing_limit is {ceiling!r}; it must be at least 1 (docs/07 §1.1)"
+        )
+
     requested = ceiling if limit is None else limit
     if requested > ceiling:
         context.logger.warning(
@@ -279,7 +296,15 @@ def _classify_failure(exc: BaseException) -> str:
         # Reached only for a refused definition (an event-data problem); the missing-factory case never
         # gets here. Ranking it as a deployment error would send an operator after the wrong thing.
         return EVENT_DATA_FAILURE
-    return type(exc).__name__
+
+    name = type(exc).__name__
+    if name in _RESERVED_FAILURE_NAMES:
+        # An unrelated class from another library that happens to be *called* ``OutputError`` is not an
+        # ``OutputError``. The abort policy and the exit ranking both key on these strings, so a lookalike
+        # must not stop a run or select a code; it is classified as unclassified and keeps the event's
+        # own failure semantics (one attempt, partial exit).
+        return UNCLASSIFIED_FAILURE
+    return name
 
 
 def _commit(
@@ -313,12 +338,18 @@ def _commit(
                 error_message=summarise_exception(built.error),
             )
 
+        classification = _classify_failure(built.error)
+        reason = summarise_exception(built.error)
+        if classification == UNCLASSIFIED_FAILURE:
+            # The classification exists to stop impersonation, not to hide what actually failed, so the
+            # real type stays visible in the outcome and the log.
+            reason = f"{type(built.error).__name__}: {reason}"
         return _record_failure(
             built,
             store=store,
             context=context,
-            classification=_classify_failure(built.error),
-            reason=summarise_exception(built.error),
+            classification=classification,
+            reason=reason,
             error=built.error,
         )
 

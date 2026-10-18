@@ -26,6 +26,11 @@ class OutputWriter(Protocol):
     def write(self, *, filename: str, content: str) -> OutputLocation: ...
 
 
+# Writers are called from concurrent report workers (AUTO_INFORM_MAX_CONCURRENT_REPORTS), so an
+# implementation must be thread-safe and must bound its own I/O: the processing runner waits for
+# write() without a per-report deadline, and only blocks have budgets (ADR-0027, ADR-0030).
+
+
 class LocalDirectoryWriter:
     """Default. Creates the directory if missing; writes atomically via temp file + rename."""
 

@@ -101,6 +101,11 @@ class OutputWriter(Protocol):
     Implementations **must be thread-safe**: the processing job may share one instance across concurrent
     report workers (``AUTO_INFORM_MAX_CONCURRENT_REPORTS``). A writer that holds a non-thread-safe client
     has to guard it itself, exactly as ``HttpClient`` implementations do.
+
+    Implementations **must also bound their own I/O**. The runner waits for ``write()`` without a
+    per-report deadline -- only blocks have budgets and a hang guard (ADR-0027) -- so a client that can
+    stall (an object store, a network filesystem) has to set a transport timeout. A writer that blocks
+    for ever blocks the job.
     """
 
     def write(self, *, filename: str, content: str) -> OutputLocation:

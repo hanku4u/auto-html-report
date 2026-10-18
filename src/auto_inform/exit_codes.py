@@ -7,8 +7,8 @@ codes are a small closed set because a CI system can only branch on so many numb
 **Ranking reads recorded outcomes.** Both run types carry an ``error_type`` per outcome, and
 :func:`exit_code_for` ranks those strings:
 
-1. any ``ConfigurationError`` -- a factory missing or a definition refused, which means the deployment
-   is wrong rather than the data;
+1. any ``ConfigurationError`` -- no factory for an event's type, which means the deployment is wrong
+   rather than the data;
 2. any ``StoreError`` -- the store failed mid-run;
 3. any ``OutputError`` -- a report was built but not written;
 4. anything else that did not succeed -- a partial failure;
@@ -18,6 +18,12 @@ Because the runner records operational failures instead of raising (ADR-0030), t
 The failures that still escape happen before a rankable run exists: a ``pending()`` call that cannot read
 the store, and discovery's ``save()`` after its concurrent phase. A job script that wants codes for those
 catches them itself (``docs/05`` §6), and the exception carries the diagnosis.
+
+A definition the renderer refused is **not** a configuration error: the event's own data produced it, so
+processing records ``EventDataError``, counts an attempt, and the ranking falls through to a partial
+failure. Matching is on the recorded string exactly, which is why processing normalises framework
+subclasses and neutralises lookalike class names; discovery outcomes carry the worker's own class name, so
+a *subclass* of a framework error raised by a discoverer ranks as a partial failure rather than its base.
 """
 
 from __future__ import annotations

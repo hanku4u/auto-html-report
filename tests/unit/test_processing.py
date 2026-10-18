@@ -35,7 +35,7 @@ from auto_inform.domain.report import OutputLocation, ReportDefinition
 from auto_inform.exit_codes import ExitCode, exit_code_for
 from auto_inform.infrastructure.settings import Settings
 from auto_inform.infrastructure.writers.local_writer import LocalDirectoryWriter
-from auto_inform.processing import run_processing
+from auto_inform.processing import UNCLASSIFIED_FAILURE, _classify_failure, run_processing
 from tests.support.builders import make_event
 from tests.support.clocks import DEFAULT_START, FakeClock
 from tests.support.contexts import make_report_context
@@ -701,3 +701,77 @@ def test_a_failing_store_should_be_logged_as_store_failed(
     messages = [record.message for record in caplog.records]
     assert "store.failed" in messages
     assert "event.processed" not in messages
+
+
+@pytest.mark.parametrize("name", ["OutputError", "StoreError", "ConfigurationError"])
+def test_a_class_that_merely_shares_a_framework_name_should_be_unclassified(
+    name: str,
+) -> None:
+    # given an unrelated class from another library whose name collides with a framework error
+    impostor = type(name, (Exception,), {})
+
+    # when it is classified
+    # then it cannot borrow the framework's control flow: a lookalike must not abort the run or choose
+    # an exit code, and the classification says so rather than the colliding name
+    assert _classify_failure(impostor("boom")) == UNCLASSIFIED_FAILURE
+
+
+def test_the_classification_should_still_recognise_the_real_types_and_their_subclasses() -> None:
+    # given the framework's own errors, a subclass of one, and an ordinary exception
+    class _S3WriterError(OutputError):
+        pass
+
+    # when they are classified
+    # then subclasses are filed with their base (the isinstance rule) and unrelated types keep their
+    # own name, because the outcome's error_type is also the diagnosis
+    assert _classify_failure(_S3WriterError("no bucket")) == "OutputError"
+    assert _classify_failure(StoreError("gone")) == "StoreError"
+    assert _classify_failure(ConfigurationError("refused")) == "EventDataError"
+    assert _classify_failure(KeyError("lot_id")) == "KeyError"
+
+
+def test_an_impostor_writer_error_should_not_stop_the_run_or_pick_the_output_code(
+    tmp_path: Path,
+) -> None:
+    # given a writer raising a class that is named OutputError but is not the framework's
+    Impostor = type("OutputError", (Exception,), {})
+
+    class _ImpostorWriter:
+        def write(self, *, filename: str, content: str) -> OutputLocation:
+            raise Impostor("a library-specific failure")
+
+    _register(lambda: [_OkBlock()])
+    store = FakeEventStore()
+    store.save([make_event(letter, event_type=EVENT_TYPE) for letter in "ab"])
+
+    # when processing runs
+    run = run_processing(store=store, context=_context(), writer=_ImpostorWriter())
+
+    # then it is an ordinary per-event failure: the run continued, both events counted an attempt, and
+    # the exit code is the partial one -- not the output code a real OutputError would select
+    assert [outcome.event.event_id for outcome in run.outcomes] == ["a", "b"]
+    assert [outcome.error_type for outcome in run.outcomes] == [
+        UNCLASSIFIED_FAILURE,
+        UNCLASSIFIED_FAILURE,
+    ]
+    assert run.outcomes[0].error_message is not None
+    assert run.outcomes[0].error_message.startswith("OutputError: ")
+    assert exit_code_for(run) is ExitCode.PARTIAL_FAILURE
+
+
+@pytest.mark.parametrize("value", [0, -5])
+def test_a_non_positive_configured_limit_should_raise_configuration_error(
+    tmp_path: Path, value: int
+) -> None:
+    # given a directly constructed Settings whose ceiling would process nothing
+    context = make_report_context(
+        settings=Settings(processing_limit=value), clock=FakeClock(start=DEFAULT_START)
+    )
+
+    # when processing runs
+    # then it refuses instead of reporting a healthy empty run -- the loader bounds this, but the loader
+    # is not the only way to build Settings
+    with pytest.raises(ConfigurationError, match="at least 1"):
+        run_processing(
+            store=FakeEventStore(), context=context, writer=LocalDirectoryWriter(tmp_path)
+        )

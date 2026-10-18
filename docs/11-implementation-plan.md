@@ -286,7 +286,8 @@ factories are documented as pure and fast, and a hung factory is a defect like a
 rather than papered over with an invented timeout.
 
 **Review (2026-10-18):** failure classification is now by `isinstance`, so a writer subclass stops the run
-and exits `4` while an unrelated class that merely shares the name does neither; `FailureRecord` is
+and exits `4` while an unrelated class that merely shares the name is `UnclassifiedError` and does
+neither; `FailureRecord` is
 asserted against both stores in the shared suite; a definition refused because of the event's own data is
 `EventDataError`, counted as an attempt, so it retires instead of pinning the head of an oldest-first
 queue and sending CI after a deployment problem that does not exist; the batch is bounded and consumed as a
@@ -319,7 +320,10 @@ behaviour suite extended to both. Both remain self-skipping in CI without their 
 
 **Note for this stage:** `AUTO_INFORM_OUTPUT_KIND=s3` currently raises in `build_output_writer`; replace
 that with the real `S3Writer` branch here, and keep the failure mode loud — refusing to start beats
-silently writing locally.
+silently writing locally. **The S3 client must set transport timeouts**: writers are called from
+concurrent report workers and the runner has no per-report deadline ([06 §1](06-output-html.md#1-writers),
+ADR-0030), so a stalled
+upload would wedge the job rather than produce an `OutputError`.
 
 **Done when:** the store suite passes against PostgreSQL when a DSN is provided, and the S3 writer
 passes against an injected stub client with no network.

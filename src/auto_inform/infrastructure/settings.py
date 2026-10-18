@@ -17,7 +17,7 @@ from __future__ import annotations
 import math
 import os
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final, Literal
 
@@ -67,7 +67,11 @@ class Settings:
     max_concurrent_reports: int = 1
     #: Ceiling on events one processing run takes from the queue. ``run_processing(limit=...)`` can
     #: lower it, never raise it; the whole-queue form is a diagnostic, not the scheduled path.
-    processing_limit: int = 500
+    #:
+    #: Keyword-only on purpose: the field was added to a public dataclass after it had a positional
+    #: shape, and inserting it inline would have re-pointed every positional argument after it -- the
+    #: same break ``ReportDefinition.event_id`` documents (docs/03 §1).
+    processing_limit: int = field(default=500, kw_only=True)
     block_timeout_seconds: float = 60.0
     block_retries: int = 2
     retry_base_delay_seconds: float = 1.0
