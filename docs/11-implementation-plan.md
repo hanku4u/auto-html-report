@@ -162,6 +162,38 @@ entry** after the rename, so the replacement survives a power loss and not merel
 
 **Done when:** the env-var to attribute mapping test passes, secrets are redacted from `repr`, the
 stub is thread-safe, and a `block.finish` log line parses as JSON with the documented fields.
+**Completed 2026-10-18**
+
+**Post-review corrections (2026-10-18):** eight findings, all fixed. `load_settings` now **rejects
+non-finite numbers** — `nan` passed every `<` comparison and silently disabled per-attempt budgets, and
+`inf` made the hang guard unreachable, which is the worst possible place for an unvalidated value. It also
+**validates and normalises `log_level`** at load time, so a bad level is reported with the other invalid
+variables instead of surfacing later as a raw `ValueError` from `logging.setLevel`; the enum-like settings
+are now matched case-insensitively, consistently with the booleans. The JSON formatter reserves its own
+`ts`/`level`/`event`/`traceback` keys, so an `extra=` cannot rename the event. An injected `clock` now
+stamps `RunMetadata.started_at`, closing a hidden second read of wall time. `StubNotConfiguredError`
+derives from `ConfigurationError`, and `domain/errors.py` states the carve-out for plain Python contract
+errors rather than leaving the hierarchy's promise overstated.
+
+**Also closed here:** `report.start` and `report.finish` were in the logging contract but nothing emitted
+them; `generate_report` logs both now. `discovery.finish` and the `event.*` events belong to stages 8–9.
+
+**Second review (2026-10-18, after the fix commit):** the five configuration factories are now **exported
+from `auto_inform`** — the module docstring already promised them and `05 §6`'s job scripts import them, so
+the public surface and the documents now agree, with a test that the documented import resolves. The
+injected-clock fix has its **control**: both context factories assert `started_at` equals the fake clock's
+instant. `load_settings` and `configure_logging` now share **one** definition of a valid log level, having
+previously disagreed about `WARN`, `NOTSET` and `info`. And a failed write logs **`report.failed`** before
+`report.finish` with no URI, so the report-level event pair is complete on the one path where nothing was
+written.
+
+**Amended during implementation:** two things. The three context/writer factories live in
+`infrastructure/factories.py` — the one module allowed to name concrete adapters — and accept optional
+keyword overrides for `http`, `clock` and `logger`. The documented `new_report_context(settings)` call is
+unchanged; the overrides make the factories testable and usable by a demo job with canned fixtures.
+`build_output_writer` **raises for `AUTO_INFORM_OUTPUT_KIND=s3`** instead of falling back to the local
+filesystem, because the S3 writer is stage 11's; a job that believes it is uploading and is not is worse
+than one that fails at start-up. Stage 11 replaces that error with the real branch.
 
 ## Stage 8 — Events and the discovery job
 
@@ -180,6 +212,11 @@ that concerns processing passes — including the two that specifically guard ag
 here: a failed upload not being marked `PROCESSED`, and store calls never originating off the main
 thread at any concurrency setting.
 
+**Also this stage:** the report-level failure event covers only the write path today. A crash inside
+collection or rendering leaves an orphaned `report.start`, because `generate_report`'s try/finally begins
+after rendering. Decide here whether the runner should own a broader `report.failed` or whether the
+event-level `event.failed` covers it, and make `07 §4`'s wording follow that decision.
+
 ## Stage 10 — Report factories, example jobs, and the README
 
 `reports/manufacturing.py` with the `WAFER_FAILURE` factory, the two example job scripts from
@@ -193,6 +230,10 @@ scratch directory, and the README's install commands are the ones CI actually ru
 
 `infrastructure/stores/postgres_store.py`, `infrastructure/writers/s3_writer.py`, and the shared
 behaviour suite extended to both. Both remain self-skipping in CI without their services.
+
+**Note for this stage:** `AUTO_INFORM_OUTPUT_KIND=s3` currently raises in `build_output_writer`; replace
+that with the real `S3Writer` branch here, and keep the failure mode loud — refusing to start beats
+silently writing locally.
 
 **Done when:** the store suite passes against PostgreSQL when a DSN is provided, and the S3 writer
 passes against an injected stub client with no network.

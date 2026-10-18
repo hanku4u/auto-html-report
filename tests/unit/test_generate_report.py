@@ -12,6 +12,7 @@ deliverable; refusing to write because one block failed is the behaviour the fra
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any, cast
 
@@ -21,8 +22,8 @@ from auto_inform.application.context import RenderContext, ReportContext
 from auto_inform.blocks.maintenance_history import MaintenanceHistoryBlock
 from auto_inform.blocks.wafer_map import WaferMapBlock
 from auto_inform.domain.block import Block
-from auto_inform.domain.errors import PermanentBlockError
-from auto_inform.domain.report import ReportDefinition
+from auto_inform.domain.errors import OutputError, PermanentBlockError
+from auto_inform.domain.report import OutputLocation, ReportDefinition
 from auto_inform.generate import generate_report, report_filename
 from auto_inform.infrastructure.settings import Settings
 from auto_inform.infrastructure.writers.local_writer import LocalDirectoryWriter
@@ -137,6 +138,30 @@ def test_generate_report_should_carry_the_run_id_and_generation_time_in_the_head
     assert DEFAULT_START.strftime("%Y-%m-%dT%H:%M:%SZ") in result.html
 
 
+def test_generate_report_should_log_the_report_start_and_finish_events(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # given a report with one healthy block and one failing block
+    definition = _definition(_WorkBlock(name="Fine"), _FailingBlock(name="Broken", message="no"))
+    caplog.set_level(logging.INFO)
+
+    # when it is generated
+    generate_report(definition, context=make_report_context())
+
+    # then the two report-level events from 07 §4 are emitted with the documented fields. They were in the
+    # contract table but nothing emitted them: a reader would have gone looking for a log line that did
+    # not exist
+    messages = [record.message for record in caplog.records]
+    assert "report.start" in messages
+    assert "report.finish" in messages
+
+    started = next(r for r in caplog.records if r.message == "report.start")
+    assert started.block_count == 2  # type: ignore[attr-defined]
+    finished = next(r for r in caplog.records if r.message == "report.finish")
+    assert finished.failed_blocks == 1  # type: ignore[attr-defined]
+    assert getattr(finished, "duration_ms", None) is not None
+
+
 def test_generate_report_with_the_built_in_blocks_should_produce_a_report(tmp_path: Path) -> None:
     # given the two shipped blocks and canned API responses -- no network, no real service
     http = FakeHttpClient(
@@ -196,3 +221,36 @@ def test_generate_report_should_stamp_blocks_and_header_with_one_instant() -> No
     # collection duration, and a block rendering the timestamp would contradict the document header
     assert result.report.generated_at.isoformat() in result.html
     assert 'class="ai-header"' in result.html
+
+
+def test_generate_report_with_a_failing_writer_should_still_close_the_report_event_pair(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # given a writer that cannot write, on the one path where the report does not land
+    class _FailingWriter:
+        def write(self, *, filename: str, content: str) -> OutputLocation:
+            raise OutputError("disk full")
+
+    caplog.set_level(logging.INFO)
+
+    # when a report is generated
+    with pytest.raises(OutputError):
+        generate_report(
+            _definition(_WorkBlock(name="Row")),
+            context=make_report_context(),
+            writer=_FailingWriter(),
+        )
+
+    # then the report-level pair is complete: a start, an explicit failure, and a finish with no URI.
+    # Otherwise the log leaves an orphaned report.start on the path a reader most needs to find
+    messages = [record.message for record in caplog.records]
+    assert "report.start" in messages
+    assert "report.failed" in messages
+    assert "report.finish" in messages
+    failed = next(r for r in caplog.records if r.message == "report.failed")
+    # the contract table promises error_type, and every other failure event carries it. getattr because
+    # LogRecord's type says nothing about the fields a caller attaches to it
+    assert getattr(failed, "error_type", None) == "OutputError"
+    assert failed.exc_info is not None
+    finished = next(r for r in caplog.records if r.message == "report.finish")
+    assert getattr(finished, "output_uri", "missing") is None

@@ -68,6 +68,15 @@ def generate_report(
     # the Report. Two separate reads of the clock would disagree by the collection duration -- a block
     # that renders `generated_at` would then contradict the document header.
     generated_at = context.clock.now()
+    started = context.clock.monotonic()
+    context.logger.info(
+        "report.start",
+        extra={
+            "run_id": context.run.run_id,
+            "report_title": definition.title,
+            "block_count": len(definition.blocks),
+        },
+    )
 
     rows = collect_blocks(
         definition.blocks,
@@ -84,7 +93,32 @@ def generate_report(
     html = render_report(report, error_detail=context.settings.error_detail)
 
     location = None
-    if writer is not None:
-        location = writer.write(filename=report_filename(definition, report), content=html)
+    try:
+        if writer is not None:
+            location = writer.write(filename=report_filename(definition, report), content=html)
+    except Exception as exc:
+        # The report-level pair stays complete: without this, the one path where nothing was written --
+        # the path a reader most needs to find -- leaves an orphaned `report.start` and no terminal event.
+        # error_type is carried like every other failure event, so a log query can group them.
+        context.logger.exception(
+            "report.failed",
+            extra={
+                "run_id": context.run.run_id,
+                "report_title": definition.title,
+                "error_type": type(exc).__name__,
+            },
+        )
+        raise
+    finally:
+        context.logger.info(
+            "report.finish",
+            extra={
+                "run_id": context.run.run_id,
+                "report_title": definition.title,
+                "failed_blocks": len(report.failed_rows),
+                "duration_ms": round((context.clock.monotonic() - started) * 1000, 1),
+                "output_uri": location.uri if location is not None else None,
+            },
+        )
 
     return ReportResult(report=report, html=html, location=location)

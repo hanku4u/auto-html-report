@@ -11,7 +11,20 @@ import auto_inform
 
 # The exact line docs/06-output-html.md §4 gives to block authors. Imported at module scope on purpose:
 # if the documented import breaks, this file fails to collect rather than failing one assertion.
-from auto_inform import escape, figure_lock, figure_to_data_uri, html_table
+# The configuration factories are imported at module scope as well, so that removing one from the public
+# surface fails test collection rather than a consumer's job script. `docs/05` §6 imports these names from
+# the root, and the module docstring promises them.
+from auto_inform import (
+    build_output_writer,
+    configure_logging,
+    escape,
+    figure_lock,
+    figure_to_data_uri,
+    html_table,
+    load_settings,
+    new_discovery_context,
+    new_report_context,
+)
 
 
 def test_importing_the_package_should_expose_the_block_authoring_surface() -> None:
@@ -51,6 +64,22 @@ def test_the_import_advertised_in_the_specification_should_be_callable() -> None
     assert callable(html_table)
     assert callable(figure_to_data_uri)
     assert callable(figure_lock)
+
+
+def test_the_configuration_factories_should_be_importable_from_the_root() -> None:
+    # given the names a job script imports, as documented in `docs/05` §6 and promised by the package
+    # docstring
+    # when they are used
+    # then they are callable. The module-scope import above is the real guard -- it fails collection rather
+    # than a test -- and this asserts the shape of what was imported
+    for factory in (
+        build_output_writer,
+        configure_logging,
+        load_settings,
+        new_discovery_context,
+        new_report_context,
+    ):
+        assert callable(factory)
 
 
 def test_installed_distribution_metadata_should_report_the_declared_version() -> None:

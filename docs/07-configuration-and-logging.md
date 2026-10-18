@@ -36,7 +36,7 @@ every block.
 | `AUTO_INFORM_BLOCK_RETRIES` | `block_retries` | `int` | `2` |
 | `AUTO_INFORM_RETRY_BASE_DELAY_SECONDS` | `retry_base_delay_seconds` | `float` | `1.0` |
 | `AUTO_INFORM_RETRYABLE_EXCEPTIONS` | `retryable_exceptions` | `tuple[str, ...]` | `()` |
-| `AUTO_INFORM_LOG_LEVEL` | `log_level` | `str` | `"INFO"` |
+| `AUTO_INFORM_LOG_LEVEL` | `log_level` | `Literal["DEBUG","INFO","WARNING","ERROR","CRITICAL"]` | `"INFO"` |
 | `AUTO_INFORM_LOG_FORMAT` | `log_format` | `Literal["json","console"]` | `"json"` |
 | `AUTO_INFORM_ERROR_DETAIL` | `error_detail` | `Literal["summary","detailed"]` | `"summary"` |
 | `AUTO_INFORM_FAIL_ON_BLOCK_ERROR` | `fail_on_block_error` | `bool` | `True` |
@@ -51,8 +51,17 @@ Rules for `load_settings`:
 - Validate cross-field requirements at load time: `output_kind="s3"` requires `output_s3_bucket`;
   `event_store="postgres"` requires `postgres_dsn`. Both raise `ConfigurationError` immediately,
   not at first use.
-- Reject non-positive values for every numeric setting; a zero timeout or zero workers is a
-  configuration bug, not a request for unlimited throughput.
+- Reject non-positive values where zero is meaningless — timeouts, workers, concurrent reports, attempt
+  ceilings — and negative values everywhere, including retry counts. A zero timeout or zero workers is a
+  configuration bug, not a request for unlimited throughput; a retry count of zero, by contrast, is a
+  legitimate preference.
+- Reject non-finite numbers. `nan` and `inf` pass every `<` comparison, and both are dangerous rather than
+  merely odd: a NaN budget disables the per-attempt timeout (`consumed > nan` is never true), and an
+  infinite one makes the hang guard unreachable.
+- Enum-like values (`output_kind`, `event_store`, `log_format`, `error_detail`, `log_level`) are matched
+  **case-insensitively** and stored canonically. `log_level` is validated against the standard names here
+  rather than left to `logging.setLevel`, which would raise a raw `ValueError` from another module and
+  never appear in this loader's collected report.
 
 > **Secrets are never logged.** `Settings.__repr__` redacts any attribute whose name contains
 > `TOKEN`, `SECRET`, `PASSWORD`, `DSN` or `KEY` — because the first debugging session in production
@@ -120,6 +129,20 @@ session — can build several contexts with different settings without them cont
 `run_id` is a fresh `uuid4().hex` per context, which is what makes a report traceable back to the
 log lines that produced it.
 
+**Where they live.** `load_settings` is in `infrastructure/settings.py`, `configure_logging` in
+`logging_setup.py`, and the three context/writer factories in `infrastructure/factories.py` — the one
+module allowed to name concrete adapters, because that is what wiring is.
+
+**Additive overrides.** `new_report_context` and `new_discovery_context` also accept optional keyword
+arguments for `http`, `clock` and `logger`. The documented call — `new_report_context(settings)` — still
+works unchanged; the overrides exist so a test or a demo job can supply canned fixtures and a
+deterministic clock without building a context by hand.
+
+**The S3 gap is loud.** `build_output_writer` selects the local writer, and for
+`AUTO_INFORM_OUTPUT_KIND=s3` it raises `ConfigurationError` rather than quietly writing to the
+filesystem: a job that believes it is uploading and is not is worse than one that will not start. The
+real branch arrives with stage 11.
+
 ## 4. Logging contract
 
 `configure_logging` installs a JSON formatter (stdlib `logging` only — no extra dependency) with
@@ -135,6 +158,7 @@ one line per notable event. Every line carries `run_id`; every block line carrie
 | `block.failed` | as above, plus `error_type`, `error_message`, and the traceback |
 | `block.abandoned` | `run_id`, `block`, `overrun_s` — a timed-out worker thread that outlived its budget |
 | `report.finish` | `run_id`, `report_title`, `failed_blocks`, `duration_ms`, `output_uri` |
+| `report.failed` | `run_id`, `report_title`, `error_type`, and the traceback — the document was rendered but could not be written. Emitted before `report.finish`, which then carries `output_uri: null`, so the report-level pair is complete on the failure path too. |
 | `discovery.finish` | `run_id`, `event_type`, `new`, `duplicates`, `duration_ms` |
 | `event.processed` | `run_id`, `event_type`, `event_id`, `output_uri` |
 | `event.failed` | `run_id`, `event_type`, `event_id`, `attempts`, `reason` |
@@ -158,8 +182,9 @@ It is not the CI default because nobody wants to parse a coloured traceback out 
   cannot silently drift from the code.
 - Logging: capture records and assert the JSON body of a `block.finish` line contains `run_id`,
   `block`, `status` and `duration_ms`. `configure_logging` is idempotent under repeated calls.
-- The stub: thread-safety test (16 threads, no exception, no fixture corruption) and a test that an
-  unknown path raises rather than returning an empty payload.
+- The stub: fixtures by path, an unknown path raising `StubNotConfiguredError` (a `ConfigurationError`, so
+  it is catchable as an `AutoInformError`), `get_bytes` refusing a non-bytes fixture, `raising_for`, and
+  eight threads sharing one instance with no exception and no fixture corruption.
 
 ## Open questions
 
