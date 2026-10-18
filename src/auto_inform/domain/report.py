@@ -42,6 +42,10 @@ class ReportDefinition:
     title: str
     blocks: Sequence[Block[Any]]
     subtitle: str | None = None
+    #: Identity of the event this report was built for, when there is one. It is what the filename's
+    #: middle segment comes from (`docs/06-output-html.md` §2), and it belongs on the definition because
+    #: that is the only thing `report_filename` is given besides the assembled report.
+    event_id: str | None = None
     metadata: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:

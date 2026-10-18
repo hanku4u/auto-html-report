@@ -71,6 +71,10 @@ class S3Writer:
 def report_filename(definition: ReportDefinition, report: Report) -> str: ...
 ```
 
+The **event segment appears only when the definition names an event** (`ReportDefinition.event_id`); an
+ad-hoc report has no event and produces `<slug(title)>__<timestamp>.html`. The helper lives in
+`auto_inform/generate.py`, beside `generate_report`.
+
 **Ownership rule:** the filename is computed in exactly one place, `generate_report`, by calling
 this helper. `OutputWriter` implementations receive a complete filename and never derive one, so
 that a local writer and an S3 writer can never disagree about naming. `run_processing` obtains the

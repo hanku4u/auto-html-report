@@ -427,7 +427,13 @@ def _is_retryable(exc: BaseException, settings: Settings) -> bool:
 
 
 def _summarise(exc: BaseException) -> str:
-    """The first line of the message, capped. A traceback belongs in the log, never in a report."""
+    """The message, newlines included, capped by length.
+
+    Not the first line: the renderer decides whether to show the first line (``summary``) or all of it
+    (``detailed``), per ``docs/06-output-html.md`` §6. Collapsing to one line here would silently make the
+    detailed view identical to the summary, which is exactly what the setting exists to distinguish.
+    """
     text = str(exc).strip()
-    first_line = text.splitlines()[0] if text else type(exc).__name__
-    return first_line[:_MESSAGE_LIMIT]
+    if not text:
+        return type(exc).__name__
+    return text[:_MESSAGE_LIMIT]

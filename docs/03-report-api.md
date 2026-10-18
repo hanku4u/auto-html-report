@@ -17,6 +17,7 @@ class ReportDefinition:
     title: str
     blocks: Sequence[Block[Any]]
     subtitle: str | None = None
+    event_id: str | None = None       # the event this report was built for, if any: names the file
     metadata: Mapping[str, str] = field(default_factory=dict)  # extra header key/value pairs
 
     def __post_init__(self) -> None:
@@ -133,10 +134,11 @@ def generate_report(
 
     Composes the two functions above:
 
-        rows   = collect_blocks(definition.blocks, context=context)
+        rows   = collect_blocks(definition.blocks, context=context,
+                                report_title=definition.title)
         report = Report(definition, rows, generated_at=context.clock.now(),
                         run_id=context.run.run_id)
-        html   = render_report(report)
+        html   = render_report(report, error_detail=context.settings.error_detail)
         location = writer.write(filename=report_filename(definition, report),
                                 content=html) if writer else None
         return ReportResult(report, html, location)
@@ -169,6 +171,7 @@ def wafer_failure_report(event: Event, context: ReportContext) -> ReportDefiniti
     return ReportDefinition(
         title=f"Failed wafer — {event.event_id}",
         subtitle=str(event.payload.get("summary", "")),
+        event_id=event.event_id,
         metadata={"Lot": lot_id, "Tool": str(event.payload["tool_id"])},
         blocks=[
             WaferMapBlock(lot_id=lot_id),

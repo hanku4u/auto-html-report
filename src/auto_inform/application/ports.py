@@ -1,9 +1,8 @@
 """Ports: the interfaces the application layer depends on, injected at the edge.
 
-Only the two ports the domain layer's signatures require are declared at this stage. ``EventStore``
-and ``OutputWriter`` arrive with the code that uses them -- stages 8 and 6 of
-``docs/11-implementation-plan.md`` -- because declaring an interface with no implementation and no
-caller is speculation, not design.
+``EventStore`` arrives with the code that uses it (stage 8 of ``docs/11-implementation-plan.md``), because
+declaring an interface with no implementation and no caller is speculation, not design. ``OutputWriter``
+landed with stage 6, its first caller.
 """
 
 from __future__ import annotations
@@ -11,6 +10,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Protocol
+
+from auto_inform.domain.report import OutputLocation
 
 
 class Clock(Protocol):
@@ -83,4 +84,18 @@ class HttpClient(Protocol):
         headers: Mapping[str, str] | None = None,
     ) -> bytes:
         """Fetch ``path`` and return the raw body. Error behaviour as above."""
+        ...
+
+
+class OutputWriter(Protocol):
+    """Where a finished report's bytes go.
+
+    Implementations receive a complete filename and never derive one, so that a local writer and an S3
+    writer cannot disagree about naming (``docs/06-output-html.md`` §2). A failed write raises
+    :class:`~auto_inform.domain.errors.OutputError`, and the caller must not treat the report as
+    delivered -- see the processing job's ordering rule in ``docs/05`` §2.
+    """
+
+    def write(self, *, filename: str, content: str) -> OutputLocation:
+        """Persist ``content`` under ``filename`` and report where it landed."""
         ...
