@@ -44,6 +44,13 @@ every block.
 | `AUTO_INFORM_HTTP_API_TOKEN` | `http_api_token` | `str \| None` | `None` |
 | `AUTO_INFORM_HTTP_MAX_REDIRECTS` | `http_max_redirects` | `int` | `5` |
 
+Two integers have an upper bound as well as a floor, because the executor's arithmetic cannot survive
+them: `AUTO_INFORM_BLOCK_RETRIES` is capped at **10** — the backoff doubles per attempt, so a larger
+count overflows the hang-guard computation before any work starts — and `AUTO_INFORM_EVENT_MAX_ATTEMPTS`
+at **1000**, beyond which the value cannot be bound to SQLite's `INTEGER`. A block's own `max_retries`
+override is subject to the same cap, and the executor enforces both on a directly constructed
+`Settings`, because `load_settings` is not the only way to build one.
+
 Rules for `load_settings`:
 
 - **Report every invalid variable, not just the first.** A CI job that fails four times to reveal

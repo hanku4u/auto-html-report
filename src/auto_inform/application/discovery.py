@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import json
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, ClassVar, Final
@@ -200,10 +200,34 @@ def _check_yielded_events(events: tuple[Event, ...], discoverer: Discoverer, nam
                 f"{name}.discover() declares event_type={expected!r} but yielded an event of type "
                 f"{event.event_type!r}. A discoverer owns exactly one event type (docs/05 §1)."
             )
+        # Every field the schema declares NOT NULL is checked here, not just the interesting ones. A
+        # NULL source or event_id would otherwise reach ``save()`` and raise an integrity error on the
+        # calling thread, aborting the run and losing the *other* sources' events -- the failure this
+        # function exists to prevent, arriving through the field nobody thought to check.
+        if not isinstance(event.event_id, str) or not event.event_id:
+            raise ConfigurationError(
+                f"{name}.discover() yielded an event with event_id={event.event_id!r}; it must be a "
+                "non-empty string, because it is half of the store's conflict key (docs/04 §2.1)."
+            )
+        if not isinstance(event.source, str) or not event.source:
+            raise ConfigurationError(
+                f"{name}.discover() yielded an event with source={event.source!r}; it must be a "
+                "non-empty string naming the feed that produced it (docs/04 §1)."
+            )
+        if not isinstance(event.discovered_at, datetime):
+            raise ConfigurationError(
+                f"{name}.discover() yielded an event whose discovered_at is "
+                f"{type(event.discovered_at).__name__}, not a datetime"
+            )
         if event.discovered_at.tzinfo is None or event.discovered_at.utcoffset() is None:
             raise ConfigurationError(
                 f"{name}.discover() yielded an event with a naive discovered_at "
                 f"({event.discovered_at!r}); events carry timezone-aware UTC timestamps (docs/04 §1)."
+            )
+        if not isinstance(event.payload, Mapping):
+            raise ConfigurationError(
+                f"{name}.discover() yielded an event whose payload is "
+                f"{type(event.payload).__name__}, not a mapping (docs/04 §1)"
             )
         try:
             json.dumps(dict(event.payload))

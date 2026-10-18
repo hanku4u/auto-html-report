@@ -18,6 +18,10 @@ which is precisely the starvation ADR-0019 exists to prevent.
 ``check_same_thread=True``, so a store used from another thread fails loudly with a message naming the
 rule instead of corrupting state in a way that surfaces later. The processing job marshals its store
 calls onto the main thread for this reason (``docs/04`` §2.4).
+
+**File modes are POSIX semantics**, like the report writer's (``docs/06`` §1): a new database is created
+0600 and a new directory 0700, and ``O_NOFOLLOW`` is applied where the platform provides it. Windows is
+not a supported target for this store either.
 """
 
 from __future__ import annotations
@@ -291,7 +295,7 @@ class SqliteEventStore:
             try:
                 descriptor = os.open(
                     self._path,
-                    os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW,
+                    os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0),
                     0o600,
                 )
             except FileExistsError:
@@ -367,10 +371,19 @@ class SqliteEventStore:
 
     @staticmethod
     def _event_from_row(row: sqlite3.Row) -> Event:
+        key = f"{row['event_type']}/{row['event_id']}"
+        try:
+            payload = json.loads(row["payload"])
+            discovered_at = datetime.fromisoformat(row["discovered_at"])
+        except (TypeError, ValueError) as exc:
+            # ``StoreError`` is documented as "unreachable or corrupt", and a raw JSONDecodeError slips
+            # past every caller that catches the hierarchy. The key is in the message so an operator can
+            # find the row an editor or a bad upgrade damaged.
+            raise StoreError(f"corrupt event row {key}: {exc}") from exc
         return Event(
             event_type=row["event_type"],
             event_id=row["event_id"],
-            payload=json.loads(row["payload"]),
-            discovered_at=datetime.fromisoformat(row["discovered_at"]),
+            payload=payload,
+            discovered_at=discovered_at,
             source=row["source"],
         )

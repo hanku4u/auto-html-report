@@ -219,16 +219,26 @@ the port exposes no read-by-id method: a saved payload is never overwritten, and
 by a later success. That gap is deliberate in v1 (an operator uses SQL); it is the first candidate for
 v0.2 if diagnosis through the API is ever wanted.
 
-**Noted, not fixed (security review of this stage):** `pending()` without a `limit` reads the whole
-queue, and `save()` is one transaction, so a very large batch holds a write long enough for the
-overlapping processing job to hit SQLite's busy timeout; an operator can also set a retry count high
-enough to overflow the hang-guard arithmetic; the console formatter does not escape control characters
-in `extra` values, so with `AUTO_INFORM_LOG_FORMAT=console` a source that embeds a response body in an
-exception can forge log lines (JSON logs are unaffected); and discoverer error text reaches the log with
-no redaction boundary, which will matter once the real HTTP client can put a token in a URL. Each is
-operator-sized rather than attacker-fed, or needs a policy decision (a cap, a chunk size, a bound in
-`load_settings`, a redaction filter), so they are recorded rather than guessed at. The discoverer-output
-ceiling *was* fixed, because that one is fed directly by external content.
+**Noted, not fixed, with owners:** the remaining observations from the security review are scheduled
+rather than forgotten. **Stage 9** must pass `limit` on every `pending()` call and decide whether the port
+needs a defensive cap — an unbounded read plus one giant `save()` transaction can hold SQLite's write lock
+long enough for overlapping processing to hit the busy timeout — and must either state that one run per
+process is a requirement or hold a process-wide executor, so an abandoned worker occupies a slot instead
+of adding a thread per run. **Stage 11** must add a redaction filter before the real HTTP client lands, or
+document that discoverer exception text must not contain credentials. The console formatter's
+control-character escaping and the retry/attempt bounds were fixed in the second review round, below.
+
+**Second review (2026-10-18, after `c108f9a`):** eight findings, all addressed. The per-source contract
+check now covers **every `NOT NULL` field** — `event_id`, `source`, a non-datetime `discovered_at` and a
+non-mapping payload — because a NULL `source` reached the store and aborted the whole run, losing the peer
+source's events, which is precisely the failure the check exists to prevent. A corrupt stored row now
+raises `StoreError` naming the key instead of a raw `JSONDecodeError`. The console formatter escapes
+control characters in the message and in every value, so an upstream response body cannot forge a log
+line. Retry counts are bounded at the loader **and** in the executor (a count of 2000 overflowed the
+hang-guard arithmetic), and the attempt limit at 1000. `O_NOFOLLOW` is applied only where the platform has
+it, and the store's POSIX file-mode scope is written down beside the writer's. Two untested properties now
+have tests: the same-batch rollback when two feeds claim one key, and the `pending()` tie-break on equal
+`discovered_at`.
 
 **Also here:** the discovery events that were missing from the logging contract — `discovery.start`,
 `retry`, `failed` and `abandoned` — mirror the block vocabulary the shared executor emits, and

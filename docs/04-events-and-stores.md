@@ -92,6 +92,10 @@ Returns events with `status = NEW` and `attempts < max_attempts`, **oldest first
 `discovered_at`, optionally filtered by `event_type` and capped by `limit`. Never returns
 `PROCESSED` or retired `FAILED` rows.
 
+`limit=None` reads the whole queue and is a **diagnostic** mode, not the processing path: the processing
+job always passes a limit, so a large backlog is never pulled into memory in one go. Stage 9 owns that
+policy; the port keeps the unbounded form because an operator inspecting a store needs it.
+
 ### 2.3 `mark_processed()` and `mark_failed()` — lifecycle
 
 | Call | Effect |
@@ -160,7 +164,7 @@ deliberate, reviewed operation, not something that happens implicitly on open.
 
 | Class | Backend | Notes |
 | --- | --- | --- |
-| `SqliteEventStore(path)` | stdlib `sqlite3` | **Default.** WAL journal mode is enabled for the whole connection lifetime: it lets a reader proceed while the store holds a write, which matters because the discovery and processing jobs may overlap. `AUTO_INFORM_SQLITE_PATH` defaults to `<output_dir>/events.sqlite3`. A new file is created **owner-only (0600)** and a new directory 0700, matching the report writer's policy ([06 §4](06-output-html.md#4-the-trust-boundary)); SQLite's own default is 0644 modified by the umask, and the `-wal`/`-shm` siblings inherit the database's mode. An existing file keeps the mode its operator chose. |
+| `SqliteEventStore(path)` | stdlib `sqlite3` | **Default.** WAL journal mode is enabled for the whole connection lifetime: it lets a reader proceed while the store holds a write, which matters because the discovery and processing jobs may overlap. `AUTO_INFORM_SQLITE_PATH` defaults to `<output_dir>/events.sqlite3`. A new file is created **owner-only (0600)** and a new directory 0700, matching the report writer's policy ([06 §4](06-output-html.md#4-the-trust-boundary)); SQLite's own default is 0644 modified by the umask, and the `-wal`/`-shm` siblings inherit the database's mode. An existing file keeps the mode its operator chose. File modes are POSIX semantics, as for the local report writer ([06 §1](06-output-html.md#1-writers)): `O_NOFOLLOW` is applied where the platform provides it, and Windows is not a supported target for this store either. |
 | `PostgresEventStore(dsn, *, max_attempts)` | `psycopg[binary]` — extra `postgres` | Client supplies the DSN via environment. `save()` uses `ON CONFLICT (event_type, event_id) DO NOTHING`, matching the insert-only rule. `mark_failed` uses a single `UPDATE … SET attempts = attempts + 1, status = CASE WHEN attempts + 1 >= %s THEN 'FAILED' ELSE 'NEW' END` so that the increment and the retirement test cannot race within a statement. |
 
 Both are constructed explicitly; there is no hidden singleton:

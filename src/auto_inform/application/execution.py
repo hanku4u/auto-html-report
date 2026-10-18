@@ -42,7 +42,7 @@ from typing import Any, Final, Generic, TypeVar, cast
 
 from auto_inform.application.ports import Clock
 from auto_inform.domain.errors import ConfigurationError, TransientBlockError
-from auto_inform.infrastructure.settings import Settings
+from auto_inform.infrastructure.settings import MAX_BLOCK_RETRIES, Settings
 
 #: Exceptions retried by default. Everything else is permanent: retrying a 404 or a malformed payload
 #: three times is just a slower way to fail (``docs/02-block-authoring.md`` §6.3).
@@ -457,6 +457,19 @@ def _validate(tasks: Sequence[Task[Any, Any]], settings: Settings) -> None:
             raise ConfigurationError(
                 f"{task.name!r} declares max_retries={task.max_retries!r}; it must not be negative"
             )
+        if task.max_retries is not None and task.max_retries > MAX_BLOCK_RETRIES:
+            # Exponential backoff: a huge retry count overflows the hang-guard arithmetic before any
+            # work starts, which would be a crash from a configuration value.
+            raise ConfigurationError(
+                f"{task.name!r} declares max_retries={task.max_retries!r}; it must be at most "
+                f"{MAX_BLOCK_RETRIES} (exponential backoff overflows the hang-guard arithmetic)"
+            )
+
+    if settings.block_retries > MAX_BLOCK_RETRIES:
+        raise ConfigurationError(
+            f"block_retries is {settings.block_retries!r}; it must be at most {MAX_BLOCK_RETRIES} "
+            "(exponential backoff overflows the hang-guard arithmetic)"
+        )
 
     if settings.block_timeout_seconds <= 0:
         raise ConfigurationError(

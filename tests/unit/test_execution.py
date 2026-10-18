@@ -22,7 +22,7 @@ from auto_inform.application.execution import (
     execute_tasks,
 )
 from auto_inform.domain.errors import ConfigurationError
-from auto_inform.infrastructure.settings import Settings
+from auto_inform.infrastructure.settings import MAX_BLOCK_RETRIES, Settings
 from tests.support.clocks import FakeClock
 from tests.support.contexts import make_report_context
 
@@ -121,6 +121,46 @@ def test_execute_tasks_with_no_tasks_should_raise_configuration_error() -> None:
             [],
             settings=context.settings,
             clock=FakeClock(),
+            logger=context.logger,
+            run_id=context.run.run_id,
+            vocabulary=BLOCK_EXECUTION,
+        )
+
+
+def test_execute_tasks_with_an_excessive_retry_override_should_raise_configuration_error() -> None:
+    # given a task whose own retry override would overflow the backoff arithmetic
+    task: Task[object, object] = Task(
+        name="Bad", attempt=lambda _attempt: None, max_retries=MAX_BLOCK_RETRIES + 1
+    )
+    context = make_report_context()
+
+    # when the run starts
+    # then it is refused before any backoff is computed
+    with pytest.raises(ConfigurationError, match=f"at most {MAX_BLOCK_RETRIES}"):
+        execute_tasks(
+            [task],
+            settings=context.settings,
+            clock=context.clock,
+            logger=context.logger,
+            run_id=context.run.run_id,
+            vocabulary=BLOCK_EXECUTION,
+        )
+
+
+def test_execute_tasks_with_an_excessive_configured_retry_count_should_raise_configuration_error() -> (
+    None
+):
+    # given settings constructed directly with a count the loader would already have refused
+    context = make_report_context(settings=Settings(block_retries=MAX_BLOCK_RETRIES + 1))
+    task: Task[object, object] = Task(name="Ok", attempt=lambda _attempt: None)
+
+    # when the run starts
+    # then the executor defends itself too: the loader is not the only way to build Settings
+    with pytest.raises(ConfigurationError, match="block_retries"):
+        execute_tasks(
+            [task],
+            settings=context.settings,
+            clock=context.clock,
             logger=context.logger,
             run_id=context.run.run_id,
             vocabulary=BLOCK_EXECUTION,

@@ -259,3 +259,30 @@ def test_mark_failed_on_an_already_retired_event_should_raise_store_error(
     # then it is refused rather than silently ignored: the lifecycle has already left NEW
     with pytest.raises(StoreError, match="not a NEW event"):
         store.mark_failed(event, reason="three")
+
+
+def test_save_of_two_sources_claiming_one_key_in_one_batch_should_roll_the_batch_back(
+    store: EventStore,
+) -> None:
+    # given a single batch in which two feeds claim the same identity
+    batch = [make_event("a", source="feed-one"), make_event("a", source="feed-two")]
+
+    # when it is saved
+    with pytest.raises(StoreError, match="already stored by source"):
+        store.save(batch)
+
+    # then the whole batch is rolled back, including the insert that preceded the collision: a caller
+    # told the save failed must not find half of it persisted
+    assert store.pending() == []
+
+
+def test_pending_should_tie_break_on_event_id_when_the_timestamp_is_equal(
+    store: EventStore,
+) -> None:
+    # given two events discovered in the same instant, saved in reverse id order
+    store.save([make_event("b"), make_event("a")])
+
+    # when the queue is read
+    # then the documented tie-break makes the order total, so the same two rows cannot swap places
+    # between runs
+    assert [event.event_id for event in store.pending()] == ["a", "b"]

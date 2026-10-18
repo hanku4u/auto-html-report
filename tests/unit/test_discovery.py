@@ -38,6 +38,19 @@ from tests.support.contexts import make_discovery_context
 START = datetime(2026, 10, 18, 12, 0, tzinfo=UTC)
 
 
+def _event_with(**overrides: Any) -> Event:
+    """An event whose defaults are valid, with named fields overridden for a contract test."""
+    fields: dict[str, Any] = {
+        "event_type": "WAFER_FAILURE",
+        "event_id": "x",
+        "payload": {},
+        "discovered_at": datetime(2026, 10, 18, 12, 0, tzinfo=UTC),
+        "source": "src",
+    }
+    fields.update(overrides)
+    return Event(**fields)
+
+
 # --- discoverers that exercise one behaviour each ------------------------------
 
 
@@ -607,3 +620,37 @@ def test_a_discoverer_without_an_event_type_should_raise_configuration_error(
     # then it is a configuration error naming the attribute, not an AttributeError from deep inside
     with pytest.raises(ConfigurationError, match="non-empty string"):
         run_discovery([_ForgetfulDiscoverer()], store=store, context=make_discovery_context())
+
+
+@pytest.mark.parametrize(
+    "bad_event",
+    [
+        pytest.param(_event_with(source=None), id="missing-source"),
+        pytest.param(_event_with(source=""), id="empty-source"),
+        pytest.param(_event_with(event_id=None), id="missing-event-id"),
+        pytest.param(_event_with(event_id=""), id="empty-event-id"),
+        pytest.param(_event_with(discovered_at=1234), id="non-datetime-timestamp"),
+        pytest.param(_event_with(payload=None), id="non-mapping-payload"),
+    ],
+)
+def test_an_event_missing_a_required_field_should_fail_that_discoverer_alone(
+    store: SqliteEventStore, bad_event: Event
+) -> None:
+    # given a source that yields an event violating one of the schema's NOT NULL columns
+    class _BadDiscoverer(Discoverer):
+        event_type = "WAFER_FAILURE"
+
+        def discover(self, context: Any) -> Iterable[Event]:
+            yield bad_event
+
+    # when it runs beside a healthy source
+    run = run_discovery(
+        [_BadDiscoverer(), _YieldingDiscoverer("L1")],
+        store=store,
+        context=make_discovery_context(),
+    )
+
+    # then the bad source is the one that fails, with a configuration error rather than a database
+    # integrity error, and the healthy source's event is still persisted -- the failure is contained
+    assert run.outcomes[0].error_type == "ConfigurationError"
+    assert [event.event_id for event in store.pending()] == ["L1"]

@@ -224,7 +224,7 @@ payload to be picklable and drag matplotlib into subprocess lifecycle management
 | --- | --- | --- |
 | `AUTO_INFORM_MAX_WORKERS` | Ceiling on in-flight blocks per report | `8` |
 | `AUTO_INFORM_BLOCK_TIMEOUT_SECONDS` | Per-block wall-clock budget for **one attempt** | `60` |
-| `AUTO_INFORM_BLOCK_RETRIES` | Retries **after** the first attempt | `2` |
+| `AUTO_INFORM_BLOCK_RETRIES` | Retries **after** the first attempt (capped at 10; see [07 §1.1](07-configuration-and-logging.md#11-environment-variable-to-settings-attribute-map)) | `2` |
 | `AUTO_INFORM_RETRY_BASE_DELAY_SECONDS` | Backoff base: `base * 2**attempt + jitter(0..base)` | `1.0` |
 | `AUTO_INFORM_RETRYABLE_EXCEPTIONS` | Extra retryable exception class names, comma-separated | `""` |
 

@@ -29,6 +29,11 @@ StoreKind = Literal["sqlite", "postgres"]
 LogFormat = Literal["json", "console"]
 ErrorDetail = Literal["summary", "detailed"]
 
+#: Retry counts above this are refused: the backoff is exponential, so a large value overflows the
+#: hang-guard arithmetic (``application/execution.py``) before any work starts. Defaults are 2 and 3.
+MAX_BLOCK_RETRIES: Final = 10
+MAX_EVENT_ATTEMPTS: Final = 1000
+
 _REDACTED: Final = "***"
 _SECRET_HINTS: Final = ("TOKEN", "SECRET", "PASSWORD", "DSN", "KEY")
 _TRUE: Final = frozenset({"1", "true", "yes", "on"})
@@ -126,7 +131,7 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
             return default
         return parsed
 
-    def integer(name: str, default: int, *, minimum: int) -> int:
+    def integer(name: str, default: int, *, minimum: int, maximum: int | None = None) -> int:
         value = source.get(name)
         if value is None:
             return default
@@ -137,6 +142,9 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
             return default
         if parsed < minimum:
             errors.append(f"{name}={value!r} must be at least {minimum}")
+            return default
+        if maximum is not None and parsed > maximum:
+            errors.append(f"{name}={value!r} must be at most {maximum}")
             return default
         return parsed
 
@@ -193,11 +201,13 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         event_store=choice("AUTO_INFORM_EVENT_STORE", "sqlite", ("sqlite", "postgres")),  # type: ignore[arg-type]
         sqlite_path=Path(sqlite_path) if sqlite_path else None,
         postgres_dsn=optional("AUTO_INFORM_POSTGRES_DSN"),
-        event_max_attempts=integer("AUTO_INFORM_EVENT_MAX_ATTEMPTS", 3, minimum=1),
+        event_max_attempts=integer(
+            "AUTO_INFORM_EVENT_MAX_ATTEMPTS", 3, minimum=1, maximum=MAX_EVENT_ATTEMPTS
+        ),
         max_workers=integer("AUTO_INFORM_MAX_WORKERS", 8, minimum=1),
         max_concurrent_reports=integer("AUTO_INFORM_MAX_CONCURRENT_REPORTS", 1, minimum=1),
         block_timeout_seconds=number("AUTO_INFORM_BLOCK_TIMEOUT_SECONDS", 60.0, minimum=0.001),
-        block_retries=integer("AUTO_INFORM_BLOCK_RETRIES", 2, minimum=0),
+        block_retries=integer("AUTO_INFORM_BLOCK_RETRIES", 2, minimum=0, maximum=MAX_BLOCK_RETRIES),
         retry_base_delay_seconds=number("AUTO_INFORM_RETRY_BASE_DELAY_SECONDS", 1.0, minimum=0.0),
         retryable_exceptions=name_list("AUTO_INFORM_RETRYABLE_EXCEPTIONS"),
         log_level=log_level("AUTO_INFORM_LOG_LEVEL", "INFO"),

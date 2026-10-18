@@ -90,17 +90,36 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, default=str)
 
 
+def _one_line(value: object) -> str:
+    """Render one value so it cannot start a second line.
+
+    Control characters are escaped rather than stripped, so the value stays readable and reversible:
+    a newline in an upstream response body would otherwise produce a line that looks like another log
+    record, and an ANSI escape could rewrite the terminal. ``isprintable()`` is the test, which leaves
+    non-ASCII text alone. The JSON formatter does not need this -- ``json.dumps`` escapes already.
+    """
+    return "".join(
+        character if character.isprintable() else character.encode("unicode_escape").decode("ascii")
+        for character in str(value)
+    )
+
+
 class ConsoleFormatter(logging.Formatter):
-    """Readable single lines for a human at a terminal."""
+    """Readable single lines for a human at a terminal.
+
+    Every value goes through :func:`_one_line`, because the one format a human reads is also the one
+    where a forged line does the most damage. The formatted traceback is still multi-line on purpose;
+    it is emitted last, after the record, where a reader expects it.
+    """
 
     def format(self, record: logging.LogRecord) -> str:
         stamp = datetime.fromtimestamp(record.created, UTC).strftime("%H:%M:%S")
         extras = " ".join(
-            f"{key}={value}"
+            f"{key}={_one_line(value)}"
             for key, value in record.__dict__.items()
             if key not in _RESERVED and not key.startswith("_")
         )
-        line = f"{stamp} {record.levelname:<8} {record.getMessage()}"
+        line = f"{stamp} {record.levelname:<8} {_one_line(record.getMessage())}"
         if extras:
             line = f"{line} {extras}"
         if record.exc_info:

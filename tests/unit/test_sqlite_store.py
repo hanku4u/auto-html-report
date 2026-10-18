@@ -286,3 +286,22 @@ def test_a_new_store_file_should_be_owner_only(tmp_path: Path) -> None:
     # then the file is 0600, matching the policy for the reports it holds the inputs of (docs/06 §4).
     # SQLite would otherwise create it 0644 & ~umask, readable by every local account
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+def test_a_corrupt_stored_row_should_raise_store_error_naming_the_key(tmp_path: Path) -> None:
+    # given a row whose payload was damaged outside the store
+    path = tmp_path / "events.sqlite3"
+    with SqliteEventStore(path) as store:
+        store.save([make_event("a")])
+        connection = sqlite3.connect(path)
+        try:
+            connection.execute("UPDATE events SET payload = 'not json'")
+            connection.commit()
+        finally:
+            connection.close()
+
+        # when the queue is read through the port
+        # then StoreError -- documented as "unreachable or corrupt" -- names the row, rather than a raw
+        # JSONDecodeError that every caller catching the hierarchy would miss
+        with pytest.raises(StoreError, match="corrupt event row WAFER_FAILURE/a"):
+            store.pending()
