@@ -14,6 +14,7 @@ package rather than in the product because it is a double, and doubles are not s
 
 from __future__ import annotations
 
+import threading
 from datetime import UTC, datetime, timedelta
 
 #: A fixed, unremarkable wall-clock start, so a test that renders a timestamp is reproducible.
@@ -21,7 +22,14 @@ DEFAULT_START = datetime(2026, 10, 17, 9, 0, tzinfo=UTC)
 
 
 class FakeClock:
-    """A ``Clock`` that does not move unless asked."""
+    """A ``Clock`` that does not move unless asked.
+
+    **One global timeline, not per-thread time.** Concurrent work advances this single clock: four blocks
+    each advancing one second move it four seconds in total, so a test that measures elapsed time for
+    concurrent blocks can see a duration inflated by its peers. Timing tests over concurrent work should
+    therefore use generous budgets or zero simulated work. The methods are locked, so a lost update cannot
+    happen, but the timeline itself is shared by design — it models a process, and a process has one clock.
+    """
 
     def __init__(self, *, start: datetime = DEFAULT_START, monotonic_start: float = 0.0) -> None:
         if start.tzinfo is None:
@@ -29,20 +37,24 @@ class FakeClock:
         self._now = start
         self._monotonic = monotonic_start
         self._sleeps: list[float] = []
+        self._lock = threading.Lock()
 
     def now(self) -> datetime:
         """Wall-clock time, which advances only with :meth:`advance` or :meth:`sleep`."""
-        return self._now
+        with self._lock:
+            return self._now
 
     def monotonic(self) -> float:
         """Elapsed time, which advances only with :meth:`advance` or :meth:`sleep`."""
-        return self._monotonic
+        with self._lock:
+            return self._monotonic
 
     def sleep(self, seconds: float) -> None:
         """Record a requested wait and move the clock instead of waiting for it."""
         self._check(seconds)
-        self._sleeps.append(seconds)
-        self._move(seconds)
+        with self._lock:
+            self._sleeps.append(seconds)
+            self._move(seconds)
 
     def advance(self, seconds: float) -> None:
         """Move time without recording a sleep.
@@ -51,16 +63,17 @@ class FakeClock:
         call the test is pretending happened.
         """
         self._check(seconds)
-        self._move(seconds)
+        with self._lock:
+            self._move(seconds)
 
     @property
     def sleeps(self) -> tuple[float, ...]:
         """Every sleep requested so far, in the order it was requested."""
-        return tuple(self._sleeps)
+        with self._lock:
+            return tuple(self._sleeps)
 
     def _move(self, seconds: float) -> None:
-        # Both, always, in the same call: property 1 of the contract. Keeping them in one place is what
-        # stops a future edit moving one and forgetting the other.
+        # Caller holds the lock. Both readings, always, in the same call: property 1 of the contract.
         self._monotonic += seconds
         self._now += timedelta(seconds=seconds)
 

@@ -1,6 +1,6 @@
 """Concurrent collection: every block in a report, assembled into ordered rows.
 
-Implements the execution rules in ``docs/02-block-authoring.md`` §6. Two things about this module are
+Implements the execution rules in ``docs/02-block-authoring.md`` §6. Three things about this module are
 worth knowing before reading it:
 
 **Collection produces data and outcomes; rendering produces HTML.** A failed block's row carries an empty
@@ -13,15 +13,21 @@ presentation setting.
 the injected ``Clock``, which makes them fully testable against a fake. The last-resort hang guard does
 not: it waits on real time, because a deadline measured on a clock the wedged code controls is not a hang
 guard at all — a block stuck inside ``collect()`` never advances it. See ADR-0027.
+
+**One budget, both paths.** The per-attempt budget is checked whether ``collect()`` returns or raises. An
+attempt that spent its budget and then failed is a timeout, not a retryable error: retrying it would
+overrun again, and reporting the eventual success would hide that the first attempt was unusable.
 """
 
 from __future__ import annotations
 
 import random
+import threading
+import time
 from collections.abc import Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
-from typing import Any
+from typing import Any, cast
 
 from auto_inform.application.context import RenderContext, ReportContext
 from auto_inform.domain.block import Block, BlockOutcome, BlockStatus
@@ -46,6 +52,32 @@ _BACKSTOP_GRACE_SECONDS = 1.0
 _MESSAGE_LIMIT = 300
 
 
+class _Progress:
+    """How many attempts a block has started, readable by the caller while the worker runs.
+
+    The caller needs this when the hang guard fires: the worker is wedged inside ``collect()``, so only the
+    worker knows whether that was the first attempt or a retry. ``BlockOutcome.attempts`` is documented as
+    the attempts *made*, so reporting the allowance instead would put a fabricated number in a report —
+    and on the path where diagnosis matters most.
+    """
+
+    def __init__(self) -> None:
+        self._attempts = 0
+        self._lock = threading.Lock()
+
+    def start_attempt(self) -> int:
+        """Record that an attempt is beginning, and return its number."""
+        with self._lock:
+            self._attempts += 1
+            return self._attempts
+
+    @property
+    def started(self) -> int:
+        """Attempts begun so far. Never zero once a worker has been submitted."""
+        with self._lock:
+            return max(1, self._attempts)
+
+
 def collect_blocks(
     blocks: Sequence[Block[Any]],
     *,
@@ -61,50 +93,73 @@ def collect_blocks(
     ``report_title`` is offered to blocks through their ``RenderContext``. It defaults to empty because
     collection is also usable outside a report definition, but a report should always pass it.
     """
-    _validate(blocks)
+    _validate(blocks, context.settings)
 
-    render_context = RenderContext(
-        generated_at=context.clock.now(),
-        report_title=report_title,
-    )
+    render_context = RenderContext(generated_at=context.clock.now(), report_title=report_title)
     workers = max(1, min(context.settings.max_workers, len(blocks)))
     rows: list[ReportRow | None] = [None] * len(blocks)
+    progress = [_Progress() for _ in blocks]
 
     # Deliberately not a `with` block: on exit that waits for every worker, including one that has been
     # abandoned inside a wedged collect(). Abandoning means *we* stop waiting; the thread is not killable
     # and will finish when its own I/O does (ADR-0005).
     pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="auto-inform")
     try:
-        futures = [pool.submit(_collect_one, block, context, render_context) for block in blocks]
-        for index, (block, future) in enumerate(zip(blocks, futures, strict=True)):
-            rows[index] = _await_row(future, block, context)
+        futures: list[Future[ReportRow]] = []
+        submitted_at: list[float] = []
+        for block, tracker in zip(blocks, progress, strict=True):
+            futures.append(pool.submit(_collect_one, block, context, render_context, tracker))
+            # Real time, recorded per submission: the hang guard must be a deadline for the *run*, anchored
+            # to when the block started, not a fresh wait re-armed for each future in turn. Otherwise N
+            # wedged blocks cost N full guards, and a ten-block upstream outage takes half an hour to
+            # produce ten timeout rows.
+            submitted_at.append(time.monotonic())
+
+        for index in range(len(blocks)):
+            rows[index] = _await_row(
+                futures[index], blocks[index], context, progress[index], submitted_at[index]
+            )
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
 
-    return tuple(row for row in rows if row is not None)
+    if any(row is None for row in rows):
+        # Every index is assigned by the loop above, so this is a bug in this module. Filtering the gap
+        # out would silently shorten the tuple and break the one-row-per-block invariant.
+        raise AssertionError("internal error: a block produced no row")
+
+    return cast("tuple[ReportRow, ...]", tuple(rows))
 
 
-def _await_row(future: Future[ReportRow], block: Block[Any], context: ReportContext) -> ReportRow:
-    """Wait for one block, with a real-time hang guard as the last resort."""
-    budget = _hang_guard_seconds(block, context)
+def _await_row(
+    future: Future[ReportRow],
+    block: Block[Any],
+    context: ReportContext,
+    tracker: _Progress,
+    submitted_at: float,
+) -> ReportRow:
+    """Wait for one block, with a deadline anchored to its submission."""
+    guard = _hang_guard_seconds(block, context)
+    remaining = max(0.0, guard - (time.monotonic() - submitted_at))
+
     try:
-        return future.result(timeout=budget)
+        return future.result(timeout=remaining)
     except FutureTimeoutError:
         context.logger.warning(
             "block.abandoned",
             extra={
                 "run_id": context.run.run_id,
                 "block": block.name,
-                "overrun_s": budget,
+                "overrun_s": guard,
+                "attempts": tracker.started,
             },
         )
         return _row(
             block,
             BlockStatus.TIMED_OUT,
-            attempts=_attempts_allowed(block, context.settings),
-            duration_seconds=budget,
+            attempts=tracker.started,
+            duration_seconds=guard,
             error_type="TimeoutError",
-            error_message=f"block did not finish within its {budget:.1f} s total budget",
+            error_message=f"block did not finish within its {guard:.1f} s total budget",
         )
     except Exception as exc:
         context.logger.exception(
@@ -118,23 +173,31 @@ def _await_row(future: Future[ReportRow], block: Block[Any], context: ReportCont
         return _row(
             block,
             BlockStatus.FAILED,
-            attempts=1,
-            duration_seconds=0.0,
+            attempts=tracker.started,
+            duration_seconds=guard - remaining,
             error_type=type(exc).__name__,
             error_message=_summarise(exc),
         )
 
 
 def _collect_one(
-    block: Block[Any], context: ReportContext, render_context: RenderContext
+    block: Block[Any],
+    context: ReportContext,
+    render_context: RenderContext,
+    tracker: _Progress,
 ) -> ReportRow:
-    """One block: attempts, budget checks, render. Never raises for a block failure."""
+    """One block: attempts, budget checks, render. Never raises for a block failure.
+
+    ``Exception`` rather than ``BaseException``: process-control exceptions (``SystemExit``,
+    ``KeyboardInterrupt``) are not block failures and must unwind, not become a red cell.
+    """
     settings = context.settings
     attempts_allowed = _attempts_allowed(block, settings)
     attempt_budget = _attempt_budget(block, settings)
     started = context.clock.monotonic()
 
     for attempt in range(1, attempts_allowed + 1):
+        tracker.start_attempt()
         context.logger.info(
             "block.start",
             extra={"run_id": context.run.run_id, "block": block.name, "attempt": attempt},
@@ -143,7 +206,14 @@ def _collect_one(
 
         try:
             data = block.collect(context)
-        except BaseException as exc:
+        except Exception as exc:
+            # The budget is checked here too, not only on the success path: an attempt that spent its
+            # budget and then failed must not be retried, or a fast retry would report the block healthy
+            # despite its first attempt having been unusable (02 §6.2).
+            consumed = context.clock.monotonic() - attempt_started
+            if consumed > attempt_budget:
+                return _timed_out_row(block, attempt, attempt_budget, consumed, context)
+
             if _is_retryable(exc, settings) and attempt < attempts_allowed:
                 delay = _backoff_seconds(attempt, settings)
                 context.logger.warning(
@@ -180,30 +250,11 @@ def _collect_one(
 
         consumed = context.clock.monotonic() - attempt_started
         if consumed > attempt_budget:
-            # The attempt came back, but only after its budget. The work is unusable under the contract
-            # and another attempt would overrun again, so no retry: report a timeout.
-            context.logger.warning(
-                "block.failed",
-                extra={
-                    "run_id": context.run.run_id,
-                    "block": block.name,
-                    "attempts": attempt,
-                    "error_type": "TimeoutError",
-                    "error_message": f"collect() exceeded its {attempt_budget:.1f} s budget",
-                },
-            )
-            return _row(
-                block,
-                BlockStatus.TIMED_OUT,
-                attempts=attempt,
-                duration_seconds=consumed,
-                error_type="TimeoutError",
-                error_message=f"collect() exceeded its {attempt_budget:.1f} s budget",
-            )
+            return _timed_out_row(block, attempt, attempt_budget, consumed, context)
 
         try:
             html = block.render(data, render_context)
-        except BaseException as exc:
+        except Exception as exc:
             context.logger.exception(
                 "block.failed",
                 extra={
@@ -245,6 +296,35 @@ def _collect_one(
     raise AssertionError(f"block {block.name!r} exhausted its attempts without an outcome")
 
 
+def _timed_out_row(
+    block: Block[Any],
+    attempt: int,
+    attempt_budget: float,
+    consumed: float,
+    context: ReportContext,
+) -> ReportRow:
+    """The one timeout row, used from both the success and the failure path so they cannot drift."""
+    message = f"collect() exceeded its {attempt_budget:.1f} s budget"
+    context.logger.warning(
+        "block.failed",
+        extra={
+            "run_id": context.run.run_id,
+            "block": block.name,
+            "attempts": attempt,
+            "error_type": "TimeoutError",
+            "error_message": message,
+        },
+    )
+    return _row(
+        block,
+        BlockStatus.TIMED_OUT,
+        attempts=attempt,
+        duration_seconds=consumed,
+        error_type="TimeoutError",
+        error_message=message,
+    )
+
+
 def _row(
     block: Block[Any],
     status: BlockStatus,
@@ -269,8 +349,8 @@ def _row(
     )
 
 
-def _validate(blocks: Sequence[Block[Any]]) -> None:
-    """Reject the block sets that cannot produce a sensible report, the way a definition does."""
+def _validate(blocks: Sequence[Block[Any]], settings: Settings) -> None:
+    """Reject the block sets and overrides that cannot produce a sensible report."""
     if not blocks:
         raise ConfigurationError("a report must contain at least one block")
 
@@ -280,10 +360,28 @@ def _validate(blocks: Sequence[Block[Any]]) -> None:
         if block.name in seen:
             duplicates.add(block.name)
         seen.add(block.name)
+
     if duplicates:
         raise ConfigurationError(
             f"duplicate block names: {sorted(duplicates)}. Names fill the Item column, so a reader "
             "cannot tell duplicate rows apart; pass name=... to distinguish repeated blocks."
+        )
+
+    for block in blocks:
+        if block.timeout_seconds is not None and block.timeout_seconds <= 0:
+            # A negative budget makes every attempt instantly TIMED_OUT, which looks like a broken block
+            # rather than a broken declaration. Zero is rejected too: "no budget" is not a thing.
+            raise ConfigurationError(
+                f"{block.name!r} declares timeout_seconds={block.timeout_seconds!r}; it must be positive"
+            )
+        if block.max_retries is not None and block.max_retries < 0:
+            raise ConfigurationError(
+                f"{block.name!r} declares max_retries={block.max_retries!r}; it must not be negative"
+            )
+
+    if settings.block_timeout_seconds <= 0:
+        raise ConfigurationError(
+            f"block_timeout_seconds is {settings.block_timeout_seconds!r}; it must be positive"
         )
 
 
@@ -330,5 +428,6 @@ def _is_retryable(exc: BaseException, settings: Settings) -> bool:
 
 def _summarise(exc: BaseException) -> str:
     """The first line of the message, capped. A traceback belongs in the log, never in a report."""
-    text = str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
-    return text[:_MESSAGE_LIMIT]
+    text = str(exc).strip()
+    first_line = text.splitlines()[0] if text else type(exc).__name__
+    return first_line[:_MESSAGE_LIMIT]

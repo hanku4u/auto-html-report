@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from collections.abc import Sequence
 from typing import cast
 
@@ -334,28 +335,36 @@ def test_collect_blocks_should_take_the_budget_from_settings_when_the_block_decl
     assert rows[0].outcome.status is BlockStatus.TIMED_OUT
 
 
-def test_collect_blocks_should_abandon_a_block_that_never_returns(
+def test_collect_blocks_should_abandon_stuck_blocks_within_one_guard(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    # given a block wedged inside collect(), and a budget small enough to test cheaply
+    # given two blocks wedged inside collect(), with retries configured so the allowance (three) differs
+    # from the attempts actually made (one), and a guard small enough to test cheaply
     release = threading.Event()
-    settings = Settings(block_timeout_seconds=0.05, block_retries=0)
+    settings = Settings(block_timeout_seconds=0.05, block_retries=2, retry_base_delay_seconds=0.01)
     caplog.set_level(logging.WARNING)
+    started = time.monotonic()
 
     try:
-        # when it is collected
+        # when they are collected
         rows = _collect(
-            [_StuckBlock(name="Stuck", release=release), _WorkBlock(name="Fine")], settings=settings
+            [_StuckBlock(name="A", release=release), _StuckBlock(name="B", release=release)],
+            settings=settings,
         )
     finally:
-        release.set()  # let the abandoned thread finish so it does not outlive the suite
+        release.set()  # let the abandoned threads finish so they do not outlive the suite
+    elapsed = time.monotonic() - started
 
-    # then it is TIMED_OUT and the run continued. This is the one real-time test: a block that never
-    # touches the clock cannot be caught by a clock-driven deadline (ADR-0027)
-    assert rows[0].outcome.status is BlockStatus.TIMED_OUT
-    assert rows[0].outcome.error_type == "TimeoutError"
-    assert rows[1].outcome.status is BlockStatus.OK
-    assert any(record.message == "block.abandoned" for record in caplog.records)
+    # then both are TIMED_OUT, each reporting the attempts it actually made rather than the allowance --
+    # a fabricated count is exactly what a report must not contain
+    assert [row.outcome.status for row in rows] == [BlockStatus.TIMED_OUT, BlockStatus.TIMED_OUT]
+    assert [row.outcome.attempts for row in rows] == [1, 1]
+
+    # and the whole run is bounded by ONE guard (about 1.2 s here), not one guard per stuck block. Re-armed
+    # per future, two wedged blocks would take twice as long, and a ten-block outage half an hour
+    assert 1.0 <= elapsed < 2.0, f"took {elapsed:.2f}s: the guard re-armed per future"
+
+    assert sum(1 for record in caplog.records if record.message == "block.abandoned") == 2
 
 
 def test_the_hang_guard_should_allow_every_attempt_plus_the_worst_case_backoff() -> None:
@@ -426,3 +435,109 @@ def test_sixteen_blocks_half_rendering_figures_should_keep_their_order() -> None
     # wrong images (ADR-0025)
     assert [row.item for row in rows] == [block.name for block in blocks]
     assert all(row.outcome.status is BlockStatus.OK for row in rows)
+
+
+# --- the budget applies on the failure path too (review item 1) ---------------
+
+
+class _OverrunThenFailBlock(Block[str]):
+    """Burns five times its budget and *then* raises a retryable error. The retry is fast."""
+
+    timeout_seconds = 1.0
+    max_retries = 1
+
+    def __init__(self, *, name: str) -> None:
+        super().__init__(name=name)
+        self._calls = 0
+
+    def collect(self, context: ReportContext) -> str:
+        self._calls += 1
+        if self._calls == 1:
+            cast(FakeClock, context.clock).advance(5.0)
+            raise TransientBlockError("slow and broken")
+        return "fast"
+
+    def render(self, data: str, context: RenderContext) -> str:
+        return f"<p>{data}</p>"
+
+
+def test_an_attempt_that_overruns_then_fails_should_be_timed_out_not_retried() -> None:
+    # given a block whose first attempt spends five seconds against a one-second budget and then raises,
+    # and whose second attempt would succeed instantly
+    clock = FakeClock()
+
+    # when it is collected
+    rows = _collect([_OverrunThenFailBlock(name="Slow"), _WorkBlock(name="Fine")], clock=clock)
+
+    # then the overrun decides the outcome: TIMED_OUT, one attempt, no backoff. Checking the budget only
+    # on the success path let a fast retry report a block as healthy whose first attempt was unusable
+    assert rows[0].outcome.status is BlockStatus.TIMED_OUT
+    assert rows[0].outcome.attempts == 1
+    assert clock.sleeps == ()
+    assert rows[1].outcome.status is BlockStatus.OK
+
+
+# --- process-control exceptions are not block failures (review item 4) --------
+
+
+class _ExitBlock(Block[str]):
+    def collect(self, context: ReportContext) -> str:
+        raise SystemExit(3)
+
+    def render(self, data: str, context: RenderContext) -> str:
+        return ""
+
+
+def test_collect_blocks_should_let_a_process_control_exception_unwind() -> None:
+    # given a block that tries to exit the process
+    # when it is collected
+    # then SystemExit unwinds rather than becoming a red cell: a block that wants to abort the run cannot
+    # be allowed to, and the reason must not masquerade as ordinary data
+    with pytest.raises(SystemExit):
+        _collect([_ExitBlock(name="Exit")])
+
+
+# --- declaration validation (review item 8) -----------------------------------
+
+
+def test_collect_blocks_should_reject_a_non_positive_timeout_override() -> None:
+    # given a block declaring a budget that makes every attempt instantly expired
+    class _ZeroBudget(Block[str]):
+        timeout_seconds = 0.0
+
+        def collect(self, context: ReportContext) -> str:
+            return "x"
+
+        def render(self, data: str, context: RenderContext) -> str:
+            return ""
+
+    # when it is collected
+    # then the declaration is refused, rather than every attempt silently timing out and looking like a
+    # broken block
+    with pytest.raises(ConfigurationError, match="must be positive"):
+        _collect([_ZeroBudget(name="Zero")])
+
+
+def test_collect_blocks_should_reject_a_negative_retry_override() -> None:
+    # given a nonsensical retry count
+    class _NegativeRetries(Block[str]):
+        max_retries = -1
+
+        def collect(self, context: ReportContext) -> str:
+            return "x"
+
+        def render(self, data: str, context: RenderContext) -> str:
+            return ""
+
+    # when it is collected
+    # then it is refused
+    with pytest.raises(ConfigurationError, match="must not be negative"):
+        _collect([_NegativeRetries(name="Negative")])
+
+
+def test_collect_blocks_should_reject_a_non_positive_global_budget() -> None:
+    # given a settings object whose global budget would expire every attempt immediately
+    # when blocks are collected
+    # then it is refused at validation rather than producing a report of timeouts
+    with pytest.raises(ConfigurationError, match="must be positive"):
+        _collect([_WorkBlock(name="Row")], settings=Settings(block_timeout_seconds=0.0))

@@ -40,6 +40,12 @@ specified here rather than assumed wherever it is first used:
 Two smaller guards come with it: a negative interval raises rather than rewinding time, and a naive
 `start` raises rather than making every rendered timestamp wrong by the host's offset.
 
+**One global timeline, not per-thread time.** Concurrent work advances a *single* clock: four blocks each
+advancing a second move it four seconds in total, so a test measuring elapsed time for concurrent blocks
+can see a duration inflated by its peers. Timing tests over concurrent work should use generous budgets or
+zero simulated work. The readings are locked against lost updates, but the timeline itself is shared by
+design — it models a process, and a process has one clock.
+
 ## 2. Test rules
 
 These are hard requirements, not preferences. A test that breaks them is a defect. The first five are about

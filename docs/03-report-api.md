@@ -47,7 +47,7 @@ class BlockOutcome:
 @dataclass(frozen=True, slots=True)
 class ReportRow:
     item: str                          # Item column text (the block's name)
-    html: str                          # inner HTML of the Data cell
+    html: str                          # inner HTML of the Data cell; empty when the block failed
     outcome: BlockOutcome
 ```
 
@@ -55,6 +55,10 @@ class ReportRow:
 > renderer emits an empty `<td class="ai-cell--check">` for every row, and a future version may make
 > it interactive. A field that can only ever hold `""` is bloat, so it is not modelled. See
 > ADR-0018.
+>
+> **`html` is empty for a failed row.** Collection records the outcome and stops; the renderer builds
+> the error cell from that outcome, because the cell is markup and the detail level is presentation
+> ([06 §6](06-output-html.md#6-row-check-and-error-markup)).
 
 ```python
 @dataclass(frozen=True, slots=True)

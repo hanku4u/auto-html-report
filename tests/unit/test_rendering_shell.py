@@ -14,10 +14,9 @@ from importlib.resources import files
 import pytest
 
 from auto_inform.domain.block import BlockStatus
-from auto_inform.rendering.cells import error_cell_html
 from auto_inform.rendering.escaping import html_table
 from auto_inform.rendering.shell import render_report
-from tests.support.builders import make_outcome, make_report, make_row
+from tests.support.builders import make_report, make_row
 from tests.support.html_audit import strip_css_comments
 
 
@@ -83,21 +82,16 @@ def test_render_report_should_render_one_row_per_report_row_in_definition_order(
 
 def test_render_report_should_mark_error_rows_and_leave_healthy_ones_unmarked() -> None:
     # given one healthy row, one failed row and one timed-out row
-    failed = make_row(
-        "Failed",
-        error_cell_html(make_outcome("Failed", BlockStatus.FAILED, error_type="HTTPError")),
-    )
-    timed_out = make_row(
-        "Slow",
-        error_cell_html(make_outcome("Slow", BlockStatus.TIMED_OUT, error_type="TimeoutError")),
-        status=BlockStatus.TIMED_OUT,
-    )
+    failed = make_row("Failed", html="", status=BlockStatus.FAILED, error_type="HTTPError")
+    timed_out = make_row("Slow", html="", status=BlockStatus.TIMED_OUT, error_type="TimeoutError")
     document = render_report(make_report(make_row("Fine"), failed, timed_out))
 
     # when it is rendered
-    # then exactly the two bad rows carry the error class, and their cells carry the error markup
-    assert document.count("ai-cell--error") == 2
-    assert 'class="ai-cell ai-cell--data"' in document
+    # then exactly the two bad rows carry the error class, and their cells carry the error markup.
+    # Asserted on the full td markup rather than the bare class name: the name also appears in the
+    # inlined stylesheet, so counting it would pass on the CSS rule alone
+    assert document.count('<td class="ai-cell ai-cell--data ai-cell--error">') == 2
+    assert document.count('<td class="ai-cell ai-cell--data">') == 1
     assert document.count('class="ai-error"') == 2
 
 

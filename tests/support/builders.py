@@ -61,7 +61,12 @@ def make_row(
     status: BlockStatus = BlockStatus.OK,
     **outcome_fields: object,
 ) -> ReportRow:
-    """A :class:`ReportRow` whose Item text is also its outcome's block name."""
+    """A :class:`ReportRow` whose Item text is also its outcome's block name.
+
+    ``html`` is the block's own markup and is ignored for a failed row: the renderer builds the error
+    cell from the outcome, so a fixture that pre-builds one would be describing a pipeline that no
+    longer exists.
+    """
     return ReportRow(
         item=item,
         html=html,

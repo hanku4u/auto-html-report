@@ -128,6 +128,11 @@ test costs real milliseconds. And **`collect_blocks` gained a `report_title`** p
 a correct file end to end, and `collect_blocks` / `render_report` are usable independently, as
 [03 §2](03-report-api.md#2-the-three-public-entry-points) specifies.
 
+**Note for this stage:** `Settings.error_detail` must be passed through to
+`render_report(..., error_detail=...)` here. It is wired but has no supplier yet, so
+`AUTO_INFORM_ERROR_DETAIL` is silently dead until this stage connects it — and a test should prove the
+setting reaches the rendered cell, not merely that the parameter exists.
+
 **Review boundary:** at this point the library is genuinely usable for someone willing to pass
 explicit blocks. Everything after this stage is the scheduled-job story.
 
