@@ -308,6 +308,10 @@ rendered by the framework and never by a block.
   first line is blank shows the next line that has content rather than an empty span.
 - Error cells are distinguishable without colour alone (`⚠` glyph plus class), for accessibility and
   for black-and-white printing.
+- The cell is built **by the renderer, from the block's outcome**, not during collection: collection
+  records what happened and leaves the row's `html` empty, and `render_report(..., error_detail=...)`
+  turns that into markup. The cell is presentation, and `application/` may not import `rendering/`
+  ([01 §4](01-overview.md#4-architectural-overview) rule 2).
 - `role="alert"` on the error `<div>` is **deliberate, and the one accessibility choice here worth
   revisiting with feedback.** `alert` is an ARIA live region, whose purpose is content that changes
   after load, whereas this document is static — and some screen readers announce such a region on

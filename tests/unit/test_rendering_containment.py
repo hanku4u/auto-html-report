@@ -20,10 +20,9 @@ from __future__ import annotations
 import pytest
 
 from auto_inform.domain.block import BlockStatus
-from auto_inform.rendering.cells import error_cell_html
 from auto_inform.rendering.escaping import html_table
 from auto_inform.rendering.shell import render_report
-from tests.support.builders import make_outcome, make_report, make_row
+from tests.support.builders import make_report, make_row
 from tests.support.html_audit import audit
 
 
@@ -38,15 +37,10 @@ def _representative_report(*, with_anchor: bool) -> str:
             make_row("Ticket", link),
             make_row(
                 "Broken",
-                error_cell_html(
-                    make_outcome(
-                        "Broken",
-                        BlockStatus.FAILED,
-                        error_type="HTTPError",
-                        error_message="upstream said <no>",
-                    )
-                ),
+                html="",
                 status=BlockStatus.FAILED,
+                error_type="HTTPError",
+                error_message="upstream said <no>",
             ),
             title="LINE 4 — Daily Health",
             subtitle="Failed wafer — EVT-88213",

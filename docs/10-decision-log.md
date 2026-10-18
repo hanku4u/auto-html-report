@@ -1,6 +1,6 @@
 ---
 status: proposed
-description: ADR-0001 to ADR-0026 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
+description: ADR-0001 to ADR-0027 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
 replaces: docs/SPEC.md §11, §12
 ---
 
@@ -348,6 +348,33 @@ Each fix is guarded against a vacuous pass by negative controls, because an audi
 objecting is worse than no audit. Rejected: the import-hook test originally planned, for the
 composition-root reason above; and an off-the-shelf import linter, which would have added a pinned
 dependency to express five rules that fit on a page.
+
+---
+
+### ADR-0027 — The last-resort hang guard waits on real time
+
+**Context:** ADR-0022 made `Clock` the framework's single seam for time and said `sleep()` is the only way
+the framework is permitted to wait. That was taken at face value when stage 5 began: the collector was
+going to poll its futures, waiting through `clock.sleep()` and measuring the deadline with
+`clock.monotonic()`, so timeout tests would be entirely fake-driven. A probe killed the idea in one run.
+With a 61 s budget, a caller polling every 10 ms advanced a fake clock by **622 s in the 50 ms** a
+real-but-healthy worker took, and abandoned a block that was working perfectly. The mechanism does not
+merely make tests awkward — it makes the guard wrong, because the caller's own polling races its own
+deadline, and any block doing real work (a chart, a store round-trip) advances the fake clock not at all.
+
+**Decision:** two kinds of time, deliberately. The per-attempt budget and retry backoff run on the
+injected `Clock` — fake-driven, hermetic, assertable as data. The outer hang guard passes a **real-time**
+timeout to `future.result()`, computed as every attempt's budget plus the worst-case backoff plus a grace
+period.
+
+**Consequences:** one test costs real milliseconds (a stuck block, released at teardown after ~1 s),
+and every other timing test stays fake-driven. The stronger argument is not convenience, though: **a
+deadline measured on a clock the wedged code controls is not a hang guard.** A block stuck inside
+`collect()` never calls `sleep()` and never advances the clock, so a clock-driven deadline would never
+fire — the guard would be disabled precisely when it is needed, and it would be disabled *by the code it
+is guarding*. Real time is the only input the wedged code cannot influence. Rejected: polling (broken as
+shown); no guard at all, which trades a slow test for the possibility of a hung CI job; and a separate
+second clock for the guard, which is the same thing with more machinery.
 
 ---
 
