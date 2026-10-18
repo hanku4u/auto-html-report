@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: active
 description: The staged build order for v1, with a review boundary and a definition of done for each stage.
 replaces: docs/SPEC.md §14
 ---
@@ -425,9 +425,10 @@ import test. The two stage-8 deferrals assigned to later stages are also settled
 (the runner abandons a wedged worker rather than reaping it, so a long-lived loop would accumulate
 orphaned threads), and [05 §1](05-discovery-and-processing.md#1-discovery) states that discoverer
 **exception text is logged unredacted** and must not contain credentials. What remains is not
-implementation: the documents are still `proposed` with seven open questions for the product owner, listed
-in [README.md](README.md#open-questions-index), and the uv binary version is not pinned beyond the
-`uv_build` bound in `pyproject.toml`.
+implementation: the document set was ratified on the same day and all eleven documents moved to `active`;
+the seven open questions are accepted deferrals with named v1 defaults, listed in
+[README.md](README.md#open-questions-index). The uv binary version is still not pinned beyond the
+`uv_build` bound in `pyproject.toml`, and no release tag exists yet.
 
 ## Sequencing notes
 

@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: active
 description: Output writers and file naming, the HTML document contract, the escaping trust boundary, and figure embedding.
 replaces: docs/SPEC.md §4.10, §6
 ---
@@ -399,3 +399,6 @@ filename helper in stage 6. Stage 3 comes before any block is written, because t
 | --- | --- | --- |
 | 1 | Can a report ever be too large for a single file to be sensible (base64 figures are ~33% larger than the raw PNG)? | Assume not in v1. If a real report exceeds a few MB, the answer is fewer or lower-DPI figures, not a new output format. |
 | 2 | S3 object lifecycle, signed URLs, or public-read for browser viewing? | None automated. Consumers generate presigned URLs out of band. Bucket policy is the right place for lifecycle and access rules, not this library — and never public-read, since reports contain yield and maintenance data. |
+
+**Status:** accepted and deferred for v1. The default above is what the code implements; revisit
+in v0.2 (the conventions require an `active` document to name its default, not to have none).

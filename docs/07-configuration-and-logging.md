@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: active
 description: Environment variables and their Settings attributes, the context factories, the HTTP stub, and the structured logging contract.
 replaces: docs/SPEC.md §7.1, §7.2, §7.3
 ---
@@ -212,3 +212,6 @@ It is not the CI default because nobody wants to parse a coloured traceback out 
 | # | Question | v1 default |
 | --- | --- | --- |
 | 1 | Should S3 server-side encryption default to on rather than opt-in, given that reports can contain yield and maintenance data? | Keep opt-in in v1 (`AUTO_INFORM_OUTPUT_S3_SSE` unset means no SSE header), but flag it for the security review before the first production bucket is created. The bucket policy is usually the right place for this, not the client. |
+
+**Status:** accepted and deferred for v1. The default above is what the code implements; revisit
+in v0.2 (the conventions require an `active` document to name its default, not to have none).

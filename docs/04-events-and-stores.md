@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: active
 description: The Event value object, the EventStore port, the shared schema, lifecycle and retirement rules, and the SQLite and PostgreSQL implementations.
 replaces: docs/SPEC.md §4.7
 ---
@@ -218,3 +218,6 @@ hand.
 | # | Question | v1 default |
 | --- | --- | --- |
 | 1 | Is a single shared events table sufficient for all report families, or do some families need isolation (separate store/database, separate retention)? | Single shared table. Isolation can be achieved today by pointing a job at a different store entirely, since the store is injected. |
+
+**Status:** accepted and deferred for v1. The default above is what the code implements; revisit
+in v0.2 (the conventions require an `active` document to name its default, not to have none).
