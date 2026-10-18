@@ -11,6 +11,7 @@ replaces: docs/SPEC.md §9, §13
 | Area | Approach |
 | --- | --- |
 | Domain objects | Plain unit tests: duplicate block names rejected, empty report rejected, frozen semantics hold, `all_succeeded` and `failed_rows` agree with row statuses. |
+| Registry | `tests/unit/test_registry.py`. Assert a duplicate `display_name` is refused, re-registering the same class is a no-op, the built-in scan is idempotent, an unknown key reports what *is* registered, and `available_blocks()` hands out a read-only view. The registries are process-global by design, so the module snapshots and restores them around every test: otherwise a temporary block leaks into every later test in the same process. |
 | `collect_blocks` | Fake clock and fake callables. Assert: ordering preserved when the first block is slowest; one failure does not prevent others running; retry count and backoff respected; timeout yields `TIMED_OUT` without aborting the run. |
 | HTTP error mapping | The normative table in [02 §5.1](02-block-authoring.md#51-normative-error-mapping) is tested status by status against the client: a 503 raises a retryable error, a 404 does not, a 429 is retried, a malformed body is permanent. |
 | Runners | `FakeEventStore` (in-memory dict, same semantics as the SQL schema). Assert re-discovery does not reset `PROCESSED`; a failed write leaves the event `NEW`; a missing factory skips rather than consumes; report concurrency above 1 never writes to the store off the main thread. |
@@ -54,7 +55,12 @@ audit that has quietly stopped objecting looks exactly like a suite that is pass
 3. **No live external services.** PostgreSQL is the one exception, and it self-skips without
    `AUTO_INFORM_TEST_POSTGRES_DSN`.
 4. **No dependence on test order.** In particular, registry tests must not depend on whether
-   `import_builtin_blocks()` has already run in the same process.
+   `import_builtin_blocks()` has already run in the same process. A sharper form of the same rule, learned
+   the hard way: **a test that snapshots process-global state must snapshot it in its fully-populated
+   form**, because restoring a wiped table and a cleared "already scanned" flag does not repopulate
+   anything — the modules are in `sys.modules` by then, so `import_module` returns them from cache and
+   their registration side effects never run again. The registry test module did exactly this and failed
+   three tests when run alone while the full suite stayed green, which is what this rule predicts.
 5. **Deterministic output.** `run_id` and timestamps are injected in tests, so golden files can be
    compared byte for byte.
 6. **A test for something that depends on state beyond its arguments needs a competing object alive.**

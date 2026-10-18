@@ -199,6 +199,10 @@ The naive implementation is wrong, so the rule is explicit:
 - Both layers of enforcement are driven by the injected `Clock`: budgets are measured with
   `monotonic()` and every wait goes through `sleep()`. That is what allows a fake clock to produce a
   deterministic `TIMED_OUT` with no real waiting — see [03 §5](03-report-api.md#5-the-injected-contexts).
+- **A block's HTTP timeout must not exceed its own budget.** Handing the transport the global default
+  while declaring a shorter `timeout_seconds` reaches the same place as passing no timeout at all: the
+  framework stops waiting at the budget while the call runs on. Pass the block's *effective* budget — its
+  own override, else the setting: `timeout=self.timeout_seconds or context.settings.block_timeout_seconds`.
 
 > **Gotcha — Python cannot kill a thread.** A block that overruns is *abandoned*: the future is
 > marked failed, the run continues, and the orphaned thread keeps running until its own I/O call
@@ -280,7 +284,8 @@ class MaintenanceHistoryBlock(Block[list[MaintenanceRecord]]):
         payload = context.http.get_json(
             f"/maintenance/{self._tool_id}",
             params={"days": self._days},
-            timeout=context.settings.block_timeout_seconds,
+            # the block's own budget, not the global default: see §6.2
+            timeout=self.timeout_seconds or context.settings.block_timeout_seconds,
         )
         if payload.get("status") == "degraded":
             # The transport succeeded; the service is degraded. Retryable by our own judgement.

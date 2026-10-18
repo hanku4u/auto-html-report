@@ -18,30 +18,18 @@ from pathlib import Path
 
 import pytest
 
+from tests.support.markdown import lines_outside_fences
+
 DOCS = Path(__file__).resolve().parents[2] / "docs"
 
 _LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 _HEADING = re.compile(r"^#{1,6}\s+(.*?)\s*$")
-_FENCE = re.compile(r"^\s*```")
-
-
-def _lines_outside_fences(path: Path) -> list[str]:
-    """Every line of a document that is not inside a fenced code block."""
-    kept: list[str] = []
-    in_fence = False
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if _FENCE.match(line):
-            in_fence = not in_fence
-            continue
-        if not in_fence:
-            kept.append(line)
-    return kept
 
 
 def _headings(path: Path) -> list[str]:
     """Every heading in a document, in order, excluding anything inside a fenced code block."""
     headings: list[str] = []
-    for line in _lines_outside_fences(path):
+    for line in lines_outside_fences(path):
         match = _HEADING.match(line)
         if match:
             headings.append(match.group(1))
@@ -85,7 +73,7 @@ def broken_links(docs: Path) -> list[str]:
     problems: list[str] = []
 
     for path in sorted(docs.glob("*.md")):
-        for target in _LINK.findall("\n".join(_lines_outside_fences(path))):
+        for target in _LINK.findall("\n".join(lines_outside_fences(path))):
             if target.startswith(("http://", "https://", "mailto:")):
                 continue
 

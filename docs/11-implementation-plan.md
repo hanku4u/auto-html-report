@@ -74,7 +74,27 @@ asserts each thread embeds its *own* figure rather than merely that eight payloa
 `blocks/wafer_map.py` written against the stub HTTP client.
 
 **Done when:** the registry rejects a duplicate `display_name`, the scan is idempotent, and both
-blocks render correctly from canned fixtures.
+blocks render correctly from canned fixtures. **Completed 2026-10-17**
+
+**Post-review corrections (2026-10-17):** a review of this stage found six things, and the substantive
+ones are fixed here. The registry test module was **order-dependent**: its isolation fixture restored the
+tables but not in their populated form, so the file failed three tests when run alone while the whole
+suite passed — precisely the failure hermeticity rule 4 predicts, and invisible from inside the suite.
+`MaintenanceHistoryBlock` declared a 30 s budget and then handed the transport the 60 s global default,
+which reaches the same place as passing no timeout at all — the anti-pattern [02 §2](02-block-authoring.md#2-collect--the-io-phase)
+warns about, with a documentation half that is fixed too. **Root-level modules were outside the layering
+audit entirely**, so `registry.py` could have acquired an adapter undisturbed; they have a rule now. A
+comment claiming a bare `import auto_inform` was flagged in every rule style was false under the denylist
+rules — it is true now. And the registry's scan and tables are locked, so its thread-safety is a property
+rather than an assumption. `numpy` is now a declared
+direct dependency rather than a transitive one, because the wafer-map block imports it
+([08 §2](08-packaging.md#2-dependency-changes)) — the spec-snippet check caught the drift of adding it to
+`pyproject.toml` alone. matplotlib is imported *inside* the block's `render()` rather than at module
+scope, because the registry scan imports every module in `blocks/`, so a module-level `pyplot` import
+would make every process that looks a block up pay for matplotlib — the cost the lazy import exists to
+avoid, now pinned by a subprocess test. And the tests use a fake client in `tests/support/http.py` rather
+than the production `StubHttpClient`, which stays in stage 7: the blocks need only the port, and a test
+double should not wait on a shipped fixture.
 
 ## Stage 5 — Concurrent collection
 
