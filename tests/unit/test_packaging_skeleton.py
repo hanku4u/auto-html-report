@@ -5,6 +5,8 @@ builds, the package is importable after installation, the declared version reach
 metadata, and the names the docs tell block authors to import actually resolve.
 """
 
+import subprocess
+import sys
 from importlib.metadata import metadata, version
 
 import auto_inform
@@ -95,3 +97,22 @@ def test_installed_distribution_metadata_should_require_python_three_eleven_or_n
     # then the floor is at least 3.11, which is what matplotlib 3.11 needs
     requires_python = metadata("auto-inform")["Requires-Python"]
     assert requires_python == ">=3.11"
+
+
+def test_importing_the_package_should_not_import_the_optional_backends() -> None:
+    # given a fresh interpreter and the base install (no extras imported by anything)
+    # when the package is imported
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys, auto_inform; print('boto3' in sys.modules, 'psycopg' in sys.modules)",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    # then neither optional driver is loaded: a block author who only renders tables does not pay for
+    # them, which is what ADR-0031 promises
+    assert completed.stdout.strip() == "False False"

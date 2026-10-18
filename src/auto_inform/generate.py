@@ -12,6 +12,7 @@ own, that logic belongs in one of the pieces it calls.
 
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC
 
 from auto_inform._naming import slug
@@ -28,9 +29,10 @@ TIMESTAMP_FORMAT = "%Y%m%dT%H%M%SZ"
 def report_filename(definition: ReportDefinition, report: Report) -> str:
     """The filename for a written report.
 
-    ``<slug(title)>__<slug(event_id)>__<timestamp>.html``, with the event segment present only when the
-    definition names an event. The timestamp makes every run's output addressable rather than
-    overwriting, and the slugs keep the name safe for a filesystem and an S3 key alike.
+    ``<slug(title)>__[<slug(event_id)>__]<digest>__<timestamp>.html``. The timestamp makes every run's
+    output addressable rather than overwriting, the slugs keep the name safe for a filesystem and an S3
+    key alike, and the digest distinguishes two *different* events whose slugs happen to agree -- see
+    :func:`_identity_digest`.
 
     Raises :class:`ValueError` for a naive ``generated_at``, for the same reason ``render_report`` does:
     a timestamp silently shifted by the host's offset would name the file as if it were generated at a
@@ -45,8 +47,22 @@ def report_filename(definition: ReportDefinition, report: Report) -> str:
     segments = [slug(definition.title, fallback="report")]
     if definition.event_id:
         segments.append(slug(definition.event_id, fallback="event"))
+    segments.append(_identity_digest(definition))
     segments.append(timestamp)
     return "__".join(segments) + ".html"
+
+
+def _identity_digest(definition: ReportDefinition) -> str:
+    """Eight hex characters of a digest over the *raw* title and event id.
+
+    The slugs are lossy on purpose — lower-cased, non-alphanumerics folded, 60-character cap — so two
+    distinct events can produce the same segments: ids ``"A"`` and ``"a"``, or two long ids sharing a
+    prefix. Locally that was a nuisance (the second write replaced the first); against a shared bucket it
+    is silent data loss, and the store would record both events with one URI. The digest is computed from
+    the un-slugged pair, so it differs exactly when the identities differ, while the name stays readable.
+    """
+    material = f"{definition.title}\x00{definition.event_id or ''}".encode()
+    return hashlib.sha256(material).hexdigest()[:8]
 
 
 def generate_report(

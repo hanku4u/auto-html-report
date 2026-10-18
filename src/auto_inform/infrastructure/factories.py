@@ -17,13 +17,14 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from auto_inform.application.context import DiscoveryContext, ReportContext, RunMetadata
 from auto_inform.domain.errors import ConfigurationError
 from auto_inform.infrastructure.clock import SystemClock
 from auto_inform.infrastructure.http_stub import StubHttpClient
 from auto_inform.infrastructure.writers.local_writer import LocalDirectoryWriter
+from auto_inform.infrastructure.writers.s3_writer import S3Writer
 
 if TYPE_CHECKING:
     from auto_inform.application.ports import Clock, HttpClient, OutputWriter
@@ -73,19 +74,27 @@ def new_discovery_context(
     )
 
 
-def build_output_writer(settings: Settings) -> OutputWriter:
+def build_output_writer(settings: Settings, *, s3_client: Any | None = None) -> OutputWriter:
     """The writer selected by ``AUTO_INFORM_OUTPUT_KIND``.
 
-    Only ``local`` is implemented. ``s3`` raises rather than silently falling back to the filesystem: a
-    job that believes it is uploading and is not is worse than a job that fails at start-up. The S3 branch
-    arrives with stage 11.
+    Both implementations are constructed explicitly from settings. There is no silent fallback: a job that
+    believes it is uploading and is writing locally is worse than a job that fails at start-up, which is
+    also why a missing bucket, an invalid one, or the missing ``s3`` extra raises here rather than at the
+    first report. ``s3_client`` is the additive test/demo seam the context factories also offer: the
+    documented call passes nothing.
     """
     if settings.output_kind == "local":
         return LocalDirectoryWriter(settings.output_dir)
 
-    raise ConfigurationError(
-        "AUTO_INFORM_OUTPUT_KIND=s3 is not implemented yet; the S3 writer arrives with stage 11. "
-        "Use AUTO_INFORM_OUTPUT_KIND=local for now."
+    if not settings.output_s3_bucket:
+        raise ConfigurationError(
+            "AUTO_INFORM_OUTPUT_S3_BUCKET is required when AUTO_INFORM_OUTPUT_KIND=s3"
+        )
+    return S3Writer(
+        settings.output_s3_bucket,
+        prefix=settings.output_s3_prefix,
+        server_side_encryption=settings.output_s3_sse,
+        client=s3_client,
     )
 
 

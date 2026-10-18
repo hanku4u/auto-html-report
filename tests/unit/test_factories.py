@@ -17,6 +17,7 @@ from auto_inform.infrastructure.factories import (
 from auto_inform.infrastructure.http_stub import StubHttpClient
 from auto_inform.infrastructure.settings import Settings, load_settings
 from auto_inform.infrastructure.writers.local_writer import LocalDirectoryWriter
+from auto_inform.infrastructure.writers.s3_writer import S3Writer
 from tests.support.clocks import FakeClock
 
 
@@ -69,16 +70,45 @@ def test_build_output_writer_should_select_the_local_writer() -> None:
     assert isinstance(build_output_writer(settings), LocalDirectoryWriter)
 
 
-def test_build_output_writer_with_s3_should_fail_clearly() -> None:
-    # given an S3 destination, which this stage cannot serve
+def test_build_output_writer_with_s3_should_configure_the_s3_writer_from_settings() -> None:
+    # given an S3 destination with a prefix and encryption, and an injected client so no network is used
+    class _Client:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+
+        def put_object(self, **kwargs: object) -> dict[str, object]:
+            self.calls.append(kwargs)
+            return {}
+
+    client = _Client()
     settings = load_settings(
-        {"AUTO_INFORM_OUTPUT_KIND": "s3", "AUTO_INFORM_OUTPUT_S3_BUCKET": "bucket"}
+        {
+            "AUTO_INFORM_OUTPUT_KIND": "s3",
+            "AUTO_INFORM_OUTPUT_S3_BUCKET": "reports-bucket",
+            "AUTO_INFORM_OUTPUT_S3_PREFIX": "reports",
+            "AUTO_INFORM_OUTPUT_S3_SSE": "AES256",
+        }
     )
 
+    # when the writer is selected and used
+    writer = build_output_writer(settings, s3_client=client)
+    location = writer.write(filename="r.html", content="x")
+
+    # then the settings reached the writer: prefix, encryption and bucket are all applied, and there is no
+    # silent fallback to local output
+    assert isinstance(writer, S3Writer)
+    assert client.calls[0]["Key"] == "reports/r.html"
+    assert client.calls[0]["ServerSideEncryption"] == "AES256"
+    assert location.uri == "s3://reports-bucket/reports/r.html"
+
+
+def test_build_output_writer_with_s3_and_no_bucket_should_fail_at_start_up() -> None:
+    # given a directly constructed Settings that names S3 but no bucket (the loader would have refused it)
+    settings = Settings(output_kind="s3")
+
     # when the writer is selected
-    # then it fails at start-up rather than silently writing locally: a job that believes it is uploading
-    # and is not is worse than one that will not start
-    with pytest.raises(ConfigurationError, match="stage 11"):
+    # then it fails before the job runs rather than at the first report
+    with pytest.raises(ConfigurationError, match="OUTPUT_S3_BUCKET"):
         build_output_writer(settings)
 
 

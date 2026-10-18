@@ -48,6 +48,7 @@ class S3Writer:
         client: Any | None = None,                    # injection point for tests
         server_side_encryption: str | None = None,
         content_type: str = "text/html; charset=utf-8",
+        timeout_seconds: float = 30.0,
     ) -> None: ...
 
     def write(self, *, filename: str, content: str) -> OutputLocation: ...
@@ -64,6 +65,11 @@ class S3Writer:
 - AWS credentials are not the framework's business: `S3Writer` uses boto3's standard credential
   chain (environment, shared config, instance profile, CI OIDC role). No AWS key is ever read by
   this package.
+- **The S3 client is created with bounded transport timeouts** — `connect_timeout` and `read_timeout`
+  both default to 30 s, overridable with `timeout_seconds=`. This is a requirement, not tuning: the
+  processing runner waits for `write()` with no per-report deadline (ADR-0030), so a stalled upload would
+  wedge the job instead of raising `OutputError`. The client is created when the writer is constructed,
+  so a missing `s3` extra fails at start-up (ADR-0031).
 - The local writer publishes reports **owner-only (mode 0600)**, deliberately: `mkstemp` creates them
   that way and the rename preserves it, and these documents carry production yield and maintenance
   data. Least privilege is the default rather than an accident — a consumer (an artifact uploader, a web
@@ -80,8 +86,9 @@ class S3Writer:
 ## 2. Filename and destination
 
 ```
-<slug(title)>__<slug(event_id)>__<UTC timestamp ISO-8601 basic>.html
-# e.g. line-4__daily-health__20261017T090000Z.html
+<slug(title)>__[<slug(event_id)>__]<digest>__<UTC timestamp ISO-8601 basic>.html
+# e.g. line-4-daily-health__0ca5c39b__20261017T090000Z.html
+#      line-4-daily-health__daily-health__5cc6b8c8__20261017T090000Z.html
 ```
 
 ```python
@@ -102,10 +109,15 @@ URI from `ReportResult.location`, which the writer returned.
   key limits.
 - The timestamp is UTC, formatted `%Y%m%dT%H%M%SZ`, and makes every run's output addressable rather
   than overwriting.
-- **Uniqueness is per title, event and _second_.** Two reports with the same title and `event_id`
-  generated inside one second collide, and the writer overwrites. The scheduled path is protected by
-  distinct event ids and by the store marking work processed, not by the clock; an ad-hoc caller that
-  loops over `generate_report` with one title should include a distinguishing part in the title itself.
+- The **digest** is eight hex characters of SHA-256 over the *raw* title and event id. The slugs are
+  lossy — lower-cased, punctuation folded, capped at 60 characters — so two different events can produce
+  the same slugged segments (`"A"`/`"a"`, or two long ids sharing a prefix). Locally the second write
+  replaced the first; against a shared bucket it was silent data loss with two events recorded under one
+  URI. The digest differs exactly when the identities differ.
+- **Uniqueness is per title, event and _second_.** Two reports with the *same* title and `event_id`
+  generated inside one second collide, and the writer overwrites — that is deliberate idempotency for a
+  retried run, not an accident. Distinct events can no longer collide; the scheduled path is protected
+  by distinct event ids and by the store marking work processed, not by the clock.
 - Default destination: `AUTO_INFORM_OUTPUT_DIR`, default `./reports/`, relative to the process
   working directory.
 - S3 keys are `f"{prefix.strip('/')}/{filename}"` when a prefix is configured.

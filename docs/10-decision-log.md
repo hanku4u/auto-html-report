@@ -1,6 +1,6 @@
 ---
 status: proposed
-description: ADR-0001 to ADR-0030 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
+description: ADR-0001 to ADR-0031 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
 replaces: docs/SPEC.md §11, §12
 ---
 
@@ -457,6 +457,32 @@ for ever — and a class from another library that merely shares a framework nam
 so it can neither stop a run nor select an exit code. Rejected: widening the application allowlist to the root (it would give every application
 module a path to rendering); and leaving `mark_failed` returning `None` (the retirement boundary would be
 re-derived in the runner, in a second place, and could drift).
+
+---
+
+### ADR-0031 — Optional backends import lazily and construct eagerly
+
+**Context:** `auto_inform` installs from git with optional `postgres` and `s3` extras, and `import
+auto_inform` must work without either — a block author using only HTML tables should not need psycopg.
+At the same time, the processing runner waits for `write()` with no per-report deadline (ADR-0030), so an
+S3 client without transport timeouts turns a stalled upload into a wedged job; and a job configured for a
+backend it cannot reach should fail at start-up, not on its first event.
+
+**Decision:** the adapter modules import `psycopg` and `boto3` when an adapter is **constructed**, not
+when the package is imported, and an injected client skips the import entirely. Construction does the
+I/O that validates the configuration: `PostgresEventStore` connects and applies the schema,
+`S3Writer` creates the boto3 client with bounded `connect_timeout`/`read_timeout` (30 s by default,
+`timeout_seconds=` to override) and a small retry count. A missing extra, a bad DSN, an empty bucket or a
+non-positive timeout raises `ConfigurationError` at that point.
+
+**Consequences:** the base install stays light, `import auto_inform` cannot fail because an extra is
+absent, and tests exercise both adapters without network or credentials (a stub client; a self-skipping
+DSN). The store also bounds the waits the runner cannot: a 10 s connect timeout, a 30 s statement timeout
+and a 5 s lock timeout, set with `set_config` so a `search_path` in the operator's DSN survives. The cost
+is that constructing an adapter performs I/O — which is the point, because a setup failure should happen
+during setup. Rejected: module-level imports of the optional dependencies (breaks the base
+install) and lazy client creation (moves a configuration failure to the first report, after work has been
+done).
 
 ---
 

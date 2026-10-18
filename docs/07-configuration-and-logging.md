@@ -144,14 +144,15 @@ log lines that produced it.
 module allowed to name concrete adapters, because that is what wiring is.
 
 **Additive overrides.** `new_report_context` and `new_discovery_context` also accept optional keyword
-arguments for `http`, `clock` and `logger`. The documented call — `new_report_context(settings)` — still
-works unchanged; the overrides exist so a test or a demo job can supply canned fixtures and a
-deterministic clock without building a context by hand.
+arguments for `http`, `clock` and `logger`, and `build_output_writer` accepts an optional `s3_client`. The
+documented calls — `new_report_context(settings)`, `build_output_writer(settings)` — still work
+unchanged; the overrides exist so a test or a demo job can supply canned fixtures, a deterministic clock
+and a stub S3 client without building the object by hand or touching the network.
 
-**The S3 gap is loud.** `build_output_writer` selects the local writer, and for
-`AUTO_INFORM_OUTPUT_KIND=s3` it raises `ConfigurationError` rather than quietly writing to the
-filesystem: a job that believes it is uploading and is not is worse than one that will not start. The
-real branch arrives with stage 11.
+**Both output backends are real.** `build_output_writer` selects `LocalDirectoryWriter` or `S3Writer`
+from `AUTO_INFORM_OUTPUT_KIND`; there is no fallback, and a missing bucket or a missing `s3` extra raises
+at start-up rather than at the first report. The optional dependencies are imported when an adapter is
+constructed, so `import auto_inform` works without either extra (ADR-0031).
 
 ## 4. Logging contract
 

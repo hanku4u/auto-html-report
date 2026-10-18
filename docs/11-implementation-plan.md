@@ -367,6 +367,41 @@ upload would wedge the job rather than produce an `OutputError`.
 
 **Done when:** the store suite passes against PostgreSQL when a DSN is provided, and the S3 writer
 passes against an injected stub client with no network.
+**Completed 2026-10-18**
+
+**Amended during implementation:** both adapters import their optional dependency when constructed and
+validate their configuration there (ADR-0031). `S3Writer` gained `timeout_seconds` (default 30 s) and
+creates the boto3 client in `__init__`, so a missing extra or a stalled upload surfaces at start-up rather
+than mid-run. The "plain filename" rule moved to `writers/_names.py`, shared by both writers instead of
+duplicated. Both classes are exported from the package root; importing the root does not import psycopg
+or boto3.
+
+**Verified against a real server, not only the fake.** The shared store suite ran against SQLite, the
+in-memory double and PostgreSQL 17 in a container: `AUTO_INFORM_TEST_POSTGRES_DSN=… uv run pytest -m
+postgres`. That run caught a real bug — psycopg3's `with connection:` **closes** the connection on exit,
+so the store's schema setup left it holding a closed handle. Setup now commits explicitly. The S3 path is
+exercised end to end through `run_processing` with a stub client, and a recorder proves the upload
+happens before `mark_processed`. The two example jobs also run against PostgreSQL, producing the same two
+reports as the SQLite path.
+
+**Second review (2026-10-18):** three P1s, all PostgreSQL. `pending()` was the only method outside a
+transaction, so a read left a session idle-in-transaction (holding a snapshot and a lock) and a failed
+read left it aborted for the next call; it now commits like every other call. `discovered_at` decoded in
+the **session** timezone, not UTC — invisible in the UTC test container, caught by a test that sets
+`timezone=Europe/Berlin` and asserts the round-trip is still UTC. And the suite dropped `events` in
+whatever database the DSN named; it now owns a dedicated `auto_inform_test` schema, so a developer
+pointing at their real queue cannot lose it.
+
+Two P2s: the SQLite store still refused PostgreSQL with "arrives with stage 11" (and both examples
+hardcoded SQLite), and the refusal tests were marked `postgres`, so they never ran; both fixed, the
+examples choose their store from `AUTO_INFORM_EVENT_STORE`. A P3 on each side was worth taking too: the
+report filename gained an eight-character digest over the *raw* title and event id, so two distinct
+events whose slugs collide can no longer overwrite each other in a shared bucket; and a malformed
+PostgreSQL DSN can no longer put a fragment of the password into a logged `StoreError` (libpq quotes the
+token it failed to parse). The store also bounds connect (10 s), statement (30 s) and lock (5 s) waits,
+set with `set_config` so an operator's `search_path` survives.
+
+**617 tests with PostgreSQL; 586 passing and 31 skipped without a DSN.**
 
 ## Sequencing notes
 

@@ -1,8 +1,9 @@
 """The filename rule of ``docs/06-output-html.md`` §2.
 
-``<slug(title)>__<slug(event_id)>__<timestamp>.html``, with the event segment only when the definition
-names an event. The property that matters is not the exact string but that the name is safe for a
-filesystem and an S3 key, and unique per run.
+``<slug(title)>__[<slug(event_id)>__]<digest>__<timestamp>.html``, with the event segment only when the
+definition names an event. The property that matters is not the exact string but that the name is safe for
+a filesystem and an S3 key, that two *different* events never collide, and that regenerating the same
+report in the same second is idempotent.
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ def test_report_filename_should_use_the_slugged_title_and_the_utc_timestamp() ->
     # given a report with no event
     # when its filename is derived
     # then it is the slugged title and the fixed generation time, in the documented format
-    assert _name() == "line-4-daily-health__20261017T090000Z.html"
+    assert _name() == "line-4-daily-health__0ca5c39b__20261017T090000Z.html"
 
 
 def test_report_filename_with_an_event_should_add_the_middle_segment() -> None:
@@ -34,7 +35,7 @@ def test_report_filename_with_an_event_should_add_the_middle_segment() -> None:
     # then the event identity appears between the title and the timestamp, which is what makes two
     # reports of the same shape addressable separately
     assert _name(event_id="WAFER_FAILURE:LOT-88213") == (
-        "line-4-daily-health__wafer-failure-lot-88213__20261017T090000Z.html"
+        "line-4-daily-health__wafer-failure-lot-88213__5cc6b8c8__20261017T090000Z.html"
     )
 
 
@@ -93,3 +94,16 @@ def test_report_filename_is_unique_only_to_the_second() -> None:
     # title, event and *second*, and the scheduled path is protected by distinct event ids plus the store
     # marking work processed, not by the clock (docs/06-output-html.md §2)
     assert report_filename(first.definition, first) == report_filename(second.definition, second)
+
+
+def test_two_distinct_events_that_slug_identically_should_get_different_names() -> None:
+    # given two event ids that the slugger folds together -- "A" and "a", which is exactly the collision
+    # a shared S3 bucket makes irreversible (one report silently replaces the other)
+    upper = _name(event_id="LOT-A")
+    lower = _name(event_id="lot-a")
+
+    # when their names are compared
+    # then the identity digest keeps them apart even though the slugged segments agree
+    assert upper.split("__")[0] == lower.split("__")[0]
+    assert upper.split("__")[1] == lower.split("__")[1]  # the slug is the same...
+    assert upper != lower  # ...but the digest is not
