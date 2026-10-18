@@ -416,6 +416,19 @@ instead of only from a hand-built writer.
 
 **638 tests with PostgreSQL (which CI now starts); 606 passing and 32 skipped without a DSN.**
 
+**Post-v1 conformance pass (2026-10-18).** With the last stage merged, the specification was audited
+against the code rather than assumed. Three gaps were closed. `collect_blocks` and `render_report` — which
+[03 §2](03-report-api.md#2-the-three-public-entry-points) calls *public* and promises so that a caller need
+not reimplement the pipeline — were not exported from the package root; they are now, with a module-scope
+import test. The two stage-8 deferrals assigned to later stages are also settled: [05
+§4](05-discovery-and-processing.md#4-throughput-policy) now states that a job is **one run per process**
+(the runner abandons a wedged worker rather than reaping it, so a long-lived loop would accumulate
+orphaned threads), and [05 §1](05-discovery-and-processing.md#1-discovery) states that discoverer
+**exception text is logged unredacted** and must not contain credentials. What remains is not
+implementation: the documents are still `proposed` with seven open questions for the product owner, listed
+in [README.md](README.md#open-questions-index), and the uv binary version is not pinned beyond the
+`uv_build` bound in `pyproject.toml`.
+
 ## Sequencing notes
 
 - **Do not start stage 8 before stage 6 is reviewed.** The job layer is the easiest place to hide a

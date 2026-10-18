@@ -14,6 +14,7 @@ them, and a test in ``tests/unit/test_rendering_figures.py`` pins that in a subp
 from __future__ import annotations
 
 from auto_inform._version import get_version
+from auto_inform.application.collect_blocks import collect_blocks
 from auto_inform.application.context import DiscoveryContext, RenderContext, ReportContext
 from auto_inform.application.discovery import (
     Discoverer,
@@ -67,6 +68,7 @@ from auto_inform.processing import (
 from auto_inform.registry import register_report
 from auto_inform.rendering.escaping import escape, html_table
 from auto_inform.rendering.figures import figure_lock, figure_to_data_uri
+from auto_inform.rendering.shell import render_report
 
 # Deliberately flat and alphabetical. The names fall into groups -- writing a block, building a report,
 # producing the document, configuring it, and classifying a failure -- but the ordering carries no
@@ -115,6 +117,7 @@ __all__ = [
     "TransientBlockError",
     "__version__",
     "build_output_writer",
+    "collect_blocks",
     "configure_logging",
     "escape",
     "exit_code_for",
@@ -126,6 +129,7 @@ __all__ = [
     "new_discovery_context",
     "new_report_context",
     "register_report",
+    "render_report",
     "report_filename",
     "run_discovery",
     "run_processing",
