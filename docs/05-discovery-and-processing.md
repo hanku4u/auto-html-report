@@ -73,6 +73,10 @@ A discoverer is identified by its **class name**: `DiscoveryOutcome.discoverer` 
 `discovery.*` log line carry it, so a run rejects two instances of the same class rather than labelling
 them identically. A second source needs its own `Discoverer` subclass.
 
+**Exception text is not redacted.** A discoverer's exception message is recorded in its
+`DiscoveryOutcome` and logged; the framework redacts `Settings`, not a string you build. Do not put a
+token, password or full request URL in a discoverer's exception — log the identifier, not the credential.
+
 `discover()` is materialised with a ceiling of **10,000 events per run**
 (`MAX_EVENTS_PER_DISCOVERER`); exceeding it fails that discoverer. The framework bounds *time* — budgets,
 retries, the hang guard — but not memory, and the hang guard only stops *waiting* for a wedged worker, it
@@ -200,6 +204,12 @@ The store is written by one process. Concurrent job *processes* against the same
 supported in v1 — `pending()` and `mark_*` are not atomic across processes, so two runs can claim
 the same event. Claim/lease semantics are a v0.2 concern, recorded in
 [10 — Decision log](10-decision-log.md) as ADR-0007 and ADR-0020.
+
+**One run per process.** The runner stops *waiting* for a worker it has abandoned (a report that overran
+its blocks' budgets) but cannot stop the thread, which finishes its own I/O (ADR-0005). The job scripts
+therefore run one scheduled invocation per process, and exit when it returns. A long-lived scheduler that
+called `run_processing` in a loop would accumulate one orphaned worker per wedged report; use a process per
+run (cron, a CI job, a container invocation), as [§6](#6-example-job-scripts) does.
 
 ## 5. Exit codes for CI
 

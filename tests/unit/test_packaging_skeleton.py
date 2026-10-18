@@ -16,16 +16,21 @@ import auto_inform
 # The configuration factories are imported at module scope as well, so that removing one from the public
 # surface fails test collection rather than a consumer's job script. `docs/05` §6 imports these names from
 # the root, and the module docstring promises them.
+# docs/03 §2 calls collect_blocks, generate_report and render_report "the three public entry points".
+# Imported at module scope so removing one from the surface fails collection, not one assertion.
 from auto_inform import (
     build_output_writer,
+    collect_blocks,
     configure_logging,
     escape,
     figure_lock,
     figure_to_data_uri,
+    generate_report,
     html_table,
     load_settings,
     new_discovery_context,
     new_report_context,
+    render_report,
 )
 
 
@@ -116,3 +121,12 @@ def test_importing_the_package_should_not_import_the_optional_backends() -> None
     # then neither optional driver is loaded: a block author who only renders tables does not pay for
     # them, which is what ADR-0031 promises
     assert completed.stdout.strip() == "False False"
+
+
+def test_the_three_documented_entry_points_should_be_importable_from_the_root() -> None:
+    # given the three entry points docs/03 §2 promises: the composition, and the two lower-level steps a
+    # caller uses to inspect outcomes before writing
+    # when they are imported from the root (the module-scope import above is the real guard)
+    # then all three are callable, so a caller does not have to reimplement the pipeline
+    for entry_point in (collect_blocks, generate_report, render_report):
+        assert callable(entry_point)
