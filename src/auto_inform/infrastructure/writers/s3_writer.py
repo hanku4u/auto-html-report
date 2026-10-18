@@ -38,6 +38,9 @@ _BUCKET_NAME = re.compile(r"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$")
 #: The encryption modes the API accepts. An unknown string would be rejected at the first upload.
 _ALLOWED_ENCRYPTION = frozenset({"AES256", "aws:kms", "aws:kms:dsse"})
 
+#: S3 refuses bucket names that look like IPv4 addresses; the general regex above would accept them.
+_IP_LIKE = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
+
 #: A timeout longer than this is not a bound worth having; it is also a sign of a units mistake.
 _MAX_TIMEOUT_SECONDS = 300.0
 
@@ -83,7 +86,7 @@ class S3Writer:
             raise ConfigurationError(
                 "AUTO_INFORM_OUTPUT_S3_BUCKET is required when AUTO_INFORM_OUTPUT_KIND=s3"
             )
-        if not _BUCKET_NAME.match(bucket) or ".." in bucket:
+        if not _BUCKET_NAME.match(bucket) or ".." in bucket or _IP_LIKE.match(bucket):
             # Validated here, not by the service: a typo'd bucket otherwise fails at the first report,
             # after other workers may already have uploaded (ADR-0031).
             raise ConfigurationError(f"S3 bucket {bucket!r} is not a valid bucket name")

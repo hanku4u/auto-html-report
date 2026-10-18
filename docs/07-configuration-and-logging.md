@@ -26,6 +26,7 @@ every block.
 | `AUTO_INFORM_OUTPUT_S3_BUCKET` | `output_s3_bucket` | `str \| None` | `None` |
 | `AUTO_INFORM_OUTPUT_S3_PREFIX` | `output_s3_prefix` | `str` | `""` |
 | `AUTO_INFORM_OUTPUT_S3_SSE` | `output_s3_sse` | `str \| None` | `None` |
+| `AUTO_INFORM_OUTPUT_S3_TIMEOUT_SECONDS` | `output_s3_timeout_seconds` | `float` | `30.0` |
 | `AUTO_INFORM_EVENT_STORE` | `event_store` | `Literal["sqlite","postgres"]` | `"sqlite"` |
 | `AUTO_INFORM_SQLITE_PATH` | `sqlite_path` | `Path` | `<output_dir>/events.sqlite3` |
 | `AUTO_INFORM_POSTGRES_DSN` | `postgres_dsn` | `str \| None` | `None` |
@@ -52,7 +53,9 @@ at **1000**, beyond which the value cannot be bound to SQLite's `INTEGER`. A blo
 override is subject to the same cap, and the executor enforces both on a directly constructed
 `Settings`, because `load_settings` is not the only way to build one. Concurrency is capped too, because
 it multiplies: `AUTO_INFORM_MAX_WORKERS` at **64**, `AUTO_INFORM_MAX_CONCURRENT_REPORTS` at **32** (each
-report starts its own block pool), and `AUTO_INFORM_PROCESSING_LIMIT` at **10,000**.
+report starts its own block pool), and `AUTO_INFORM_PROCESSING_LIMIT` at **10,000**. The S3 transport
+timeout is bounded at **300 seconds**: a longer value is not a bound worth having and is usually a units
+mistake.
 
 Rules for `load_settings`:
 

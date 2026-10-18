@@ -200,7 +200,9 @@ with the artefacts it describes.
   deliberately exposes no read-by-id method, so those properties are not observable through it. Both
   real backends have those tests (`test_sqlite_store.py`, `test_postgres_store.py`).
 - The PostgreSQL suite runs in a dedicated `auto_inform_test` schema, created by the tests, so the
-table it drops between cases is never a real queue in whatever database the DSN names.
+table it drops between cases is never a real queue in whatever database the DSN names. CI starts a
+`postgres:17` service and exports the DSN, so the backend is exercised on every push rather than only by
+hand.
 - To run the PostgreSQL suite locally, start a disposable server and point the variable at it:
 
   ```bash

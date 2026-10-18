@@ -168,7 +168,12 @@ class PostgresEventStore:
                     (
                         event.event_type,
                         event.event_id,
-                        json.dumps(dict(event.payload), sort_keys=True, separators=(",", ":")),
+                        json.dumps(
+                            dict(event.payload),
+                            sort_keys=True,
+                            separators=(",", ":"),
+                            allow_nan=False,
+                        ),
                         _aware(event.discovered_at),
                         event.source,
                         EventStatus.NEW.value,
@@ -400,7 +405,11 @@ class PostgresEventStore:
             return connection.execute(sql, parameters)
         except Exception as exc:
             if isinstance(exc, _psycopg().Error):
-                raise StoreError(f"event store error: {exc}") from exc
+                # Redacted like every other driver message, and with the cause dropped: a traceback line
+                # can quote the same text, which is the leak the malformed-DSN path also guards against.
+                raise StoreError(
+                    f"event store error ({type(exc).__name__}): {_redact(str(exc), self._dsn)}"
+                ) from None
             raise
 
     @staticmethod

@@ -26,7 +26,7 @@ def test_report_filename_should_use_the_slugged_title_and_the_utc_timestamp() ->
     # given a report with no event
     # when its filename is derived
     # then it is the slugged title and the fixed generation time, in the documented format
-    assert _name() == "line-4-daily-health__0ca5c39b__20261017T090000Z.html"
+    assert _name() == "line-4-daily-health__0ca5c39b7027bf27__20261017T090000Z.html"
 
 
 def test_report_filename_with_an_event_should_add_the_middle_segment() -> None:
@@ -35,7 +35,7 @@ def test_report_filename_with_an_event_should_add_the_middle_segment() -> None:
     # then the event identity appears between the title and the timestamp, which is what makes two
     # reports of the same shape addressable separately
     assert _name(event_id="WAFER_FAILURE:LOT-88213") == (
-        "line-4-daily-health__wafer-failure-lot-88213__5cc6b8c8__20261017T090000Z.html"
+        "line-4-daily-health__wafer-failure-lot-88213__5cc6b8c8398ec16b__20261017T090000Z.html"
     )
 
 

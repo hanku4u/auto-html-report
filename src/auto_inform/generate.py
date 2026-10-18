@@ -53,16 +53,17 @@ def report_filename(definition: ReportDefinition, report: Report) -> str:
 
 
 def _identity_digest(definition: ReportDefinition) -> str:
-    """Eight hex characters of a digest over the *raw* title and event id.
+    """Sixteen hex characters of a digest over the *raw* title and event id.
 
     The slugs are lossy on purpose — lower-cased, non-alphanumerics folded, 60-character cap — so two
     distinct events can produce the same segments: ids ``"A"`` and ``"a"``, or two long ids sharing a
     prefix. Locally that was a nuisance (the second write replaced the first); against a shared bucket it
     is silent data loss, and the store would record both events with one URI. The digest is computed from
-    the un-slugged pair, so it differs exactly when the identities differ, while the name stays readable.
+    the un-slugged pair, so it differs when the identities differ (barring a 64-bit hash collision), while
+    the name stays readable.
     """
     material = f"{definition.title}\x00{definition.event_id or ''}".encode()
-    return hashlib.sha256(material).hexdigest()[:8]
+    return hashlib.sha256(material).hexdigest()[:16]
 
 
 def generate_report(

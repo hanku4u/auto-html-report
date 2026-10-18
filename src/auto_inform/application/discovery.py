@@ -230,7 +230,10 @@ def _check_yielded_events(events: tuple[Event, ...], discoverer: Discoverer, nam
                 f"{type(event.payload).__name__}, not a mapping (docs/04 §1)"
             )
         try:
-            json.dumps(dict(event.payload))
+            # allow_nan=False: SQLite's TEXT column would happily store `NaN`, while PostgreSQL's
+            # jsonb rejects it, so the same event would succeed on one backend and abort the run on the
+            # other. A non-finite number is a data error and belongs to the source that produced it.
+            json.dumps(dict(event.payload), allow_nan=False)
         except (TypeError, ValueError, RecursionError) as exc:
             raise ConfigurationError(
                 f"{name}.discover() yielded an event whose payload is not JSON-serialisable: {exc}"

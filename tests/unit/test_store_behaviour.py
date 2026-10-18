@@ -378,3 +378,17 @@ def test_save_with_an_unserialisable_payload_should_raise_and_persist_nothing(
         store.save([make_event("ok"), bad])
 
     assert store.pending() == []
+
+
+def test_save_with_a_non_finite_payload_should_raise_and_persist_nothing(
+    store: EventStore,
+) -> None:
+    # given a float NaN, which Python's JSON encoder permits by default
+    bad = make_event("a", payload={"value": float("nan")})
+
+    # when the batch is saved
+    # then it is refused on every backend. SQLite would otherwise store the text `NaN` and PostgreSQL's
+    # jsonb would reject it, so the same event would succeed on one and abort the run on the other
+    with pytest.raises(ValueError):
+        store.save([make_event("ok"), bad])
+    assert store.pending() == []

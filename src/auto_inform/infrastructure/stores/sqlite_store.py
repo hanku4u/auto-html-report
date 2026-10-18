@@ -141,7 +141,12 @@ class SqliteEventStore:
                     (
                         event.event_type,
                         event.event_id,
-                        json.dumps(dict(event.payload), sort_keys=True, separators=(",", ":")),
+                        json.dumps(
+                            dict(event.payload),
+                            sort_keys=True,
+                            separators=(",", ":"),
+                            allow_nan=False,
+                        ),
                         _as_utc_text(event.discovered_at),
                         event.source,
                         EventStatus.NEW.value,

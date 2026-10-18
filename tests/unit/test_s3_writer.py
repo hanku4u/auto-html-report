@@ -169,3 +169,25 @@ def test_a_non_positive_timeout_should_be_refused() -> None:
     # given a timeout that would fail every upload immediately
     with pytest.raises(ConfigurationError, match="finite number"):
         S3Writer("bucket", client=_StubClient(), timeout_seconds=0)
+
+
+@pytest.mark.parametrize(
+    "bucket",
+    ["Bad_Bucket", "ab", "192.168.1.1", "a..b", "-leading", "trailing-"],
+    ids=["uppercase", "too-short", "ip-like", "double-dot", "leading-hyphen", "trailing-hyphen"],
+)
+def test_an_invalid_bucket_name_should_be_refused_at_construction(bucket: str) -> None:
+    # given a bucket name the service would reject, and an injected client so no network is touched
+    # when the writer is constructed
+    # then it fails now rather than at the first report (ADR-0031)
+    with pytest.raises(ConfigurationError, match="bucket"):
+        S3Writer(bucket, client=_StubClient())
+
+
+@pytest.mark.parametrize("mode", ["bogus", "aes256", "aws:kms:dsse:extra"])
+def test_an_unsupported_encryption_mode_should_be_refused_at_construction(mode: str) -> None:
+    # given an encryption mode the API does not accept
+    # when the writer is constructed
+    # then it fails at start-up, not on the first upload
+    with pytest.raises(ConfigurationError, match="encryption"):
+        S3Writer("bucket", client=_StubClient(), server_side_encryption=mode)

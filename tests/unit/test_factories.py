@@ -124,3 +124,14 @@ def test_context_factories_should_take_started_at_from_the_injected_clock() -> N
         # closed a hidden second read of time: without it, a refactor could reintroduce the read while
         # every other factory assertion still passes
         assert context.run.started_at == start
+
+
+def test_build_output_writer_with_an_unknown_kind_should_raise_configuration_error() -> None:
+    # given a directly constructed Settings with a kind the loader cannot produce (the type is a Literal,
+    # so the ignore is the test stepping outside it deliberately)
+    settings = Settings(output_kind="gcs")  # type: ignore[arg-type]
+
+    # when the writer is selected
+    # then it is refused rather than silently reinterpreted as S3
+    with pytest.raises(ConfigurationError, match="unknown output kind"):
+        build_output_writer(settings)

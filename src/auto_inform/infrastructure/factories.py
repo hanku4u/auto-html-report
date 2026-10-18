@@ -86,6 +86,12 @@ def build_output_writer(settings: Settings, *, s3_client: Any | None = None) -> 
     if settings.output_kind == "local":
         return LocalDirectoryWriter(settings.output_dir)
 
+    if settings.output_kind != "s3":
+        # `load_settings` cannot produce this, but Settings can be constructed directly -- the same defence
+        # the retry bounds and the processing ceiling make. Falling through to S3 would be a silent
+        # reinterpretation of a typo.
+        raise ConfigurationError(f"unknown output kind {settings.output_kind!r}")
+
     if not settings.output_s3_bucket:
         raise ConfigurationError(
             "AUTO_INFORM_OUTPUT_S3_BUCKET is required when AUTO_INFORM_OUTPUT_KIND=s3"
@@ -94,6 +100,7 @@ def build_output_writer(settings: Settings, *, s3_client: Any | None = None) -> 
         settings.output_s3_bucket,
         prefix=settings.output_s3_prefix,
         server_side_encryption=settings.output_s3_sse,
+        timeout_seconds=settings.output_s3_timeout_seconds,
         client=s3_client,
     )
 

@@ -66,7 +66,8 @@ class S3Writer:
   chain (environment, shared config, instance profile, CI OIDC role). No AWS key is ever read by
   this package.
 - **The S3 client is created with bounded transport timeouts** — `connect_timeout` and `read_timeout`
-  both default to 30 s, overridable with `timeout_seconds=`. This is a requirement, not tuning: the
+  both default to 30 s, overridable with `timeout_seconds=` or `AUTO_INFORM_OUTPUT_S3_TIMEOUT_SECONDS`
+through `build_output_writer`. This is a requirement, not tuning: the
   processing runner waits for `write()` with no per-report deadline (ADR-0030), so a stalled upload would
   wedge the job instead of raising `OutputError`. The client is created when the writer is constructed,
   so a missing `s3` extra fails at start-up (ADR-0031).
@@ -87,8 +88,8 @@ class S3Writer:
 
 ```
 <slug(title)>__[<slug(event_id)>__]<digest>__<UTC timestamp ISO-8601 basic>.html
-# e.g. line-4-daily-health__0ca5c39b__20261017T090000Z.html
-#      line-4-daily-health__daily-health__5cc6b8c8__20261017T090000Z.html
+# e.g. line-4-daily-health__0ca5c39b7027bf27__20261017T090000Z.html
+#      line-4-daily-health__daily-health__5cc6b8c8398ec16b__20261017T090000Z.html
 ```
 
 ```python
@@ -109,11 +110,11 @@ URI from `ReportResult.location`, which the writer returned.
   key limits.
 - The timestamp is UTC, formatted `%Y%m%dT%H%M%SZ`, and makes every run's output addressable rather
   than overwriting.
-- The **digest** is eight hex characters of SHA-256 over the *raw* title and event id. The slugs are
+- The **digest** is sixteen hex characters (64 bits) of SHA-256 over the *raw* title and event id. The slugs are
   lossy — lower-cased, punctuation folded, capped at 60 characters — so two different events can produce
   the same slugged segments (`"A"`/`"a"`, or two long ids sharing a prefix). Locally the second write
   replaced the first; against a shared bucket it was silent data loss with two events recorded under one
-  URI. The digest differs exactly when the identities differ.
+  URI. The digest differs when the identities differ, barring a 64-bit hash collision.
 - **Uniqueness is per title, event and _second_.** Two reports with the *same* title and `event_id`
   generated inside one second collide, and the writer overwrites — that is deliberate idempotency for a
   retried run, not an accident. Distinct events can no longer collide; the scheduled path is protected

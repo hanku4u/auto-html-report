@@ -130,8 +130,11 @@ def test_pending_should_leave_the_connection_idle(dsn: str) -> None:
 
 
 def test_a_wrong_password_should_be_reported_without_the_password(dsn: str) -> None:
-    # given a DSN whose password is wrong
-    wrong = dsn.replace(":test@", ":not-the-password@", 1)
+    # given a DSN whose password is wrong -- replaced structurally, so the test works whatever credentials
+    # the operator's DSN carries
+    from psycopg.conninfo import make_conninfo
+
+    wrong = make_conninfo(dsn, password="not-the-password")
 
     # when the store connects
     # then the failure is reported, and the password is not in the message

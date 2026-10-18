@@ -146,7 +146,7 @@ uv run mypy
 uv run pytest
 ```
 
-No services, no secrets, no network beyond fetching the pinned packages once.
+One service: the checks job starts PostgreSQL 17 for the optional store suite, which self-skips without the DSN it exports. No secrets, and no network beyond fetching the pinned packages once.
 
 `--all-extras` is required rather than cosmetic. `uv lock` resolves optional extras, but
 `uv sync` does not install them unless asked, so without this flag `psycopg` and `boto3` are missing

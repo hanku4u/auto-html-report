@@ -11,6 +11,24 @@ jobs:
   checks:
     name: Lint, types, tests
     runs-on: ubuntu-latest
+    # The optional store suite self-skips without a DSN; CI supplies one so the PostgreSQL backend is
+    # exercised on every push, not only by hand (docs/09 §5).
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: auto_inform
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d auto_inform"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      AUTO_INFORM_TEST_POSTGRES_DSN: postgresql://test:test@localhost:5432/auto_inform
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5

@@ -401,7 +401,20 @@ PostgreSQL DSN can no longer put a fragment of the password into a logged `Store
 token it failed to parse). The store also bounds connect (10 s), statement (30 s) and lock (5 s) waits,
 set with `set_config` so an operator's `search_path` survives.
 
-**617 tests with PostgreSQL; 586 passing and 31 skipped without a DSN.**
+**Second review (2026-10-18):** the two backends disagreed about one input, and that is the finding that
+mattered most. Python's `json.dumps` permits `NaN` by default: SQLite stored it as text and read it back,
+while PostgreSQL's `jsonb` rejected it with a `StoreError` that aborted discovery's whole persistence phase.
+Both stores, the in-memory double and the discovery contract check now use `allow_nan=False`, so a
+non-finite number fails that source alone on every backend. Also fixed: `_execute` was the one path that
+still put unredacted driver text (and its chained cause) into a `StoreError`; CI now starts a PostgreSQL 17
+service so the optional suite runs on every push instead of only by hand; an unknown `output_kind` is
+refused rather than reinterpreted as S3; bucket validation rejects IP-like names and the invalid bucket and
+encryption cases now have tests; the filename digest is 64 bits with the collision caveat stated; the
+wrong-password test edits the DSN structurally instead of assuming the password is `test`; and
+`AUTO_INFORM_OUTPUT_S3_TIMEOUT_SECONDS` makes the transport timeout reachable from the documented factory
+instead of only from a hand-built writer.
+
+**638 tests with PostgreSQL (which CI now starts); 606 passing and 32 skipped without a DSN.**
 
 ## Sequencing notes
 

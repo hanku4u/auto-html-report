@@ -278,7 +278,9 @@ no config file and no flags. These are the ones a job normally sets:
 | `AUTO_INFORM_OUTPUT_DIR` | `./reports` | Directory the local writer writes into. |
 | `AUTO_INFORM_EVENT_STORE` | `sqlite` | `sqlite` or `postgres`; `postgres` also needs `AUTO_INFORM_POSTGRES_DSN`. |
 | `AUTO_INFORM_POSTGRES_DSN` | — | The PostgreSQL DSN, password included; `sslmode=require` (or `verify-full`) for a shared database. |
+| `AUTO_INFORM_OUTPUT_S3_BUCKET` | — | Bucket for `AUTO_INFORM_OUTPUT_KIND=s3`; required for S3. |
 | `AUTO_INFORM_OUTPUT_S3_PREFIX` | `""` | Key prefix under the bucket. |
+| `AUTO_INFORM_OUTPUT_S3_TIMEOUT_SECONDS` | `30` | S3 connect/read timeout (capped at 300). |
 | `AUTO_INFORM_OUTPUT_S3_SSE` | — | `AES256`, `aws:kms` or `aws:kms:dsse`; omitted means the bucket default. |
 | `AUTO_INFORM_SQLITE_PATH` | `<output_dir>/events.sqlite3` | Event store location. |
 | `AUTO_INFORM_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` or `CRITICAL`. |

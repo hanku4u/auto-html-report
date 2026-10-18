@@ -160,9 +160,11 @@ class FakeEventStore:
                 f"timestamp {event.discovered_at!r} is naive; events carry timezone-aware UTC timestamps"
             )
         try:
-            json.dumps(dict(event.payload))
+            json.dumps(dict(event.payload), allow_nan=False)
         except (TypeError, ValueError) as exc:
-            raise TypeError(f"payload is not JSON-serialisable: {exc}") from exc
+            # Preserve the type the real backends raise: a datetime is a TypeError, a non-finite float a
+            # ValueError, and the suite pins the distinction.
+            raise type(exc)(f"payload is not JSON-serialisable: {exc}") from exc
 
     def _check_source(self, key: tuple[str, str], stored: str, incoming: str) -> None:
         if stored != incoming:

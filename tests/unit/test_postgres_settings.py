@@ -10,7 +10,7 @@ import pytest
 
 from auto_inform.domain.errors import ConfigurationError, StoreError
 from auto_inform.infrastructure.settings import Settings
-from auto_inform.infrastructure.stores.postgres_store import PostgresEventStore
+from auto_inform.infrastructure.stores.postgres_store import PostgresEventStore, _redact
 
 
 def test_from_settings_with_sqlite_selected_should_refuse() -> None:
@@ -40,3 +40,20 @@ def test_a_malformed_dsn_should_not_echo_a_password_fragment() -> None:
     assert "missing" not in message
     assert 'after "ss"' not in message
     assert raised.value.__cause__ is None
+
+
+def test_redaction_should_mask_the_dsn_verbatim() -> None:
+    assert (
+        _redact("could not use postgresql://u:p@h/d", "postgresql://u:p@h/d") == "could not use ***"
+    )
+
+
+def test_redaction_should_mask_uri_userinfo() -> None:
+    assert _redact("postgresql://user:s3cret@host/db failed", "") == (
+        "postgresql://user:***@host/db failed"
+    )
+
+
+def test_redaction_should_mask_a_keyword_password() -> None:
+    redacted = _redact("password='hidden value' host=x", "")
+    assert "hidden" not in redacted

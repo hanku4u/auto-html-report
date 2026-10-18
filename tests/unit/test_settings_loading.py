@@ -31,6 +31,7 @@ def test_load_settings_should_read_every_documented_variable() -> None:
         "AUTO_INFORM_OUTPUT_S3_BUCKET": "bucket",
         "AUTO_INFORM_OUTPUT_S3_PREFIX": "reports",
         "AUTO_INFORM_OUTPUT_S3_SSE": "AES256",
+        "AUTO_INFORM_OUTPUT_S3_TIMEOUT_SECONDS": "12.5",
         "AUTO_INFORM_EVENT_STORE": "postgres",
         "AUTO_INFORM_SQLITE_PATH": "/tmp/events.db",
         "AUTO_INFORM_POSTGRES_DSN": "postgresql://user@host/db",
@@ -60,6 +61,7 @@ def test_load_settings_should_read_every_documented_variable() -> None:
     assert settings.output_s3_bucket == "bucket"
     assert settings.output_s3_prefix == "reports"
     assert settings.output_s3_sse == "AES256"
+    assert settings.output_s3_timeout_seconds == 12.5
     assert settings.event_store == "postgres"
     assert settings.sqlite_path == Path("/tmp/events.db")
     assert settings.postgres_dsn == "postgresql://user@host/db"
@@ -256,3 +258,20 @@ def test_processing_limit_should_be_keyword_only() -> None:
     # ReportDefinition.event_id documents)
     fields = {field.name: field for field in dataclasses.fields(Settings)}
     assert fields["processing_limit"].kw_only is True
+
+
+def test_the_s3_timeout_should_default_to_thirty_seconds() -> None:
+    # given no configuration for the S3 transport timeout
+    # then the documented default applies
+    assert Settings().output_s3_timeout_seconds == 30.0
+
+
+@pytest.mark.parametrize(
+    ("value", "problem"), [("0", "at least"), ("nan", "finite"), ("301", "at most")]
+)
+def test_an_invalid_s3_timeout_should_be_refused(value: str, problem: str) -> None:
+    # given a timeout that is zero, non-finite or beyond the documented maximum
+    # when it is loaded
+    # then it is refused with the bound in the message
+    with pytest.raises(ConfigurationError, match=problem):
+        load_settings({"AUTO_INFORM_OUTPUT_S3_TIMEOUT_SECONDS": value})
