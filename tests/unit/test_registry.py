@@ -195,6 +195,11 @@ def test_available_blocks_should_be_a_read_only_view() -> None:
 
 # --- report factories ---------------------------------------------------------
 
+#: A type of the tests' own. Production families register themselves on import (``reports/manufacturing``
+#: owns ``WAFER_FAILURE``), and a test that claimed a production type would either collide with a real
+#: deployment or silently depend on whether that module had been imported yet.
+_REPORT_TYPE = "REGISTRY_TEST_EVENT"
+
 
 def _factory(_event: object, _context: object) -> ReportDefinition:
     return ReportDefinition(title="From the factory", blocks=[_FirstBlock()])
@@ -206,11 +211,11 @@ def _rival_factory(_event: object, _context: object) -> ReportDefinition:
 
 def test_register_report_should_make_the_factory_lookup_work() -> None:
     # given a factory registered for an event type
-    registry.register_report("WAFER_FAILURE")(_factory)
+    registry.register_report(_REPORT_TYPE)(_factory)
 
     # when the type is looked up
     # then the same factory comes back, which is how the processing job builds the right report
-    assert registry.get_report_factory("WAFER_FAILURE") is _factory
+    assert registry.get_report_factory(_REPORT_TYPE) is _factory
 
 
 def test_register_report_should_return_the_factory_so_it_can_be_used_as_a_decorator() -> None:
@@ -222,13 +227,13 @@ def test_register_report_should_return_the_factory_so_it_can_be_used_as_a_decora
 
 def test_register_report_for_the_same_type_twice_should_raise_configuration_error() -> None:
     # given a type that already has a factory
-    registry.register_report("WAFER_FAILURE")(_factory)
+    registry.register_report(_REPORT_TYPE)(_factory)
 
     # when a different factory claims it
     # then it is refused, naming the incumbent: two factories for one event type is a deployment bug,
     # not a preference
     with pytest.raises(ConfigurationError, match="already registered"):
-        registry.register_report("WAFER_FAILURE")(_rival_factory)
+        registry.register_report(_REPORT_TYPE)(_rival_factory)
 
 
 def test_get_report_factory_with_an_unknown_type_should_raise_configuration_error() -> None:
@@ -242,17 +247,17 @@ def test_get_report_factory_with_an_unknown_type_should_raise_configuration_erro
 
 def test_the_report_factory_should_be_callable_with_an_event_and_a_context() -> None:
     # given a registered factory
-    registry.register_report("WAFER_FAILURE")(_factory)
+    registry.register_report(_REPORT_TYPE)(_factory)
     event = Event(
-        event_type="WAFER_FAILURE",
-        event_id="WAFER_FAILURE:LOT-88213",
+        event_type=_REPORT_TYPE,
+        event_id=f"{_REPORT_TYPE}:LOT-88213",
         payload={"lot_id": "LOT-88213"},
         discovered_at=DEFAULT_START,
         source="test",
     )
 
     # when it is called the way processing calls it
-    factory = registry.get_report_factory("WAFER_FAILURE")
+    factory = registry.get_report_factory(_REPORT_TYPE)
     definition = factory(event, make_report_context(http=FakeHttpClient()))
 
     # then it returns a report definition, which is the whole contract of a factory

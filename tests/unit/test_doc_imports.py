@@ -19,13 +19,17 @@ from __future__ import annotations
 
 import ast
 import re
+from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
 
 import auto_inform
 
-DOCS = Path(__file__).resolve().parents[2] / "docs"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DOCS = REPO_ROOT / "docs"
+#: The README is the first document a reader runs code from, so its imports are checked too.
+README = REPO_ROOT / "README.md"
 
 #: Names the documents import that genuinely do not exist yet, each with the stage that lands it.
 #: Empty since stage 9, and kept as the mechanism for the next one: remove an entry as soon as its stage
@@ -59,18 +63,23 @@ def _imported_names(text: str, document: str) -> dict[str, set[str]]:
     return found
 
 
-def _scan_documents() -> dict[str, set[str]]:
-    """The union of every document's imports, keyed by name."""
+def _scan_documents(paths: Sequence[Path]) -> dict[str, set[str]]:
+    """The union of the given documents' imports, keyed by name."""
     merged: dict[str, set[str]] = {}
-    for path in sorted(DOCS.glob("*.md")):
+    for path in paths:
         for name, documents in _imported_names(path.read_text(), path.name).items():
             merged.setdefault(name, set()).update(documents)
     return merged
 
 
+def _documents() -> list[Path]:
+    """Every document whose imports are checked: the specification set and the README."""
+    return [*sorted(DOCS.glob("*.md")), README]
+
+
 def test_every_name_the_documents_import_should_be_exported() -> None:
     # given every `from auto_inform import ...` in the documentation set
-    imported = _scan_documents()
+    imported = _scan_documents(_documents())
 
     # when the scan is judged against the public surface
     missing = {
@@ -85,7 +94,7 @@ def test_every_name_the_documents_import_should_be_exported() -> None:
 
 def test_the_scan_should_actually_find_imports() -> None:
     # given the extractor, against the real documents
-    imported = _scan_documents()
+    imported = _scan_documents(_documents())
 
     # then it found a plausible surface -- the control that stops a broken regex from passing the test
     # above by finding nothing at all (docs/09 §2 rule 7)
@@ -133,3 +142,21 @@ def test_the_pending_control_should_object_to_a_name_that_exists() -> None:
     # then the control objects, so an entry cannot outlive its stage silently (docs/09 §2 rule 7)
     with pytest.raises(AssertionError, match="now resolves"):
         _assert_pending_missing({"Block": "stage 99"})
+
+
+def test_the_scan_should_object_to_an_unknown_import_in_a_readme_shaped_file(
+    tmp_path: Path,
+) -> None:
+    # given a README-shaped file importing a name the package does not export
+    readme = tmp_path / "README.md"
+    readme.write_text(
+        "```python\nfrom auto_inform import DefinitelyNotExported\n```\n", encoding="utf-8"
+    )
+
+    # when it is scanned by the same code that scans the real README
+    imported = _scan_documents([readme])
+
+    # then the missing name is found: the control that proves the README is really audited
+    # (docs/09 §2 rule 7)
+    missing = {name for name in imported if not hasattr(auto_inform, name)}
+    assert missing == {"DefinitelyNotExported"}

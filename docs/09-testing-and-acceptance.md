@@ -154,10 +154,10 @@ from the CI environment and criterion 22 — which exercises both code paths aga
 self-skipping database suite — could never pass.
 
 > **Scope caveat, carried from the original specification:** CI setup was **recommended, not
-> mandated** as a v1 requirement by the product owner. The workflow above is the recommended shape,
-> and every acceptance criterion in §3 is written to be verifiable without it — a reviewer can run
-> the same four commands locally. Adopting CI is a separate decision, not a prerequisite for
-> declaring v1 done.
+> mandated** as a v1 requirement by the product owner. A workflow now ships at
+> `.github/workflows/ci.yml` — the checks above, plus a packaging job that runs
+> `scripts/check_install.sh` — but it is convenience, not a prerequisite: every acceptance criterion in
+> §3 remains verifiable without it, and a reviewer can run the same commands locally.
 
 Test count is not a goal and coverage percentage is not enforced in v1. The acceptance criteria above
 are the goal; a criterion is only satisfied when a test that would fail without the behaviour exists.

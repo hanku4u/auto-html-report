@@ -165,33 +165,51 @@ caller assembled by hand.
 
 ```python
 # auto_inform/reports/manufacturing.py
-from auto_inform import Event, ReportContext, ReportDefinition, register_report
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from auto_inform.blocks.maintenance_history import MaintenanceHistoryBlock
+from auto_inform.blocks.wafer_map import WaferMapBlock
+from auto_inform.domain.event import Event
+from auto_inform.domain.report import ReportDefinition
+from auto_inform.registry import register_report
+
+if TYPE_CHECKING:
+    from auto_inform.application.context import ReportContext
 
 WAFER_FAILURE_EVENT = "WAFER_FAILURE"
+
+
+def _payload_text(event: Event, field: str) -> str:
+    """Read a required string field from an untrusted payload."""
+    value = event.payload.get(field)
+    if not isinstance(value, str) or not value:
+        raise ValueError(
+            f"{field} must be a non-empty string; got {type(value).__name__} "
+            f"for event {event.event_id}"
+        )
+    return value
 
 
 @register_report(WAFER_FAILURE_EVENT)
 def wafer_failure_report(event: Event, context: ReportContext) -> ReportDefinition:
     """The event supplies the report context: which lot, which tool, which window."""
-    lot_id = event.payload["lot_id"]
+    lot_id = _payload_text(event, "lot_id")
+    tool_id = _payload_text(event, "tool_id")
+    summary = event.payload.get("summary")
+
     return ReportDefinition(
         title=f"Failed wafer — {event.event_id}",
-        subtitle=str(event.payload.get("summary", "")),
+        subtitle=summary if isinstance(summary, str) and summary else None,
         event_id=event.event_id,
-        metadata={"Lot": lot_id, "Tool": str(event.payload["tool_id"])},
+        metadata={"Lot": lot_id, "Tool": tool_id},
         blocks=[
             WaferMapBlock(lot_id=lot_id),
-            MaintenanceHistoryBlock(tool_id=event.payload["tool_id"]),
-            TrendChartBlock(metric="yield", tool_id=event.payload["tool_id"]),
+            MaintenanceHistoryBlock(tool_id=tool_id),
         ],
     )
-```
 
-```python
-# An ad-hoc report, assembled dynamically at runtime
-blocks = [block_cls(**params) for block_cls, params in requested_blocks]
-definition = ReportDefinition(title="Ad-hoc review", blocks=blocks)
-generate_report(definition, context=ctx, writer=writer)
 ```
 
 The registry keys on **`event_type` only**, and the factory receives the whole `Event`, so two

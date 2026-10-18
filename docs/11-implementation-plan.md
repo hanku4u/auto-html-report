@@ -312,6 +312,35 @@ install (with the pip git-cache gotcha), the two-phase job model, and how to wri
 
 **Done when:** a reader who has never seen the code can follow the README to a generated report in a
 scratch directory, and the README's install commands are the ones CI actually runs.
+**Completed 2026-10-18**
+
+**Amended during implementation:** the factory uses the two blocks that exist — `WaferMapBlock` and
+`MaintenanceHistoryBlock`. [03 §3](03-report-api.md#3-predefined-reports-dynamic-lists-and-per-event-reports)
+sketched a third `TrendChartBlock`, which was never built; the sketch now matches the module, because a
+specification example that names a class nobody can import is how a reader loses an afternoon.
+
+The examples run rather than merely illustrating: `examples/discover_wafers.py` and
+`examples/process_events.py` wire the v1 stub client to canned fixtures (`examples/demo_api.py`), so the
+whole pipeline — two failed lots, two reports with a chart and a maintenance table — executes with no
+network. `examples/quick_start.py` is the README's quick start as a program, and it is what the packaging
+check runs.
+
+**Review (2026-10-18):** the documented demo command was broken — `python examples/discover_wafers.py`
+puts `examples/` on `sys.path`, not the repository root, so the shared fixtures failed to import, and the
+in-process tests hid it. The README and the scripts now use `python -m examples.…`, with a subprocess test
+that runs the documented command. The review also found setup failures escaping `main()` as tracebacks
+instead of exit `2` (both scripts now load settings inside the guard), a factory that turned a `null`
+payload field into the lot id `"None"` (fields are type-checked, and the tests cover absent, null,
+wrong-typed and empty), and a `docs/03` snippet that still disagreed with the module.
+
+The packaging claim needed machinery to be true. `scripts/check_install.sh` builds the wheel, installs it
+into a scratch environment, and runs the quick start **from the installed package**, catching what a
+source-tree test cannot (a template missing from the wheel, an import that only resolves because the
+repository is the working directory). `.github/workflows/ci.yml` ships the checks from
+[09 §5](09-testing-and-acceptance.md#5-ci), that script, and a git-URL install pinned to the commit —
+`git+file://$GITHUB_WORKSPACE@$GITHUB_SHA`, the README's install form without needing the remote or a
+token. The README quotes the development commands verbatim, which is the only way "the commands CI runs"
+stays true.
 
 ## Stage 11 — Optional backends
 
