@@ -20,7 +20,6 @@ import auto_inform.reports.manufacturing  # noqa: F401 - importing registers the
 from auto_inform import (
     ExitCode,
     Settings,
-    SqliteEventStore,
     build_output_writer,
     configure_logging,
     exit_code_for,
@@ -30,6 +29,7 @@ from auto_inform import (
 )
 from auto_inform.domain.errors import ConfigurationError, OutputError, StoreError
 from examples.demo_api import demo_http
+from examples.store import open_store
 
 
 def main(settings: Settings | None = None) -> int:
@@ -37,7 +37,7 @@ def main(settings: Settings | None = None) -> int:
         resolved = load_settings() if settings is None else settings
         configure_logging(resolved.log_level, resolved.log_format)
         writer = build_output_writer(resolved)
-        with SqliteEventStore.from_settings(resolved) as store:
+        with open_store(resolved) as store:
             run = run_processing(
                 store=store,
                 # The demo fixtures stand in for the yield and maintenance APIs.

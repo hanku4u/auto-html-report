@@ -74,7 +74,7 @@ def test_from_settings_with_postgres_selected_should_refuse_to_write_a_local_fil
     # when the SQLite store is built from them
     # then it refuses: a job that believes it is writing to PostgreSQL and is not is worse than one
     # that fails at start-up
-    with pytest.raises(ConfigurationError, match="PostgreSQL store arrives with stage 11"):
+    with pytest.raises(ConfigurationError, match="PostgresEventStore.from_settings"):
         SqliteEventStore.from_settings(settings)
 
 

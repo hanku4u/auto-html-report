@@ -202,6 +202,7 @@ auto-inform/
 │       │   │   ├── sqlite_store.py
 │       │   │   └── postgres_store.py
 │       │   └── writers/
+│       │       ├── _names.py       # the filename rule both writers share
 │       │       ├── local_writer.py
 │       │       └── s3_writer.py
 │       ├── rendering/

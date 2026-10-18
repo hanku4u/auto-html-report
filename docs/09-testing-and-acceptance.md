@@ -15,7 +15,7 @@ replaces: docs/SPEC.md §9, §13
 | `collect_blocks` | Fake clock and fake callables. Assert: ordering preserved when the first block is slowest; one failure does not prevent others running; retry count and backoff respected; timeout yields `TIMED_OUT` without aborting the run. |
 | HTTP error mapping | The normative table in [02 §5.1](02-block-authoring.md#51-normative-error-mapping) is tested status by status against the client: a 503 raises a retryable error, a 404 does not, a 429 is retried, a malformed body is permanent. |
 | Runners | `FakeEventStore` (in-memory dict, same semantics as the SQL schema). Assert re-discovery does not reset `PROCESSED`; a failed write leaves the event `NEW`; a missing factory skips rather than consumes; report concurrency above 1 never writes to the store off the main thread. |
-| Stores | Integration tests against a temporary SQLite file. One shared behaviour suite runs against both implementations. PostgreSQL tests are marked `@pytest.mark.postgres` and skipped unless `AUTO_INFORM_TEST_POSTGRES_DSN` is set. |
+| Stores | Integration tests against a temporary SQLite file, and the same shared behaviour suite against the in-memory double and PostgreSQL. PostgreSQL tests are marked `@pytest.mark.postgres` and skipped unless `AUTO_INFORM_TEST_POSTGRES_DSN` is set. |
 | Writers | Local writer: temp dir, atomic rename, directory creation. S3 writer: injected stub client, key composition, content type, encryption header. No live AWS. |
 | Rendering | Golden-file tests for the full document with a two-block fixture report. Normalise insignificant whitespace before comparing, **and normalise the footer's version token**, so that cutting a release does not break the golden files. A comparison that gets loosened every release ends up asserting nothing. This is the output contract in [06](06-output-html.md) made executable. |
 | Figures | Smoke test only: build a figure, assert the URI starts `data:image/png;base64,`, and assert no figures remain open afterwards. Never assert on pixels. |
@@ -146,7 +146,7 @@ uv run mypy
 uv run pytest
 ```
 
-No services, no secrets, no network beyond fetching the pinned packages once.
+One service: the checks job starts PostgreSQL 17 for the optional store suite, which self-skips without the DSN it exports. No secrets, and no network beyond fetching the pinned packages once.
 
 `--all-extras` is required rather than cosmetic. `uv lock` resolves optional extras, but
 `uv sync` does not install them unless asked, so without this flag `psycopg` and `boto3` are missing

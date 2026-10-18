@@ -20,6 +20,7 @@ from pathlib import Path
 
 from auto_inform.domain.errors import OutputError
 from auto_inform.domain.report import OutputLocation
+from auto_inform.infrastructure.writers._names import check_filename
 
 
 class LocalDirectoryWriter:
@@ -49,7 +50,7 @@ class LocalDirectoryWriter:
 
     def write(self, *, filename: str, content: str) -> OutputLocation:
         """Write ``content`` as ``filename``, atomically, and say where it landed."""
-        _check_filename(filename)
+        check_filename(filename)
 
         try:
             self._directory.mkdir(parents=True, exist_ok=True)
@@ -97,17 +98,3 @@ def _sync_directory(directory: Path) -> None:
         pass
     finally:
         os.close(descriptor)
-
-
-def _check_filename(filename: str) -> None:
-    """Refuse anything that is not a plain file name in the writer's own directory."""
-    if (
-        not filename
-        or filename in {".", ".."}
-        or "\x00" in filename
-        or Path(filename).name != filename
-    ):
-        raise OutputError(
-            f"{filename!r} is not a plain filename. Writers receive a complete name and never derive a "
-            "path; see docs/06-output-html.md §2."
-        )

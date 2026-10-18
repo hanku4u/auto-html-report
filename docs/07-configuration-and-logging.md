@@ -26,6 +26,7 @@ every block.
 | `AUTO_INFORM_OUTPUT_S3_BUCKET` | `output_s3_bucket` | `str \| None` | `None` |
 | `AUTO_INFORM_OUTPUT_S3_PREFIX` | `output_s3_prefix` | `str` | `""` |
 | `AUTO_INFORM_OUTPUT_S3_SSE` | `output_s3_sse` | `str \| None` | `None` |
+| `AUTO_INFORM_OUTPUT_S3_TIMEOUT_SECONDS` | `output_s3_timeout_seconds` | `float` | `30.0` |
 | `AUTO_INFORM_EVENT_STORE` | `event_store` | `Literal["sqlite","postgres"]` | `"sqlite"` |
 | `AUTO_INFORM_SQLITE_PATH` | `sqlite_path` | `Path` | `<output_dir>/events.sqlite3` |
 | `AUTO_INFORM_POSTGRES_DSN` | `postgres_dsn` | `str \| None` | `None` |
@@ -52,7 +53,9 @@ at **1000**, beyond which the value cannot be bound to SQLite's `INTEGER`. A blo
 override is subject to the same cap, and the executor enforces both on a directly constructed
 `Settings`, because `load_settings` is not the only way to build one. Concurrency is capped too, because
 it multiplies: `AUTO_INFORM_MAX_WORKERS` at **64**, `AUTO_INFORM_MAX_CONCURRENT_REPORTS` at **32** (each
-report starts its own block pool), and `AUTO_INFORM_PROCESSING_LIMIT` at **10,000**.
+report starts its own block pool), and `AUTO_INFORM_PROCESSING_LIMIT` at **10,000**. The S3 transport
+timeout is bounded at **300 seconds**: a longer value is not a bound worth having and is usually a units
+mistake.
 
 Rules for `load_settings`:
 
@@ -144,14 +147,15 @@ log lines that produced it.
 module allowed to name concrete adapters, because that is what wiring is.
 
 **Additive overrides.** `new_report_context` and `new_discovery_context` also accept optional keyword
-arguments for `http`, `clock` and `logger`. The documented call — `new_report_context(settings)` — still
-works unchanged; the overrides exist so a test or a demo job can supply canned fixtures and a
-deterministic clock without building a context by hand.
+arguments for `http`, `clock` and `logger`, and `build_output_writer` accepts an optional `s3_client`. The
+documented calls — `new_report_context(settings)`, `build_output_writer(settings)` — still work
+unchanged; the overrides exist so a test or a demo job can supply canned fixtures, a deterministic clock
+and a stub S3 client without building the object by hand or touching the network.
 
-**The S3 gap is loud.** `build_output_writer` selects the local writer, and for
-`AUTO_INFORM_OUTPUT_KIND=s3` it raises `ConfigurationError` rather than quietly writing to the
-filesystem: a job that believes it is uploading and is not is worse than one that will not start. The
-real branch arrives with stage 11.
+**Both output backends are real.** `build_output_writer` selects `LocalDirectoryWriter` or `S3Writer`
+from `AUTO_INFORM_OUTPUT_KIND`; there is no fallback, and a missing bucket or a missing `s3` extra raises
+at start-up rather than at the first report. The optional dependencies are imported when an adapter is
+constructed, so `import auto_inform` works without either extra (ADR-0031).
 
 ## 4. Logging contract
 

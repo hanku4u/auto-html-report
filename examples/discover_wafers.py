@@ -25,7 +25,6 @@ from auto_inform import (
     Event,
     ExitCode,
     Settings,
-    SqliteEventStore,
     configure_logging,
     exit_code_for,
     load_settings,
@@ -34,6 +33,7 @@ from auto_inform import (
 )
 from auto_inform.domain.errors import ConfigurationError, StoreError
 from examples.demo_api import TOOL_ID, demo_http
+from examples.store import open_store
 
 
 class WaferFailureDiscoverer(Discoverer):
@@ -61,7 +61,7 @@ def main(settings: Settings | None = None) -> int:
     try:
         resolved = load_settings() if settings is None else settings
         configure_logging(resolved.log_level, resolved.log_format)
-        with SqliteEventStore.from_settings(resolved) as store:
+        with open_store(resolved) as store:
             run = run_discovery(
                 [WaferFailureDiscoverer()],
                 store=store,

@@ -1,8 +1,9 @@
 """The store behaviour suite, run against every implementation.
 
-``docs/04-events-and-stores.md`` calls for one suite run against both backends. SQLite runs here today;
-stage 11 appends a PostgreSQL factory to ``STORE_FACTORIES`` and these same cases run against it, with
-the module marked ``postgres`` and skipped unless ``AUTO_INFORM_TEST_POSTGRES_DSN`` is set.
+``docs/04-events-and-stores.md`` calls for one suite run against every implementation. ``STORE_FACTORIES``
+carries SQLite, the in-memory runner double, and PostgreSQL; the PostgreSQL parameter is marked
+``postgres`` and skipped unless ``AUTO_INFORM_TEST_POSTGRES_DSN`` is set, and runs in its own schema
+(``tests/support/postgres.py``) rather than the database the DSN otherwise names.
 
 **A case belongs here only if it is a property of the port.** Anything that needs to see a row's raw
 columns -- payload immutability, ``last_error`` being cleared -- lives in the backend's own module
@@ -24,9 +25,11 @@ import pytest
 
 from auto_inform.application.ports import EventStore
 from auto_inform.domain.errors import StoreError
+from auto_inform.infrastructure.stores.postgres_store import PostgresEventStore
 from auto_inform.infrastructure.stores.sqlite_store import SqliteEventStore
 from tests.support.builders import make_event
 from tests.support.clocks import DEFAULT_START
+from tests.support.postgres import postgres_test_dsn
 from tests.support.stores import FakeEventStore
 
 StoreFactory = Callable[[Path], EventStore]
@@ -41,11 +44,17 @@ def _in_memory_store(_tmp_path: Path) -> EventStore:
     return FakeEventStore(max_attempts=2)
 
 
+def _postgres_store(_tmp_path: Path) -> EventStore:
+    """The optional backend, in the suite's own schema (``tests/support/postgres.py``)."""
+    return PostgresEventStore(postgres_test_dsn(), max_attempts=2)
+
+
 #: One entry per implementation. The cases below may not assume SQL, a file path, or that the store
 #: under test is the default one.
 STORE_FACTORIES = [
     pytest.param(_sqlite_store, id="sqlite"),
     pytest.param(_in_memory_store, id="in-memory-fake"),
+    pytest.param(_postgres_store, id="postgres", marks=pytest.mark.postgres),
 ]
 
 
@@ -368,4 +377,18 @@ def test_save_with_an_unserialisable_payload_should_raise_and_persist_nothing(
     with pytest.raises(TypeError):
         store.save([make_event("ok"), bad])
 
+    assert store.pending() == []
+
+
+def test_save_with_a_non_finite_payload_should_raise_and_persist_nothing(
+    store: EventStore,
+) -> None:
+    # given a float NaN, which Python's JSON encoder permits by default
+    bad = make_event("a", payload={"value": float("nan")})
+
+    # when the batch is saved
+    # then it is refused on every backend. SQLite would otherwise store the text `NaN` and PostgreSQL's
+    # jsonb would reject it, so the same event would succeed on one and abort the run on the other
+    with pytest.raises(ValueError):
+        store.save([make_event("ok"), bad])
     assert store.pending() == []

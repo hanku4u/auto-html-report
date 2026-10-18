@@ -106,12 +106,12 @@ class SqliteEventStore:
 
         ``AUTO_INFORM_EVENT_STORE=postgres`` is refused rather than silently producing a local file: a
         job that believes it is writing to PostgreSQL and is not is worse than a job that fails at
-        start-up. The PostgreSQL store arrives with stage 11.
+        start-up. Use :class:`PostgresEventStore` for that backend.
         """
         if settings.event_store != "sqlite":
             raise ConfigurationError(
-                f"AUTO_INFORM_EVENT_STORE={settings.event_store} is not implemented yet; the PostgreSQL "
-                "store arrives with stage 11. Use AUTO_INFORM_EVENT_STORE=sqlite for now."
+                f"AUTO_INFORM_EVENT_STORE={settings.event_store} is not 'sqlite'; use "
+                "PostgresEventStore.from_settings(settings) for the PostgreSQL backend"
             )
 
         path = (
@@ -141,7 +141,12 @@ class SqliteEventStore:
                     (
                         event.event_type,
                         event.event_id,
-                        json.dumps(dict(event.payload), sort_keys=True, separators=(",", ":")),
+                        json.dumps(
+                            dict(event.payload),
+                            sort_keys=True,
+                            separators=(",", ":"),
+                            allow_nan=False,
+                        ),
                         _as_utc_text(event.discovered_at),
                         event.source,
                         EventStatus.NEW.value,

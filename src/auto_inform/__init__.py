@@ -3,8 +3,9 @@
 This module is the public surface: everything a block author, a report factory or a job script should
 import. It grew in stages -- the author-facing names in stage 3, the report model and entry point in
 stages 5 and 6, the configuration factories in stage 7, the event store and discovery job in stage 8,
-and the processing job and exit codes in stage 9. What remains is stage 10's report factories and
-example jobs.
+the processing job and exit codes in stage 9, and the report family and examples in stage 10.
+Stage 11 added the optional PostgreSQL store and S3 writer, which import their drivers only when
+constructed.
 
 Nothing here imports matplotlib or pyplot eagerly: a report built only from HTML tables never pays for
 them, and a test in ``tests/unit/test_rendering_figures.py`` pins that in a subprocess.
@@ -54,8 +55,10 @@ from auto_inform.infrastructure.factories import (
 )
 from auto_inform.infrastructure.logging_setup import configure_logging
 from auto_inform.infrastructure.settings import Settings, load_settings
+from auto_inform.infrastructure.stores.postgres_store import PostgresEventStore
 from auto_inform.infrastructure.stores.sqlite_store import SqliteEventStore
 from auto_inform.infrastructure.writers.local_writer import LocalDirectoryWriter
+from auto_inform.infrastructure.writers.s3_writer import S3Writer
 from auto_inform.processing import (
     EventProcessingOutcome,
     ProcessingRun,
@@ -95,6 +98,7 @@ __all__ = [
     "OutputLocation",
     "OutputWriter",
     "PermanentBlockError",
+    "PostgresEventStore",
     "ProcessingRun",
     "RenderContext",
     "Report",
@@ -102,6 +106,7 @@ __all__ = [
     "ReportDefinition",
     "ReportResult",
     "ReportRow",
+    "S3Writer",
     "SaveResult",
     "Settings",
     "SqliteEventStore",

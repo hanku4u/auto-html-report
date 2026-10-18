@@ -35,6 +35,7 @@ from auto_inform.domain.report import OutputLocation, ReportDefinition
 from auto_inform.exit_codes import ExitCode, exit_code_for
 from auto_inform.infrastructure.settings import Settings
 from auto_inform.infrastructure.writers.local_writer import LocalDirectoryWriter
+from auto_inform.infrastructure.writers.s3_writer import S3Writer
 from auto_inform.processing import UNCLASSIFIED_FAILURE, _classify_failure, run_processing
 from tests.support.builders import make_event
 from tests.support.clocks import DEFAULT_START, FakeClock
@@ -778,3 +779,40 @@ def test_a_non_positive_configured_limit_should_raise_configuration_error(
         run_processing(
             store=FakeEventStore(), context=context, writer=LocalDirectoryWriter(tmp_path)
         )
+
+
+def test_processing_should_record_an_s3_uri_and_mark_the_event_processed() -> None:
+    # given the S3 writer backed by a stub client -- no network, no credentials
+    order: list[str] = []
+
+    class _Client:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+
+        def put_object(self, **kwargs: object) -> dict[str, object]:
+            self.calls.append(kwargs)
+            order.append("upload")
+            return {}
+
+    class _OrderRecordingStore(FakeEventStore):
+        def mark_processed(self, event: Event, *, output_uri: str) -> None:
+            order.append("mark_processed")
+            super().mark_processed(event, output_uri=output_uri)
+
+    client = _Client()
+    writer = S3Writer("reports-bucket", prefix="team", client=client)
+    _register(lambda: [_OkBlock()])
+    store = _OrderRecordingStore()
+    store.save([make_event("a", event_type=EVENT_TYPE)])
+
+    # when processing runs
+    run = run_processing(store=store, context=_context(), writer=writer)
+
+    # then the delivered URI names the bucket and key, and the event is only then marked processed
+    outcome = run.outcomes[0]
+    assert outcome.output_uri is not None
+    assert outcome.output_uri.startswith("s3://reports-bucket/team/")
+    assert store.pending() == []
+    assert str(client.calls[0]["Key"]).startswith("team/")
+    # and the upload happened first: marking processed before the write would record a report nobody has
+    assert order == ["upload", "mark_processed"]

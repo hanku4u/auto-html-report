@@ -165,7 +165,7 @@ deliberate, reviewed operation, not something that happens implicitly on open.
 | Class | Backend | Notes |
 | --- | --- | --- |
 | `SqliteEventStore(path)` | stdlib `sqlite3` | **Default.** WAL journal mode is enabled for the whole connection lifetime: it lets a reader proceed while the store holds a write, which matters because the discovery and processing jobs may overlap. `AUTO_INFORM_SQLITE_PATH` defaults to `<output_dir>/events.sqlite3`. A new file is created **owner-only (0600)** and a new directory 0700, matching the report writer's policy ([06 §4](06-output-html.md#4-the-trust-boundary)); SQLite's own default is 0644 modified by the umask, and the `-wal`/`-shm` siblings inherit the database's mode. An existing file keeps the mode its operator chose. File modes are POSIX semantics, as for the local report writer ([06 §1](06-output-html.md#1-writers)): `O_NOFOLLOW` is applied where the platform provides it, and Windows is not a supported target for this store either. |
-| `PostgresEventStore(dsn, *, max_attempts)` | `psycopg[binary]` — extra `postgres` | Client supplies the DSN via environment. `save()` uses `ON CONFLICT (event_type, event_id) DO NOTHING`, matching the insert-only rule. `mark_failed` uses a single `UPDATE … SET attempts = attempts + 1, status = CASE WHEN attempts + 1 >= %s THEN 'FAILED' ELSE 'NEW' END` so that the increment and the retirement test cannot race within a statement. |
+| `PostgresEventStore(dsn, *, max_attempts)` | `psycopg[binary]` — extra `postgres` | Client supplies the DSN via environment. `save()` uses `ON CONFLICT (event_type, event_id) DO NOTHING`, matching the insert-only rule, and rejects a cross-source key collision exactly as SQLite does. `mark_failed` uses a single `UPDATE … SET attempts = attempts + 1, status = CASE WHEN attempts + 1 >= %s THEN 'FAILED' ELSE 'NEW' END` so that the increment and the retirement test cannot race within a statement, then reads the row back in the same transaction so it can return the committed `FailureRecord`. `payload` is `JSONB`, so a damaged payload cannot be stored at all — the corrupt-row `StoreError` SQLite reports is unreachable here. Thread-affine, like every store. |
 
 Both are constructed explicitly; there is no hidden singleton:
 
@@ -187,7 +187,7 @@ with the artefacts it describes.
 
 ## Testing
 
-- One shared behaviour suite, run against **both** implementations, covering: `save` is idempotent
+- One shared behaviour suite, run against **every** implementation — SQLite, the in-memory runner double, and PostgreSQL — covering: `save` is idempotent
   and reports duplicates; re-discovery does not reset `PROCESSED`; `save` does not overwrite a
   `PROCESSED` row's payload; `pending` excludes `PROCESSED` and retired rows and is oldest-first;
   `pending(limit=…)` is honoured; `mark_failed` increments and retires exactly at `max_attempts`;
@@ -197,8 +197,21 @@ with the artefacts it describes.
   Postgres service stays green. See [09](09-testing-and-acceptance.md).
 - Two of the cases above are asserted in each **backend's own** module, against its raw storage: that a
   saved payload is never overwritten, and that `last_error` is cleared by a later success. The port
-  deliberately exposes no read-by-id method, so those properties are not observable through it. Stage 11
-  owes the PostgreSQL equivalents rather than a claim that the shared suite covers them.
+  deliberately exposes no read-by-id method, so those properties are not observable through it. Both
+  real backends have those tests (`test_sqlite_store.py`, `test_postgres_store.py`).
+- The PostgreSQL suite runs in a dedicated `auto_inform_test` schema, created by the tests, so the
+table it drops between cases is never a real queue in whatever database the DSN names. CI starts a
+`postgres:17` service and exports the DSN, so the backend is exercised on every push rather than only by
+hand.
+- To run the PostgreSQL suite locally, start a disposable server and point the variable at it:
+
+  ```bash
+  docker run --rm -d --name auto-inform-pg \
+      -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=auto_inform \
+      -p 55432:5432 postgres:17
+  AUTO_INFORM_TEST_POSTGRES_DSN=postgresql://test:test@localhost:55432/auto_inform \
+      uv run pytest -m postgres
+  ```
 
 ## Open questions
 

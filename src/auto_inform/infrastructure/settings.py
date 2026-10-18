@@ -53,6 +53,9 @@ class Settings:
     output_s3_bucket: str | None = None
     output_s3_prefix: str = ""
     output_s3_sse: str | None = None
+    #: Transport timeout for the S3 client, in seconds. Keyword-only: it was added after the dataclass had
+    #: a positional shape, and inserting it inline would re-point every argument after it.
+    output_s3_timeout_seconds: float = field(default=30.0, kw_only=True)
 
     # --- event store ----------------------------------------------------------
     event_store: StoreKind = "sqlite"
@@ -120,7 +123,7 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         value = source.get(name)
         return value if value else None
 
-    def number(name: str, default: float, *, minimum: float) -> float:
+    def number(name: str, default: float, *, minimum: float, maximum: float | None = None) -> float:
         value = source.get(name)
         if value is None:
             return default
@@ -138,6 +141,9 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
             return default
         if parsed < minimum:
             errors.append(f"{name}={value!r} must be at least {minimum:g}")
+            return default
+        if maximum is not None and parsed > maximum:
+            errors.append(f"{name}={value!r} must be at most {maximum:g}")
             return default
         return parsed
 
@@ -208,6 +214,9 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         output_s3_bucket=optional("AUTO_INFORM_OUTPUT_S3_BUCKET"),
         output_s3_prefix=raw("AUTO_INFORM_OUTPUT_S3_PREFIX", "") or "",
         output_s3_sse=optional("AUTO_INFORM_OUTPUT_S3_SSE"),
+        output_s3_timeout_seconds=number(
+            "AUTO_INFORM_OUTPUT_S3_TIMEOUT_SECONDS", 30.0, minimum=0.001, maximum=300.0
+        ),
         event_store=choice("AUTO_INFORM_EVENT_STORE", "sqlite", ("sqlite", "postgres")),  # type: ignore[arg-type]
         sqlite_path=Path(sqlite_path) if sqlite_path else None,
         postgres_dsn=optional("AUTO_INFORM_POSTGRES_DSN"),

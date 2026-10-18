@@ -126,9 +126,10 @@ When you genuinely need to chase a moving ref, force a refresh: `uv add --refres
 
 `v0.1.0` is the intended first tag. If it does not exist yet in your clone, pin a commit SHA instead.
 
-> **Not yet implemented:** the `s3` and `postgres` extras exist in `pyproject.toml`, but the S3 writer
-> and the PostgreSQL event store land in a later stage. Today the supported setup is the local
-> directory writer and the SQLite store. Installing an extra is harmless; relying on it is not.
+The extras select the optional backends: `s3` for uploading reports instead of writing them locally,
+`postgres` for a shared event store instead of SQLite. Both are optional — the defaults need neither,
+and `import auto_inform` works without them. An S3 writer bounds its upload timeouts itself, because the
+processing job does not wait for it with a deadline.
 
 ## Writing a block
 
@@ -273,7 +274,14 @@ no config file and no flags. These are the ones a job normally sets:
 
 | Variable | Default | What it does |
 | --- | --- | --- |
+| `AUTO_INFORM_OUTPUT_KIND` | `local` | `local` or `s3`; `s3` also needs `AUTO_INFORM_OUTPUT_S3_BUCKET`. |
 | `AUTO_INFORM_OUTPUT_DIR` | `./reports` | Directory the local writer writes into. |
+| `AUTO_INFORM_EVENT_STORE` | `sqlite` | `sqlite` or `postgres`; `postgres` also needs `AUTO_INFORM_POSTGRES_DSN`. |
+| `AUTO_INFORM_POSTGRES_DSN` | — | The PostgreSQL DSN, password included; `sslmode=require` (or `verify-full`) for a shared database. |
+| `AUTO_INFORM_OUTPUT_S3_BUCKET` | — | Bucket for `AUTO_INFORM_OUTPUT_KIND=s3`; required for S3. |
+| `AUTO_INFORM_OUTPUT_S3_PREFIX` | `""` | Key prefix under the bucket. |
+| `AUTO_INFORM_OUTPUT_S3_TIMEOUT_SECONDS` | `30` | S3 connect/read timeout (capped at 300). |
+| `AUTO_INFORM_OUTPUT_S3_SSE` | — | `AES256`, `aws:kms` or `aws:kms:dsse`; omitted means the bucket default. |
 | `AUTO_INFORM_SQLITE_PATH` | `<output_dir>/events.sqlite3` | Event store location. |
 | `AUTO_INFORM_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` or `CRITICAL`. |
 | `AUTO_INFORM_LOG_FORMAT` | `json` | `json` for log shippers, `console` for humans. |
@@ -322,10 +330,10 @@ dependency, run `uv lock` in the same commit, or `uv lock --check` will fail.
 
 ## Status
 
-v1 is implemented through the processing job and exit codes — stages 1–10 of
-[`docs/11-implementation-plan.md`](docs/11-implementation-plan.md). The remaining stage is the optional
-PostgreSQL event store and S3 writer. Until then: local directory output, SQLite, and a stub HTTP
-client are what exist; the extras in `pyproject.toml` are placeholders.
+v1 is complete: stages 1–11 of [`docs/11-implementation-plan.md`](docs/11-implementation-plan.md).
+Local directory output and SQLite are the defaults; the `s3` and `postgres` extras are implemented and
+optional. The HTTP layer is still a stub (`StubHttpClient`) — v1 ships no real API client, and blocks and
+discoverers are written against the `HttpClient` port so that swapping one in is wiring, not a rewrite.
 
 ## Where to look
 

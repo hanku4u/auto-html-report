@@ -654,3 +654,28 @@ def test_an_event_missing_a_required_field_should_fail_that_discoverer_alone(
     # integrity error, and the healthy source's event is still persisted -- the failure is contained
     assert run.outcomes[0].error_type == "ConfigurationError"
     assert [event.event_id for event in store.pending()] == ["L1"]
+
+
+def test_a_discoverer_yielding_a_non_finite_number_should_fail_alone(
+    store: SqliteEventStore,
+) -> None:
+    # given a source whose payload contains NaN, which one backend would store and the other reject
+    class _NonFiniteDiscoverer(Discoverer):
+        event_type = "WAFER_FAILURE"
+
+        def discover(self, context: Any) -> Iterable[Event]:
+            yield make_event("x", payload={"value": float("nan")})
+
+    # when it runs beside a healthy source
+    run = run_discovery(
+        [_NonFiniteDiscoverer(), _YieldingDiscoverer("L1")],
+        store=store,
+        context=make_discovery_context(),
+    )
+
+    # then the payload is the contract check's problem, not the store's: that source fails alone and the
+    # healthy one still persists
+    assert run.outcomes[0].error_type == "ConfigurationError"
+    assert run.outcomes[0].error_message is not None
+    assert "JSON-serialisable" in run.outcomes[0].error_message
+    assert [event.event_id for event in store.pending()] == ["L1"]
