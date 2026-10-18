@@ -194,3 +194,25 @@ def test_console_formatter_should_keep_a_multiline_message_on_one_line() -> None
     # when it is formatted
     # then the message is escaped too, not just the extra fields
     assert "\n" not in ConsoleFormatter().format(record)
+
+
+def test_console_formatter_should_indent_a_traceback_so_it_cannot_forge_a_record() -> None:
+    # given a failure whose message contains a newline, the shape an upstream response body takes when a
+    # factory puts it into an exception
+    import sys
+
+    try:
+        raise ValueError("line one\nINFO forged")
+    except ValueError:
+        record = _record(error_type="ValueError")
+        record.exc_info = sys.exc_info()
+
+    # when it is formatted for a terminal
+    lines = ConsoleFormatter().format(record).splitlines()
+
+    # then the record is the only line that starts at column zero: every traceback line, including the
+    # one a newline in the message produced, is indented, so a log collector cannot mistake it for
+    # another record
+    assert lines[0].startswith(tuple("0123456789"))
+    assert all(line.startswith("    ") for line in lines[1:])
+    assert not any(line.startswith("INFO forged") for line in lines)

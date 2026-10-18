@@ -93,7 +93,7 @@ This set specifies **auto_inform v0.1** — package version `0.1.0`, see
 | 07 | [07-configuration-and-logging.md](07-configuration-and-logging.md) | proposed | Environment variables and their `Settings` attributes, the HTTP stub, and the structured logging contract. |
 | 08 | [08-packaging.md](08-packaging.md) | proposed | Distribution name, exact dependency pins, optional extras, package data, and install instructions. |
 | 09 | [09-testing-and-acceptance.md](09-testing-and-acceptance.md) | proposed | The testing strategy per layer, hermeticity rules, and the v1 acceptance criteria. |
-| 10 | [10-decision-log.md](10-decision-log.md) | proposed | ADR-0001 to ADR-0029: each ratified decision, its context, and the alternatives rejected. |
+| 10 | [10-decision-log.md](10-decision-log.md) | proposed | ADR-0001 to ADR-0030: each ratified decision, its context, and the alternatives rejected. |
 | 11 | [11-implementation-plan.md](11-implementation-plan.md) | proposed | The staged build order for v1, with review boundaries and a definition of done per stage. |
 
 ## Reading order by role

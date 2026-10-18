@@ -1,6 +1,6 @@
 ---
 status: proposed
-description: ADR-0001 to ADR-0029 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
+description: ADR-0001 to ADR-0030 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
 replaces: docs/SPEC.md §11, §12
 ---
 
@@ -421,6 +421,42 @@ different timeout policy by accident. The cost is one layer of indirection betwe
 loop, visible in the signatures rather than in behaviour. Rejected: a second loop in `discovery.py`
 (duplicate logic, guaranteed to drift); and a generic callback interface with five logging methods per
 caller, which is more surface than one vocabulary dataclass for the same separation.
+
+---
+
+### ADR-0030 — The processing job composes at the root, and records operational failures
+
+**Context:** Stage 9's plan placed the job in `application/processing.py`. It must call the registry
+(`registry.py`) and `generate_report` (`generate.py`), both package-root modules, and `application/`'s
+allowlist excludes the root precisely because the root reaches the renderer (rule 2 of
+[01 §4](01-overview.md#4-architectural-overview)). Separately, `05` §2 rule 5 said a failing writer
+"escapes" the run, while its §5 table ranked `OUTPUT_ERROR` for a report that could not be written — a run
+that has been abandoned cannot be ranked.
+
+**Decision:** `processing.py` and `exit_codes.py` live at the package root, beside `generate.py` and
+`registry.py`, for ADR-0028's reason: composing is the root's job, and a layer should not pretend to be
+application code to reach the renderer. The runner **records** a per-event operational failure — a missing
+factory, a refused definition, a write failure, a store call that fails during the commit phase — in
+`EventProcessingOutcome`, and `exit_code_for` ranks the recorded `error_type`s. A store or writer failure
+stops the run after one recorded outcome, because both are systemic: every later event would fail the same
+way, and continuing through a writer outage would burn every event's attempt budget and retire a healthy
+queue. Only a `pending()` failure escapes, because no outcome exists to report on. `mark_failed` returns
+`FailureRecord(attempts, retired)` so `event.failed` and `event.retired` carry the store's own count.
+
+**Consequences:** the documented exit codes are producible by the documented `exit_code_for(run)` call,
+and a script that wants codes for setup failures wraps its own startup (`05` §6 shows how). A write failure
+no longer aborts the *process*, but it does end the batch after one attempt was consumed — the smallest
+price that still reports `OUTPUT_ERROR`. `fail_events_with_failed_blocks` defaults to `None` (meaning "use
+`AUTO_INFORM_FAIL_ON_BLOCK_ERROR"`) rather than the documented `False`, which would have silently ignored
+the setting. A run is bounded by `AUTO_INFORM_PROCESSING_LIMIT` (default 500); an explicit `limit` can
+lower it and never raise it, and a caller that asks for more is clamped with a `processing.capped` line.
+Failure classification is by `isinstance`, not by exception name: a writer subclass is filed with
+`OutputError`, a definition refused because of the event's data is `EventDataError` — ranked as a partial
+failure and counted as an attempt, so it retires rather than sitting at the head of an oldest-first queue
+for ever — and a class from another library that merely shares a framework name is `UnclassifiedError`,
+so it can neither stop a run nor select an exit code. Rejected: widening the application allowlist to the root (it would give every application
+module a path to rendering); and leaving `mark_failed` returning `None` (the retirement boundary would be
+re-derived in the runner, in a second place, and could drift).
 
 ---
 

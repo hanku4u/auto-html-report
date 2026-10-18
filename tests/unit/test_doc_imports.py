@@ -28,11 +28,9 @@ import auto_inform
 DOCS = Path(__file__).resolve().parents[2] / "docs"
 
 #: Names the documents import that genuinely do not exist yet, each with the stage that lands it.
-#: Remove an entry as soon as its stage merges -- test_pending_names_should_still_be_missing enforces it.
-PENDING: dict[str, str] = {
-    "exit_code_for": "stage 9",
-    "run_processing": "stage 9",
-}
+#: Empty since stage 9, and kept as the mechanism for the next one: remove an entry as soon as its stage
+#: merges. test_pending_names_should_still_be_missing refuses an entry that has started resolving.
+PENDING: dict[str, str] = {}
 
 _PYTHON_BLOCK = re.compile(r"```python\n(.*?)```", re.DOTALL)
 
@@ -115,11 +113,23 @@ def test_the_extractor_should_find_names_in_a_synthetic_fence() -> None:
     }
 
 
-@pytest.mark.parametrize(("name", "stage"), sorted(PENDING.items()))
-def test_pending_names_should_still_be_missing(name: str, stage: str) -> None:
-    # given a name allowed to be absent because a later stage delivers it
-    # when that stage has landed
-    # then this fails, so the allowlist shrinks instead of becoming a permanent excuse
-    assert not hasattr(auto_inform, name), (
-        f"{name} now resolves; remove it from PENDING ({stage} has landed)"
-    )
+def _assert_pending_missing(pending: dict[str, str]) -> None:
+    """Fail for any entry that has started resolving."""
+    for name, stage in pending.items():
+        assert not hasattr(auto_inform, name), (
+            f"{name} now resolves; remove it from PENDING ({stage} has landed)"
+        )
+
+
+def test_pending_names_should_still_be_missing() -> None:
+    # given the allowlist of names a later stage is expected to deliver (empty today, so this passes
+    # vacuously -- but it is the control that fails the moment an entry outlives its stage)
+    _assert_pending_missing(PENDING)
+
+
+def test_the_pending_control_should_object_to_a_name_that_exists() -> None:
+    # given an entry for a name that is on the surface -- the mistake the control exists to catch
+    # when it is judged
+    # then the control objects, so an entry cannot outlive its stage silently (docs/09 §2 rule 7)
+    with pytest.raises(AssertionError, match="now resolves"):
+        _assert_pending_missing({"Block": "stage 99"})

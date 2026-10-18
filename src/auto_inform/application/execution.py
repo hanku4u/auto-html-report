@@ -276,7 +276,7 @@ def _await_result(
                 vocabulary.subject: task.name,
                 "attempts": tracker.started,
                 "error_type": type(exc).__name__,
-                "error_message": _summarise(exc),
+                "error_message": summarise_exception(exc),
             },
         )
         return ExecutionResult(
@@ -285,7 +285,7 @@ def _await_result(
             attempts=tracker.started,
             duration_seconds=guard - remaining,
             error_type=type(exc).__name__,
-            error_message=_summarise(exc),
+            error_message=summarise_exception(exc),
         )
 
 
@@ -350,7 +350,7 @@ def _run_task(
                     vocabulary.subject: task.name,
                     "attempts": attempt,
                     "error_type": type(exc).__name__,
-                    "error_message": _summarise(exc),
+                    "error_message": summarise_exception(exc),
                 },
             )
             return ExecutionResult(
@@ -359,7 +359,7 @@ def _run_task(
                 attempts=attempt,
                 duration_seconds=clock.monotonic() - started,
                 error_type=type(exc).__name__,
-                error_message=_summarise(exc),
+                error_message=summarise_exception(exc),
             )
 
         consumed = clock.monotonic() - attempt_started
@@ -379,7 +379,7 @@ def _run_task(
                         vocabulary.subject: task.name,
                         "attempts": attempt,
                         "error_type": type(exc).__name__,
-                        "error_message": _summarise(exc),
+                        "error_message": summarise_exception(exc),
                     },
                 )
                 return ExecutionResult(
@@ -388,7 +388,7 @@ def _run_task(
                     attempts=attempt,
                     duration_seconds=clock.monotonic() - started,
                     error_type=type(exc).__name__,
-                    error_message=_summarise(exc),
+                    error_message=summarise_exception(exc),
                 )
         else:
             # With no finaliser the attempt's value *is* the result; the caller chose R = T.
@@ -517,8 +517,11 @@ def _is_retryable(exc: BaseException, settings: Settings) -> bool:
     return any(cls.__name__ in configured for cls in type(exc).__mro__)
 
 
-def _summarise(exc: BaseException) -> str:
+def summarise_exception(exc: BaseException) -> str:
     """The message, newlines included, capped by length.
+
+    Package-internal but not private: the processing job records the same capped text in an
+    ``EventProcessingOutcome``, and two caps with different limits would be a bug nobody notices.
 
     Not the first line: the renderer decides whether to show the first line (``summary``) or all of it
     (``detailed``), per ``docs/06-output-html.md`` §6. Collapsing to one line here would silently make

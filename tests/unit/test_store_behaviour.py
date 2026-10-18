@@ -15,8 +15,9 @@ Retirement is exercised at ``max_attempts=2`` so the boundary is two calls rathe
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable, Iterator
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -26,6 +27,7 @@ from auto_inform.domain.errors import StoreError
 from auto_inform.infrastructure.stores.sqlite_store import SqliteEventStore
 from tests.support.builders import make_event
 from tests.support.clocks import DEFAULT_START
+from tests.support.stores import FakeEventStore
 
 StoreFactory = Callable[[Path], EventStore]
 
@@ -34,9 +36,17 @@ def _sqlite_store(tmp_path: Path) -> EventStore:
     return SqliteEventStore(tmp_path / "events.sqlite3", max_attempts=2)
 
 
+def _in_memory_store(_tmp_path: Path) -> EventStore:
+    """The runner double, held to the same contract as the real backend (docs/09 §1)."""
+    return FakeEventStore(max_attempts=2)
+
+
 #: One entry per implementation. The cases below may not assume SQL, a file path, or that the store
 #: under test is the default one.
-STORE_FACTORIES = [pytest.param(_sqlite_store, id="sqlite")]
+STORE_FACTORIES = [
+    pytest.param(_sqlite_store, id="sqlite"),
+    pytest.param(_in_memory_store, id="in-memory-fake"),
+]
 
 
 @pytest.fixture(params=STORE_FACTORIES)
@@ -286,3 +296,76 @@ def test_pending_should_tie_break_on_event_id_when_the_timestamp_is_equal(
     # then the documented tie-break makes the order total, so the same two rows cannot swap places
     # between runs
     assert [event.event_id for event in store.pending()] == ["a", "b"]
+
+
+def test_mark_failed_should_report_the_attempt_count_and_the_retirement_boundary(
+    store: EventStore,
+) -> None:
+    # given a store whose limit is two attempts (the fixture's max_attempts)
+    event = make_event("a")
+    store.save([event])
+
+    # when the first attempt fails
+    first = store.mark_failed(event, reason="one")
+
+    # then the record says so: one attempt, not retired. The runner logs these numbers, so the store's
+    # own count is the contract -- a read-back that returned zeros would pass every other test here
+    assert (first.attempts, first.retired) == (1, False)
+
+    # and when the second attempt fails
+    second = store.mark_failed(event, reason="two")
+
+    # then the boundary is reported exactly: the second failure is the one that retires
+    assert (second.attempts, second.retired) == (2, True)
+    assert store.pending() == []
+
+
+def test_using_the_store_from_another_thread_should_raise_store_error(
+    store: EventStore,
+) -> None:
+    # given a store opened on this thread
+    failures: list[BaseException] = []
+
+    def use_from_another_thread() -> None:
+        try:
+            store.save([make_event("a")])
+        except Exception as exc:  # noqa: BLE001 - the point is to capture what the store raises
+            failures.append(exc)
+
+    # when another thread tries to save
+    worker = threading.Thread(target=use_from_another_thread)
+    worker.start()
+    worker.join()
+
+    # then it fails as a StoreError naming the thread rule, not as a raw driver error (docs/04 §2.4)
+    assert len(failures) == 1
+    assert isinstance(failures[0], StoreError)
+    assert "thread-affine" in str(failures[0])
+
+
+def test_save_with_a_naive_timestamp_should_raise_and_persist_nothing(store: EventStore) -> None:
+    # given an event stamped with a naive datetime
+    naive = make_event("a", discovered_at=datetime(2026, 10, 18, 12, 0))
+
+    # when a batch containing it is saved
+    with pytest.raises(ValueError, match="naive"):
+        store.save([make_event("ok"), naive])
+
+    # then nothing from the batch landed: a timestamp whose offset is unknown would make the queue's
+    # oldest-first order depend on the host's timezone
+    assert store.pending() == []
+
+
+def test_save_with_an_unserialisable_payload_should_raise_and_persist_nothing(
+    store: EventStore,
+) -> None:
+    # given a payload JSON cannot represent
+    bad = make_event("a", payload={"when": datetime(2026, 10, 18, 12, 0)})
+
+    # when it is saved
+    # then it is a TypeError -- the message belongs to the backend -- and the batch is rolled back:
+    # the event store's format is JSON, and half a batch is not a save
+    with pytest.raises(TypeError):
+        store.save([make_event("ok"), bad])
+
+    assert store.pending() == []

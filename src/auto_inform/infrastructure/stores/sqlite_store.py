@@ -35,7 +35,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final, Self
 
-from auto_inform.application.ports import Clock, SaveResult
+from auto_inform.application.ports import Clock, FailureRecord, SaveResult
 from auto_inform.domain.errors import ConfigurationError, StoreError
 from auto_inform.domain.event import Event, EventStatus
 from auto_inform.infrastructure.clock import SystemClock
@@ -227,12 +227,13 @@ class SqliteEventStore:
                     "in this store (already processed, retired, or never saved)"
                 )
 
-    def mark_failed(self, event: Event, *, reason: str) -> None:
+    def mark_failed(self, event: Event, *, reason: str) -> FailureRecord:
         """Count one failed attempt, retiring the event at ``max_attempts``.
 
         The increment and the retirement test happen in a single ``UPDATE`` so they cannot race: the
         ``CASE`` reads the pre-update ``attempts`` value, which is exactly the count this failure
-        brings to ``max_attempts`` (ADR-0019).
+        brings to ``max_attempts`` (ADR-0019). The row is read back inside the same transaction, so the
+        count the caller logs is the count that was committed, not a second guess.
         """
         with self._transaction():
             cursor = self._execute(
@@ -256,6 +257,19 @@ class SqliteEventStore:
                     f"cannot record a failure for {event.event_type}/{event.event_id}: it is not a NEW "
                     "event in this store (already processed, retired, or never saved)"
                 )
+            row = self._execute(
+                "SELECT attempts, status FROM events WHERE event_type = ? AND event_id = ?",
+                (event.event_type, event.event_id),
+            ).fetchone()
+
+        if row is None:  # pragma: no cover - the UPDATE above matched this row in this transaction
+            raise StoreError(
+                f"event {event.event_type}/{event.event_id} disappeared during mark_failed"
+            )
+        return FailureRecord(
+            attempts=row["attempts"],
+            retired=row["status"] == EventStatus.FAILED.value,
+        )
 
     def close(self) -> None:
         """Release the connection. Safe to call twice, and safe after an exception."""

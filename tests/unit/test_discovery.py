@@ -21,7 +21,7 @@ from typing import Any, Self
 import pytest
 
 from auto_inform.application.discovery import Discoverer, run_discovery
-from auto_inform.application.ports import EventStore, SaveResult
+from auto_inform.application.ports import EventStore, FailureRecord, SaveResult
 from auto_inform.domain.errors import (
     ConfigurationError,
     PermanentBlockError,
@@ -151,8 +151,8 @@ class _RaisingStore:
     def mark_processed(self, event: Event, *, output_uri: str) -> None:
         self._inner.mark_processed(event, output_uri=output_uri)
 
-    def mark_failed(self, event: Event, *, reason: str) -> None:
-        self._inner.mark_failed(event, reason=reason)
+    def mark_failed(self, event: Event, *, reason: str) -> FailureRecord:
+        return self._inner.mark_failed(event, reason=reason)
 
     def close(self) -> None:
         self._inner.close()

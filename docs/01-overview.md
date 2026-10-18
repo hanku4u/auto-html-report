@@ -187,8 +187,6 @@ auto-inform/
 │       │   ├── execution.py        # shared timeout/retry/hang-guard executor (ADR-0029)
 │       │   ├── context.py          # ReportContext, RenderContext, DiscoveryContext, RunMetadata
 │       │   ├── discovery.py        # run_discovery
-│       │   ├── processing.py       # run_processing
-│       │   ├── exit_codes.py       # ExitCode, exit_code_for()
 │       │   └── ports.py            # Protocols: EventStore, OutputWriter, HttpClient, Clock
 │       ├── infrastructure/
 │       │   ├── settings.py         # load_settings(): env-var parsing -> Settings (frozen)
@@ -213,8 +211,10 @@ auto-inform/
 │       ├── _version.py            # resolves the version at runtime; source of truth is pyproject.toml
 │       ├── _naming.py             # slug(): shared by the row id and the report filename
 │       ├── generate.py            # generate_report(), report_filename(): the composition entry point
-│       ├── registry.py             # register_block/get_block, register_report/get_report_factory
-│       ├── blocks/                 # built-in blocks: internal plugin modules
+│       ├── processing.py          # run_processing(): the processing job (ADR-0030)
+│       ├── exit_codes.py          # ExitCode, exit_code_for()
+│       ├── registry.py            # register_block/get_block, register_report/get_report_factory
+│       ├── blocks/                # built-in blocks: internal plugin modules
 │       │   ├── __init__.py         # the package docstring; the scan lives in registry.py
 │       │   ├── maintenance_history.py
 │       │   └── wafer_map.py
@@ -224,9 +224,9 @@ auto-inform/
     ├── unit/                       # domain, rendering, registry: no I/O
     ├── integration/                # sqlite store round-trip, local writer, runners (fakes)
     ├── golden/                     # expected HTML snapshots for the output contract
-    ├── support/                    # shared test doubles and builders: the HTTP fake, context
-    │                               # builders, clocks, the golden fixture, the containment audit
-    └── conftest.py                 # FakeEventStore, FakeHttpClient, frozen clock
+    └── support/                    # shared test doubles and builders: the HTTP fake, the event
+                                    # store fake, context builders, clocks, the golden fixture,
+                                    # the containment and document audits
 ```
 
 ## 7. How this document set fits together

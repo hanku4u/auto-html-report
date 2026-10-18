@@ -17,7 +17,7 @@ from __future__ import annotations
 import math
 import os
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final, Literal
 
@@ -33,6 +33,9 @@ ErrorDetail = Literal["summary", "detailed"]
 #: hang-guard arithmetic (``application/execution.py``) before any work starts. Defaults are 2 and 3.
 MAX_BLOCK_RETRIES: Final = 10
 MAX_EVENT_ATTEMPTS: Final = 1000
+MAX_WORKERS: Final = 64
+MAX_CONCURRENT_REPORTS: Final = 32
+MAX_PROCESSING_LIMIT: Final = 10_000
 
 _REDACTED: Final = "***"
 _SECRET_HINTS: Final = ("TOKEN", "SECRET", "PASSWORD", "DSN", "KEY")
@@ -62,6 +65,13 @@ class Settings:
     # --- execution ------------------------------------------------------------
     max_workers: int = 8
     max_concurrent_reports: int = 1
+    #: Ceiling on events one processing run takes from the queue. ``run_processing(limit=...)`` can
+    #: lower it, never raise it; the whole-queue form is a diagnostic, not the scheduled path.
+    #:
+    #: Keyword-only on purpose: the field was added to a public dataclass after it had a positional
+    #: shape, and inserting it inline would have re-pointed every positional argument after it -- the
+    #: same break ``ReportDefinition.event_id`` documents (docs/03 §1).
+    processing_limit: int = field(default=500, kw_only=True)
     block_timeout_seconds: float = 60.0
     block_retries: int = 2
     retry_base_delay_seconds: float = 1.0
@@ -204,8 +214,13 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         event_max_attempts=integer(
             "AUTO_INFORM_EVENT_MAX_ATTEMPTS", 3, minimum=1, maximum=MAX_EVENT_ATTEMPTS
         ),
-        max_workers=integer("AUTO_INFORM_MAX_WORKERS", 8, minimum=1),
-        max_concurrent_reports=integer("AUTO_INFORM_MAX_CONCURRENT_REPORTS", 1, minimum=1),
+        max_workers=integer("AUTO_INFORM_MAX_WORKERS", 8, minimum=1, maximum=MAX_WORKERS),
+        max_concurrent_reports=integer(
+            "AUTO_INFORM_MAX_CONCURRENT_REPORTS", 1, minimum=1, maximum=MAX_CONCURRENT_REPORTS
+        ),
+        processing_limit=integer(
+            "AUTO_INFORM_PROCESSING_LIMIT", 500, minimum=1, maximum=MAX_PROCESSING_LIMIT
+        ),
         block_timeout_seconds=number("AUTO_INFORM_BLOCK_TIMEOUT_SECONDS", 60.0, minimum=0.001),
         block_retries=integer("AUTO_INFORM_BLOCK_RETRIES", 2, minimum=0, maximum=MAX_BLOCK_RETRIES),
         retry_base_delay_seconds=number("AUTO_INFORM_RETRY_BASE_DELAY_SECONDS", 1.0, minimum=0.0),

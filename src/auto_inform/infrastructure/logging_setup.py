@@ -123,7 +123,13 @@ class ConsoleFormatter(logging.Formatter):
         if extras:
             line = f"{line} {extras}"
         if record.exc_info:
-            line = f"{line}\n{self.formatException(record.exc_info)}"
+            # Every traceback line is escaped *and* indented. A newline inside an exception message --
+            # an upstream response body copied into a raise, say -- cannot be told apart from the
+            # formatter's own line structure, so the whole block is marked as a block instead: no line
+            # of it can begin where a record begins, and ANSI escapes inside one are neutralised.
+            traceback_lines = self.formatException(record.exc_info).splitlines()
+            block = "\n".join(f"    {_one_line(part)}" for part in traceback_lines)
+            line = f"{line}\n{block}"
         return line
 
 

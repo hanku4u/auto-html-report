@@ -6,6 +6,7 @@ mapping tolerable to live with: every bad variable is reported at once, and secr
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 
 import pytest
@@ -36,6 +37,7 @@ def test_load_settings_should_read_every_documented_variable() -> None:
         "AUTO_INFORM_EVENT_MAX_ATTEMPTS": "5",
         "AUTO_INFORM_MAX_WORKERS": "3",
         "AUTO_INFORM_MAX_CONCURRENT_REPORTS": "2",
+        "AUTO_INFORM_PROCESSING_LIMIT": "25",
         "AUTO_INFORM_BLOCK_TIMEOUT_SECONDS": "12.5",
         "AUTO_INFORM_BLOCK_RETRIES": "0",
         "AUTO_INFORM_RETRY_BASE_DELAY_SECONDS": "0.25",
@@ -63,6 +65,7 @@ def test_load_settings_should_read_every_documented_variable() -> None:
     assert settings.postgres_dsn == "postgresql://user@host/db"
     assert settings.event_max_attempts == 5
     assert settings.max_workers == 3
+    assert settings.processing_limit == 25
     assert settings.max_concurrent_reports == 2
     assert settings.block_timeout_seconds == 12.5
     assert settings.block_retries == 0
@@ -221,3 +224,35 @@ def test_load_settings_with_an_excessive_attempt_limit_should_be_refused() -> No
     # given an attempt limit beyond what SQLite's INTEGER can bind
     with pytest.raises(ConfigurationError, match="at most 1000"):
         load_settings({"AUTO_INFORM_EVENT_MAX_ATTEMPTS": "100000"})
+
+
+def test_load_settings_with_an_excessive_processing_limit_should_be_refused() -> None:
+    # given a batch ceiling large enough to hold a whole backlog in memory
+    with pytest.raises(ConfigurationError, match="at most 10000"):
+        load_settings({"AUTO_INFORM_PROCESSING_LIMIT": "100000"})
+
+
+@pytest.mark.parametrize(
+    ("variable", "value", "bound"),
+    [
+        ("AUTO_INFORM_MAX_WORKERS", "65", "64"),
+        ("AUTO_INFORM_MAX_CONCURRENT_REPORTS", "33", "32"),
+    ],
+)
+def test_load_settings_with_an_excessive_concurrency_should_be_refused(
+    variable: str, value: str, bound: str
+) -> None:
+    # given a concurrency that would multiply the per-report block pool into hundreds of threads and
+    # in-flight HTTP calls
+    # when it is loaded
+    # then it is refused at the edge with the bound in the message
+    with pytest.raises(ConfigurationError, match=f"at most {bound}"):
+        load_settings({variable: value})
+
+
+def test_processing_limit_should_be_keyword_only() -> None:
+    # given a field added to a public dataclass that already had a positional shape
+    # then it is keyword-only, so every positional argument after it keeps its meaning (the same rule
+    # ReportDefinition.event_id documents)
+    fields = {field.name: field for field in dataclasses.fields(Settings)}
+    assert fields["processing_limit"].kw_only is True

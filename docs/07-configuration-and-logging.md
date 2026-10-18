@@ -32,6 +32,7 @@ every block.
 | `AUTO_INFORM_EVENT_MAX_ATTEMPTS` | `event_max_attempts` | `int` | `3` |
 | `AUTO_INFORM_MAX_WORKERS` | `max_workers` | `int` | `8` |
 | `AUTO_INFORM_MAX_CONCURRENT_REPORTS` | `max_concurrent_reports` | `int` | `1` |
+| `AUTO_INFORM_PROCESSING_LIMIT` | `processing_limit` | `int` | `500` |
 | `AUTO_INFORM_BLOCK_TIMEOUT_SECONDS` | `block_timeout_seconds` | `float` | `60.0` |
 | `AUTO_INFORM_BLOCK_RETRIES` | `block_retries` | `int` | `2` |
 | `AUTO_INFORM_RETRY_BASE_DELAY_SECONDS` | `retry_base_delay_seconds` | `float` | `1.0` |
@@ -49,7 +50,9 @@ them: `AUTO_INFORM_BLOCK_RETRIES` is capped at **10** — the backoff doubles pe
 count overflows the hang-guard computation before any work starts — and `AUTO_INFORM_EVENT_MAX_ATTEMPTS`
 at **1000**, beyond which the value cannot be bound to SQLite's `INTEGER`. A block's own `max_retries`
 override is subject to the same cap, and the executor enforces both on a directly constructed
-`Settings`, because `load_settings` is not the only way to build one.
+`Settings`, because `load_settings` is not the only way to build one. Concurrency is capped too, because
+it multiplies: `AUTO_INFORM_MAX_WORKERS` at **64**, `AUTO_INFORM_MAX_CONCURRENT_REPORTS` at **32** (each
+report starts its own block pool), and `AUTO_INFORM_PROCESSING_LIMIT` at **10,000**.
 
 Rules for `load_settings`:
 
@@ -165,15 +168,18 @@ one line per notable event. Every line carries `run_id`; every block line carrie
 | `block.failed` | as above, plus `error_type`, `error_message`, and the traceback |
 | `block.abandoned` | `run_id`, `block`, `overrun_s` — a timed-out worker thread that outlived its budget |
 | `report.finish` | `run_id`, `report_title`, `failed_blocks`, `duration_ms`, `output_uri` |
-| `report.failed` | `run_id`, `report_title`, `error_type`, and the traceback — the document was rendered but could not be written. Emitted before `report.finish`, which then carries `output_uri: null`, so the report-level pair is complete on the failure path too. |
+| `report.failed` | `run_id`, `report_title`, `error_type`, and the traceback — the report could not be completed: a refused definition, a renderer failure, or a failed write. When the document was produced and only the write failed, it is followed by `report.finish` with `output_uri: null`; otherwise — a refused definition or a renderer failure — it is the terminal line for the pair. |
 | `discovery.start` | `run_id`, `discoverer`, `attempt` |
 | `discovery.retry` | `run_id`, `discoverer`, `attempt`, `delay_s`, `error_type` |
 | `discovery.finish` | `run_id`, `discoverer`, `event_type`, `new`, `duplicates`, `duration_ms` — emitted after the events are persisted, and only on the success path |
 | `discovery.failed` | `run_id`, `discoverer`, `attempts`, `error_type`, `error_message`, and the traceback — the discoverer itself failed, so nothing from it was persisted |
 | `discovery.abandoned` | `run_id`, `discoverer`, `overrun_s` — a timed-out discoverer thread that outlived its budget |
+| `processing.capped` | `run_id`, `requested`, `limit` — a caller asked for more events than `AUTO_INFORM_PROCESSING_LIMIT` allows, and the configured ceiling won |
 | `event.processed` | `run_id`, `event_type`, `event_id`, `output_uri` |
 | `event.failed` | `run_id`, `event_type`, `event_id`, `attempts`, `reason` |
 | `event.retired` | `run_id`, `event_type`, `event_id`, `attempts` — attempts exhausted, no longer retried |
+| `event.skipped` | `run_id`, `event_type`, `event_id`, `error_type`, and the traceback — the event was left `NEW` because the deployment is wrong (a missing factory, a refused definition). No attempt was counted, which is why this is not `event.failed`. |
+| `store.failed` | `run_id`, `event_type`, `event_id`, and the traceback — a store call failed during the commit phase; the run stops after recording it |
 
 `duration_ms` on every block is the point: when the nightly job goes from 40 seconds to 9 minutes,
 the log says which block got slower, without a profiler or a reproduction. `block.abandoned` exists

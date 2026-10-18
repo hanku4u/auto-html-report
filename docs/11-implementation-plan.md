@@ -249,22 +249,60 @@ stage 9 lands; it found a real defect immediately (`register_report` was documen
 
 ## Stage 9 — The processing job and exit codes
 
-`application/processing.py`, `application/exit_codes.py`, and the report-level concurrency knob from
-ADR-0020.
+`processing.py`, `exit_codes.py` (both at the package root — [ADR-0030](10-decision-log.md#adr-0030--the-processing-job-composes-at-the-root-and-records-operational-failures)), and the report-level concurrency knob from ADR-0020.
 
 **Done when:** every acceptance criterion in [09 §3](09-testing-and-acceptance.md#3-acceptance-criteria)
 that concerns processing passes — including the two that specifically guard against regressions
 here: a failed upload not being marked `PROCESSED`, and store calls never originating off the main
 thread at any concurrency setting.
+**Completed 2026-10-18**
 
-**Also this stage:** the report-level failure event covers only the write path today. A crash inside
-collection or rendering leaves an orphaned `report.start`, because `generate_report`'s try/finally begins
-after rendering. Decide here whether the runner should own a broader `report.failed` or whether the
-event-level `event.failed` covers it, and make `07 §4`'s wording follow that decision.
+**Amended during implementation:** three things, all recorded in
+[ADR-0030](10-decision-log.md#adr-0030--the-processing-job-composes-at-the-root-and-records-operational-failures).
+`processing.py` and `exit_codes.py` live at the package **root**, not `application/`: the job must call the
+registry and `generate_report`, and the application allowlist excludes the root because the root reaches the
+renderer — the same reasoning as ADR-0028. `fail_events_with_failed_blocks` defaults to **`None`** ("use
+`AUTO_INFORM_FAIL_ON_BLOCK_ERROR`"), not `False`; the documented default would have silently ignored the
+setting, so `05 §6`'s script would deliver red reports and exit `0` against a setting that says otherwise.
+And a store or writer failure is **recorded and stops the run** rather than escaping: escaping made
+`OUTPUT_ERROR` unreachable from `exit_code_for`, while continuing through a writer outage would consume
+every event's attempt budget and retire a healthy queue.
 
-**Also this stage:** `FakeEventStore` lands here. `05` and `09` already describe it as the in-memory
-double that drives every `run_*` test, and stage 8's discovery tests used the real SQLite store instead
-because the fake had no caller yet.
+**The report-level failure decision:** `generate_report` now emits `report.failed` for **any** exception
+after `report.start`, and `report.finish` only when the document was rendered. A refused definition or a
+renderer failure therefore ends with `report.failed` instead of an orphaned start; a write failure still
+has both, the finish carrying `output_uri: null`. The runner owns the event-level line
+(`event.failed`, and `event.skipped` when no attempt was counted). `07 §4` describes all of it.
+
+**Also landed:** the shared store suite runs against `FakeEventStore` as well as SQLite, so the double is
+held to the port rather than to the runner's assumptions.
+
+**Stage-8 obligations settled here:** `run_processing` always passes a concrete limit —
+`AUTO_INFORM_PROCESSING_LIMIT` (default 500); an explicit `limit` can lower it, never raise it, and a larger
+request is clamped and logged as `processing.capped`. `max_workers` and `max_concurrent_reports` now have
+maxima (64 and 32), because each report starts its own block pool and the two multiply. The report-deadline
+question is answered with a documented **no**: blocks are bounded by their budget and the hang guard,
+factories are documented as pure and fast, and a hung factory is a defect like a hung `__init__` — recorded
+rather than papered over with an invented timeout.
+
+**Review (2026-10-18):** failure classification is now by `isinstance`, so a writer subclass stops the run
+and exits `4` while an unrelated class that merely shares the name is `UnclassifiedError` and does
+neither; `FailureRecord` is
+asserted against both stores in the shared suite; a definition refused because of the event's own data is
+`EventDataError`, counted as an attempt, so it retires instead of pinning the head of an oldest-first
+queue and sending CI after a deployment problem that does not exist; the batch is bounded and consumed as a
+sliding window rather than one future per event; a store that raises anything is still a store failure; and
+the console formatter indents the whole traceback block, because a newline inside an exception message
+could not be distinguished from the formatter's own structure. Tests were added for two-event isolation, a
+capped limit, a subclassed writer, `store.failed`, and the `PENDING` allowlist's own control.
+**540 tests.**
+
+**Deferred, with owners:** "failed but delivered" has no URI — the block-error path marks the event failed
+while the document exists on disk, and recording it needs an `output_uri` on `mark_failed` (a port change;
+an operator can find the file by name meanwhile). Concurrent same-second filename collisions belong to the
+naming layer: slug truncation plus a second-resolution timestamp plus an unconditional `os.replace` means
+two events can share one URI, and stage 9 is what makes concurrent publication routine — a short hash
+segment or a writer that refuses to replace is the fix.
 
 ## Stage 10 — Report factories, example jobs, and the README
 
@@ -282,7 +320,10 @@ behaviour suite extended to both. Both remain self-skipping in CI without their 
 
 **Note for this stage:** `AUTO_INFORM_OUTPUT_KIND=s3` currently raises in `build_output_writer`; replace
 that with the real `S3Writer` branch here, and keep the failure mode loud — refusing to start beats
-silently writing locally.
+silently writing locally. **The S3 client must set transport timeouts**: writers are called from
+concurrent report workers and the runner has no per-report deadline ([06 §1](06-output-html.md#1-writers),
+ADR-0030), so a stalled
+upload would wedge the job rather than produce an `OutputError`.
 
 **Done when:** the store suite passes against PostgreSQL when a DSN is provided, and the S3 writer
 passes against an injected stub client with no network.

@@ -113,10 +113,17 @@ def run_processing(
     writer: OutputWriter,
     event_type: str | None = None,      # restrict to one type; None = all registered types
     limit: int | None = None,
-    fail_events_with_failed_blocks: bool = False,
+    fail_events_with_failed_blocks: bool | None = None,
 ) -> ProcessingRun:
     """Fetch pending events, build each event's report, write it, and update the store."""
 ```
+
+A run takes a **bounded batch**: `AUTO_INFORM_PROCESSING_LIMIT` (default 500) is the ceiling, and
+`limit` may lower it but never raise it — `None` means the ceiling. A caller that asks for more is
+clamped and logged as `processing.capped`, because silently processing fewer events than requested is
+indistinguishable from a shorter queue. Workers are submitted as a sliding window of at most
+`AUTO_INFORM_MAX_CONCURRENT_REPORTS`, not one future per event, so a full batch does not become a full
+batch of in-flight reports.
 
 Behavioural rules, each of which has a test in [09](09-testing-and-acceptance.md):
 
@@ -126,15 +133,30 @@ Behavioural rules, each of which has a test in [09](09-testing-and-acceptance.md
 2. **A missing factory does not consume the event.** `ConfigurationError` is recorded against that
    event, the event is left `NEW`, and the run continues with other types. A half-deployed job must
    not silently eat events it cannot render.
+
+   **Consequence, stated plainly:** because no attempt is counted, ADR-0019's retirement never applies
+   to such an event, and `pending()` is oldest-first — so an event type that is *permanently*
+   unregistered (a factory that was removed, or a type nobody intends to handle) is returned at the head
+   of every run. With more of them than `AUTO_INFORM_PROCESSING_LIMIT`, they fill each batch and starve
+   the types behind them, while the run exits `2` on every schedule. The remedies are operational:
+   register the factory, run the job filtered to a handled type (`run_processing(event_type=...)`), or
+   retire the offending events with SQL.
 3. **`mark_processed` is called only after the writer returns.** A report that failed to upload must
    not be recorded as delivered, or it is lost with nobody the wiser.
-4. **Failed blocks do not fail the event by default.** A report whose blocks produced error cells
-   but which was written successfully is `PROCESSED`, because the error cells *are* the deliverable.
-   Set `fail_events_with_failed_blocks=True` (or `AUTO_INFORM_FAIL_ON_BLOCK_ERROR`) to instead mark
-   such events `FAILED` for operator follow-up.
-5. **`run_processing` never raises for a data-level failure.** Invalid settings, an unreachable
-   store and a failing writer are the only exceptions that escape, and they map onto exit codes
-   below.
+4. **A report whose blocks failed is still a report.** It was written successfully, and the error
+   cells *are* the deliverable. Whether that counts as a failed event is decided by
+   `AUTO_INFORM_FAIL_ON_BLOCK_ERROR` (default `true`): when true the event is marked `FAILED` for
+   operator follow-up and the run exits `1`; when false it is `PROCESSED` and the run exits `0`.
+   `fail_events_with_failed_blocks` overrides the setting for one run, and `None` — the default —
+   means "use the setting", which is what a job script that does not mention it expects.
+5. **`run_processing` never raises for a data-level or operational failure.** A missing factory, a
+   failing writer and a store call that fails mid-run are recorded in the affected
+   `EventProcessingOutcome` and ranked by `exit_code_for` below. A store or writer failure also
+   **stops the run** after one recorded outcome: both are systemic, every later event would fail the
+   same way, and continuing a writer outage would burn every event's attempt budget and retire a
+   healthy queue. The only exception that escapes is a `pending()` call that cannot read the store,
+   because no outcome exists yet to report on; [§6](#6-example-job-scripts) shows how a script maps
+   that. See [ADR-0030](10-decision-log.md#adr-0030--the-processing-job-composes-at-the-root-and-records-operational-failures).
 
 ## 3. Processing order per event
 
@@ -160,6 +182,7 @@ Event ──► factory ──► ReportDefinition ──► generate_report ─
 | Setting | Meaning | Default |
 | --- | --- | --- |
 | `AUTO_INFORM_MAX_CONCURRENT_REPORTS` | Reports processed simultaneously per run | `1` |
+| `AUTO_INFORM_PROCESSING_LIMIT` | Events one run takes from the queue (a ceiling for `limit`) | `500` |
 
 **The default is 1, deliberately.** With sequential events, every store call happens on the main
 thread, which is what makes the single-writer assumption in [04](04-events-and-stores.md) safe and
@@ -187,7 +210,7 @@ decides when to exit.
 class ExitCode(IntEnum):
     SUCCESS             = 0   # every event processed, every block OK
     PARTIAL_FAILURE     = 1   # reports produced, but at least one block or event failed
-    CONFIGURATION_ERROR = 2   # bad settings, invalid definition, missing factory for all events
+    CONFIGURATION_ERROR = 2   # bad settings, or a missing factory for an event's type
     STORE_ERROR         = 3   # event store unreachable or corrupt
     OUTPUT_ERROR        = 4   # a report could not be written
 
@@ -196,15 +219,24 @@ def exit_code_for(run: DiscoveryRun | ProcessingRun) -> ExitCode:
     """Map a finished run to a process exit code. Never raises."""
 ```
 
-**Precedence, when several conditions apply.** The most severe wins, in this order:
+**Precedence, when several conditions apply.** The ranking reads the `error_type` values the runner
+recorded, because operational failures are recorded rather than raised (ADR-0030). The most severe
+wins, in this order:
 
 | Rank | Code | Applies when |
 | --- | --- | --- |
-| 1 | `CONFIGURATION_ERROR` (2) | A `ConfigurationError` escaped the run: settings unreadable, or no usable factory for any event encountered. |
-| 2 | `STORE_ERROR` (3) | The store failed to open, or a store call raised `StoreError` mid-run. |
-| 3 | `OUTPUT_ERROR` (4) | At least one report was built but could not be written. |
-| 4 | `PARTIAL_FAILURE` (1) | At least one event failed to process, or at least one block failed while `AUTO_INFORM_FAIL_ON_BLOCK_ERROR` is true. |
+| 1 | `CONFIGURATION_ERROR` (2) | An outcome recorded a `ConfigurationError`: no factory for that event's type, or a discoverer that broke its contract. |
+| 2 | `STORE_ERROR` (3) | An outcome recorded a `StoreError`: a store call failed mid-run. |
+| 3 | `OUTPUT_ERROR` (4) | An outcome recorded an `OutputError`: a report was built but could not be written. |
+| 4 | `PARTIAL_FAILURE` (1) | Any other event failed to process — including a definition the renderer refused because of the event's own data (`EventDataError`), which is retried and eventually retired rather than blamed on the deployment — or a block failure was turned into a failed event by `AUTO_INFORM_FAIL_ON_BLOCK_ERROR`. |
 | 5 | `SUCCESS` (0) | None of the above. |
+
+Failures **outside** a run are not ranked by `exit_code_for`, because there is no run to pass it:
+unreadable settings, a store that will not open, and a writer that cannot be built all raise during
+setup. Discovery adds one more: it persists *after* its concurrent phase, so a `save()` that fails
+raises `StoreError` from `run_discovery` with no run to return. A job script that wants `2`, `3` or `4`
+for any of those catches them and returns the matching code — [§6](#6-example-job-scripts) shows the
+shape.
 
 Consequence: a report containing three failed blocks exits `1`, so the CI job goes amber and
 somebody looks. That is intended. Operators who consider a partly-red report acceptable set
@@ -284,6 +316,41 @@ Both scripts import `auto_inform.reports.manufacturing` (or whatever modules hol
 factories) at the top, because a factory registers itself on import. Forgetting that import is the
 one mistake these scripts make, and the failure mode is loud rather than silent: every event
 records a `ConfigurationError` and exits `2`.
+
+### Setup failures exit before a run exists
+
+`load_settings`, `configure_logging`, `build_output_writer` and opening the store all raise rather than
+returning a run, so their exit codes are the script's to choose. The examples above keep `main` small
+for readability; a production script wraps the setup:
+
+```python
+from auto_inform import ExitCode
+from auto_inform.domain.errors import ConfigurationError, OutputError, StoreError
+
+
+def main() -> int:
+    try:
+        settings = load_settings()
+        configure_logging(settings.log_level, settings.log_format)
+        writer = build_output_writer(settings)
+        with SqliteEventStore.from_settings(settings) as store:
+            run = run_processing(
+                store=store,
+                context=new_report_context(settings),
+                writer=writer,
+            )
+    except ConfigurationError:
+        return ExitCode.CONFIGURATION_ERROR
+    except StoreError:
+        return ExitCode.STORE_ERROR
+    except OutputError:
+        return ExitCode.OUTPUT_ERROR
+    return exit_code_for(run)
+```
+
+The three are siblings, so the order is a reading aid rather than a requirement; what matters is that
+they are named individually. A bare `except Exception` would turn an unknown bug into a plausible exit
+code.
 
 ## 7. End-to-end walkthrough
 
