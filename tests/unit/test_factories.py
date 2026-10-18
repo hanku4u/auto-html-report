@@ -58,7 +58,7 @@ def test_new_discovery_context_should_have_its_own_run_id() -> None:
     assert new_report_context(settings).run.run_id != new_discovery_context(settings).run.run_id
 
 
-def test_build_output_writer_should_select_the_local_writer(tmp_path: object) -> None:
+def test_build_output_writer_should_select_the_local_writer() -> None:
     # given the default output kind
     settings = Settings()
 

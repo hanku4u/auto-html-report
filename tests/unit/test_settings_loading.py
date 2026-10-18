@@ -110,6 +110,43 @@ def test_load_settings_with_postgres_but_no_dsn_should_fail() -> None:
         load_settings({"AUTO_INFORM_EVENT_STORE": "postgres"})
 
 
+@pytest.mark.parametrize("value", ["nan", "inf", "-inf", "NaN", "Infinity"])
+def test_load_settings_should_reject_a_non_finite_number(value: str) -> None:
+    # given NaN or infinity for a float setting
+    # when settings are loaded
+    # then it is refused. Both pass every `<` comparison, and both disable a safety net: a NaN budget makes
+    # `consumed > budget` always false, and an infinite one makes the hang guard unreachable
+    with pytest.raises(ConfigurationError, match="finite"):
+        load_settings({"AUTO_INFORM_BLOCK_TIMEOUT_SECONDS": value})
+
+
+def test_load_settings_should_reject_a_non_finite_retry_delay() -> None:
+    # given a NaN backoff base, which would make the first retry raise from time.sleep
+    with pytest.raises(ConfigurationError, match="finite"):
+        load_settings({"AUTO_INFORM_RETRY_BASE_DELAY_SECONDS": "nan"})
+
+
+def test_load_settings_should_validate_and_normalise_the_log_level() -> None:
+    # given a lower-case level
+    # then it is accepted and stored canonically, matching how boolean values are handled
+    assert load_settings({"AUTO_INFORM_LOG_LEVEL": "debug"}).log_level == "DEBUG"
+
+
+def test_load_settings_with_an_unknown_log_level_should_fail_at_load() -> None:
+    # given a level logging does not know
+    # then the loader reports it -- rather than letting it through to fail later inside configure_logging,
+    # which is where it used to surface as a raw ValueError
+    with pytest.raises(ConfigurationError, match="LOG_LEVEL"):
+        load_settings({"AUTO_INFORM_LOG_LEVEL": "CHATTY"})
+
+
+@pytest.mark.parametrize("value", ["JSON", "Console", " console "])
+def test_load_settings_should_treat_enum_values_case_insensitively(value: str) -> None:
+    # given an enum-like value in the wrong case, which boolean settings already accepted
+    # then it is accepted and normalised to the canonical lower-case form
+    assert load_settings({"AUTO_INFORM_LOG_FORMAT": value}).log_format == value.strip().lower()
+
+
 @pytest.mark.parametrize(
     "environ",
     [

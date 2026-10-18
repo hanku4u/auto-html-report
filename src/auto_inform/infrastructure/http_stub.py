@@ -21,9 +21,15 @@ import threading
 from collections.abc import Mapping
 from typing import Any
 
+from auto_inform.domain.errors import ConfigurationError
 
-class StubNotConfiguredError(LookupError):
-    """Raised when the stub has no fixture for a requested path."""
+
+class StubNotConfiguredError(ConfigurationError):
+    """Raised when the stub has no fixture for a requested path.
+
+    A ``ConfigurationError`` rather than a bare ``LookupError``, so the hierarchy's promise holds: a
+    caller catching :class:`AutoInformError` catches a missing fixture too.
+    """
 
 
 class StubHttpClient:

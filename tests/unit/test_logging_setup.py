@@ -14,6 +14,7 @@ from collections.abc import Iterator
 
 import pytest
 
+from auto_inform.domain.errors import ConfigurationError
 from auto_inform.infrastructure.logging_setup import (
     ConsoleFormatter,
     JsonFormatter,
@@ -123,8 +124,30 @@ def test_configure_logging_should_set_the_level() -> None:
     assert logging.getLogger().level == logging.WARNING
 
 
-def test_configure_logging_with_an_unknown_format_should_raise_value_error() -> None:
+def test_configure_logging_with_an_unknown_format_should_raise_configuration_error() -> None:
     # given a format that is not one of the two documented values
-    # then it is refused rather than silently defaulting, which would look like the setting was honoured
-    with pytest.raises(ValueError, match="unknown log format"):
+    # then it is refused as a configuration error rather than silently defaulting, and it is catchable by
+    # the project's base class rather than being a raw ValueError from three frames away
+    with pytest.raises(ConfigurationError, match="unknown log format"):
         configure_logging(fmt="xml")
+
+
+def test_configure_logging_with_an_unknown_level_should_raise_configuration_error() -> None:
+    # given a level logging does not know
+    # then it is refused as a configuration error, not as logging's own ValueError
+    with pytest.raises(ConfigurationError, match="unknown log level"):
+        configure_logging(level="CHATTY")
+
+
+def test_json_formatter_extras_should_not_clobber_the_envelope() -> None:
+    # given a caller that supplies an extra named after one of the formatter's own keys
+    record = _record(event="clobbered", level="CLOBBERED", ts="CLOBBERED")
+
+    # when it is formatted
+    payload = json.loads(JsonFormatter().format(record))
+
+    # then the envelope wins: losing the event name is losing the one thing a JSON log line carries, and
+    # Python's logging only rejects collisions with its own LogRecord attributes, not with ours
+    assert payload["event"] == "block.finish"
+    assert payload["level"] == "INFO"
+    assert payload["ts"] != "CLOBBERED"

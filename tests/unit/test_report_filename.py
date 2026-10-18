@@ -84,7 +84,7 @@ def test_report_filename_should_be_deterministic() -> None:
     assert report_filename(report.definition, report) == report_filename(report.definition, report)
 
 
-def test_report_filename_is_unique_only_to_the_second(tmp_path: object = None) -> None:
+def test_report_filename_is_unique_only_to_the_second() -> None:
     # given two reports with the same title and event, generated at the same instant
     first = make_report(make_row("Row"), title="Same", event_id="SAME-EVENT")
     second = make_report(make_row("Row"), title="Same", event_id="SAME-EVENT")

@@ -12,7 +12,14 @@ from __future__ import annotations
 
 
 class AutoInformError(Exception):
-    """Base class for every error raised by auto_inform."""
+    """Base class for every error the framework *reports*.
+
+    The hierarchy covers failures the framework itself diagnoses — a block that failed, a store that is
+    unreachable, a report that could not be written. Plain Python errors for a broken contract are raised
+    as themselves and deliberately not wrapped: a ``TypeError`` for an argument of the wrong type or a
+    ``ValueError`` for an impossible value says exactly what is wrong, and wrapping it in a framework type
+    would hide the mistake rather than classify it.
+    """
 
 
 class BlockError(AutoInformError):

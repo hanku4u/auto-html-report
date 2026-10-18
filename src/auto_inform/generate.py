@@ -68,6 +68,15 @@ def generate_report(
     # the Report. Two separate reads of the clock would disagree by the collection duration -- a block
     # that renders `generated_at` would then contradict the document header.
     generated_at = context.clock.now()
+    started = context.clock.monotonic()
+    context.logger.info(
+        "report.start",
+        extra={
+            "run_id": context.run.run_id,
+            "report_title": definition.title,
+            "block_count": len(definition.blocks),
+        },
+    )
 
     rows = collect_blocks(
         definition.blocks,
@@ -87,4 +96,14 @@ def generate_report(
     if writer is not None:
         location = writer.write(filename=report_filename(definition, report), content=html)
 
+    context.logger.info(
+        "report.finish",
+        extra={
+            "run_id": context.run.run_id,
+            "report_title": definition.title,
+            "failed_blocks": len(report.failed_rows),
+            "duration_ms": round((context.clock.monotonic() - started) * 1000, 1),
+            "output_uri": location.uri if location is not None else None,
+        },
+    )
     return ReportResult(report=report, html=html, location=location)

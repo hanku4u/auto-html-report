@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from auto_inform.application.context import DiscoveryContext, ReportContext, RunMetadata
@@ -40,13 +39,19 @@ def new_report_context(
     clock: Clock | None = None,
     logger: logging.Logger | None = None,
 ) -> ReportContext:
-    """Generate a fresh run id and start time, and wire the dependencies from ``settings``."""
+    """Generate a fresh run id and start time, and wire the dependencies from ``settings``.
+
+    The clock is resolved first and used for ``started_at`` as well as for the context: injecting a clock
+    and still reading wall time for the run metadata would make the override a lie, and ADR-0022 makes
+    this the framework's single seam for time.
+    """
+    resolved_clock = clock if clock is not None else SystemClock()
     return ReportContext(
         settings=settings,
         http=http if http is not None else StubHttpClient(),
         logger=logger if logger is not None else logging.getLogger(_LOGGER_NAME),
-        clock=clock if clock is not None else SystemClock(),
-        run=_new_run(),
+        clock=resolved_clock,
+        run=_new_run(resolved_clock),
     )
 
 
@@ -58,12 +63,13 @@ def new_discovery_context(
     logger: logging.Logger | None = None,
 ) -> DiscoveryContext:
     """As above, for the discovery phase. A separate context means a separate ``run_id``."""
+    resolved_clock = clock if clock is not None else SystemClock()
     return DiscoveryContext(
         settings=settings,
         http=http if http is not None else StubHttpClient(),
         logger=logger if logger is not None else logging.getLogger(_LOGGER_NAME),
-        clock=clock if clock is not None else SystemClock(),
-        run=_new_run(),
+        clock=resolved_clock,
+        run=_new_run(resolved_clock),
     )
 
 
@@ -83,5 +89,6 @@ def build_output_writer(settings: Settings) -> OutputWriter:
     )
 
 
-def _new_run() -> RunMetadata:
-    return RunMetadata(run_id=uuid.uuid4().hex, started_at=datetime.now(UTC))
+def _new_run(clock: Clock) -> RunMetadata:
+    """A fresh run identity, stamped by the injected clock rather than by wall time."""
+    return RunMetadata(run_id=uuid.uuid4().hex, started_at=clock.now())

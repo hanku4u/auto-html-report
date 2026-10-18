@@ -55,6 +55,13 @@ Rules for `load_settings`:
   ceilings — and negative values everywhere, including retry counts. A zero timeout or zero workers is a
   configuration bug, not a request for unlimited throughput; a retry count of zero, by contrast, is a
   legitimate preference.
+- Reject non-finite numbers. `nan` and `inf` pass every `<` comparison, and both are dangerous rather than
+  merely odd: a NaN budget disables the per-attempt timeout (`consumed > nan` is never true), and an
+  infinite one makes the hang guard unreachable.
+- Enum-like values (`output_kind`, `event_store`, `log_format`, `error_detail`, `log_level`) are matched
+  **case-insensitively** and stored canonically. `log_level` is validated against the standard names here
+  rather than left to `logging.setLevel`, which would raise a raw `ValueError` from another module and
+  never appear in this loader's collected report.
 
 > **Secrets are never logged.** `Settings.__repr__` redacts any attribute whose name contains
 > `TOKEN`, `SECRET`, `PASSWORD`, `DSN` or `KEY` — because the first debugging session in production
@@ -174,8 +181,9 @@ It is not the CI default because nobody wants to parse a coloured traceback out 
   cannot silently drift from the code.
 - Logging: capture records and assert the JSON body of a `block.finish` line contains `run_id`,
   `block`, `status` and `duration_ms`. `configure_logging` is idempotent under repeated calls.
-- The stub: thread-safety test (16 threads, no exception, no fixture corruption) and a test that an
-  unknown path raises rather than returning an empty payload.
+- The stub: fixtures by path, an unknown path raising `StubNotConfiguredError` (a `ConfigurationError`, so
+  it is catchable as an `AutoInformError`), `get_bytes` refusing a non-bytes fixture, `raising_for`, and
+  eight threads sharing one instance with no exception and no fixture corruption.
 
 ## Open questions
 

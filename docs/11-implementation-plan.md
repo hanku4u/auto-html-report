@@ -164,6 +164,20 @@ entry** after the rename, so the replacement survives a power loss and not merel
 stub is thread-safe, and a `block.finish` log line parses as JSON with the documented fields.
 **Completed 2026-10-18**
 
+**Post-review corrections (2026-10-18):** eight findings, all fixed. `load_settings` now **rejects
+non-finite numbers** — `nan` passed every `<` comparison and silently disabled per-attempt budgets, and
+`inf` made the hang guard unreachable, which is the worst possible place for an unvalidated value. It also
+**validates and normalises `log_level`** at load time, so a bad level is reported with the other invalid
+variables instead of surfacing later as a raw `ValueError` from `logging.setLevel`; the enum-like settings
+are now matched case-insensitively, consistently with the booleans. The JSON formatter reserves its own
+`ts`/`level`/`event`/`traceback` keys, so an `extra=` cannot rename the event. An injected `clock` now
+stamps `RunMetadata.started_at`, closing a hidden second read of wall time. `StubNotConfiguredError`
+derives from `ConfigurationError`, and `domain/errors.py` states the carve-out for plain Python contract
+errors rather than leaving the hierarchy's promise overstated.
+
+**Also closed here:** `report.start` and `report.finish` were in the logging contract but nothing emitted
+them; `generate_report` logs both now. `discovery.finish` and the `event.*` events belong to stages 8–9.
+
 **Amended during implementation:** two things. The three context/writer factories live in
 `infrastructure/factories.py` — the one module allowed to name concrete adapters — and accept optional
 keyword overrides for `http`, `clock` and `logger`. The documented `new_report_context(settings)` call is

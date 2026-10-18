@@ -16,6 +16,8 @@ import logging
 from datetime import UTC, datetime
 from typing import Any, Final
 
+from auto_inform.domain.errors import ConfigurationError
+
 #: LogRecord attributes that are already represented, or are internal noise. Anything else on the record
 #: came from ``extra=`` and belongs in the payload.
 _RESERVED: Final = frozenset(
@@ -43,6 +45,13 @@ _RESERVED: Final = frozenset(
         "taskName",
         "message",
         "asctime",
+        # The formatter's own envelope keys. An `extra={"event": ...}` would otherwise silently rename
+        # the event, which is the one thing a JSON log line exists to carry. Python's logging rejects
+        # collisions with built-in LogRecord attributes, but these are ours, so nothing else would.
+        "ts",
+        "level",
+        "event",
+        "traceback",
     }
 )
 
@@ -88,9 +97,16 @@ class ConsoleFormatter(logging.Formatter):
 
 
 def configure_logging(level: str = "INFO", fmt: str = "json") -> None:
-    """Install the structured handler on the root logger. Idempotent."""
+    """Install the structured handler on the root logger. Idempotent.
+
+    Validates its own arguments and raises :class:`ConfigurationError` rather than letting
+    ``logging.setLevel`` raise a raw ``ValueError`` from three frames away: this is configuration, and the
+    project's hierarchy says configuration errors are catchable by one name.
+    """
     if fmt not in ("json", "console"):
-        raise ValueError(f"unknown log format {fmt!r}; expected 'json' or 'console'")
+        raise ConfigurationError(f"unknown log format {fmt!r}; expected 'json' or 'console'")
+    if not isinstance(logging.getLevelName(level), int):
+        raise ConfigurationError(f"unknown log level {level!r}")
 
     root = logging.getLogger()
     root.setLevel(level)

@@ -12,6 +12,7 @@ deliverable; refusing to write because one block failed is the behaviour the fra
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any, cast
 
@@ -135,6 +136,30 @@ def test_generate_report_should_carry_the_run_id_and_generation_time_in_the_head
     # then the document identifies the run and the moment, so a report can be traced back to its log
     assert context.run.run_id in result.html
     assert DEFAULT_START.strftime("%Y-%m-%dT%H:%M:%SZ") in result.html
+
+
+def test_generate_report_should_log_the_report_start_and_finish_events(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # given a report with one healthy block and one failing block
+    definition = _definition(_WorkBlock(name="Fine"), _FailingBlock(name="Broken", message="no"))
+    caplog.set_level(logging.INFO)
+
+    # when it is generated
+    generate_report(definition, context=make_report_context())
+
+    # then the two report-level events from 07 §4 are emitted with the documented fields. They were in the
+    # contract table but nothing emitted them: a reader would have gone looking for a log line that did
+    # not exist
+    messages = [record.message for record in caplog.records]
+    assert "report.start" in messages
+    assert "report.finish" in messages
+
+    started = next(r for r in caplog.records if r.message == "report.start")
+    assert started.block_count == 2  # type: ignore[attr-defined]
+    finished = next(r for r in caplog.records if r.message == "report.finish")
+    assert finished.failed_blocks == 1  # type: ignore[attr-defined]
+    assert getattr(finished, "duration_ms", None) is not None
 
 
 def test_generate_report_with_the_built_in_blocks_should_produce_a_report(tmp_path: Path) -> None:

@@ -14,6 +14,7 @@ Two rules in here are deliberate and both come from ``docs/07-configuration-and-
 
 from __future__ import annotations
 
+import math
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -31,6 +32,7 @@ _REDACTED: Final = "***"
 _SECRET_HINTS: Final = ("TOKEN", "SECRET", "PASSWORD", "DSN", "KEY")
 _TRUE: Final = frozenset({"1", "true", "yes", "on"})
 _FALSE: Final = frozenset({"0", "false", "no", "off"})
+_LEVELS: Final = frozenset({"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,6 +114,13 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         except ValueError:
             errors.append(f"{name}={value!r} is not a number")
             return default
+        if not math.isfinite(parsed):
+            # NaN and infinity pass every `<` comparison, and both are actively dangerous: a NaN budget
+            # makes `consumed > budget` always false, disabling the per-attempt timeout entirely, and an
+            # infinite budget makes the hang guard unreachable. `time.sleep(nan)` also raises a raw
+            # ValueError on the first retry.
+            errors.append(f"{name}={value!r} must be a finite number")
+            return default
         if parsed < minimum:
             errors.append(f"{name}={value!r} must be at least {minimum:g}")
             return default
@@ -147,10 +156,26 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         value = source.get(name)
         if value is None:
             return default
-        if value not in options:
+        # Case-insensitive, and the canonical (lower-case) form is what gets stored. `boolean` already
+        # accepted TRUE, so rejecting JSON purely on its case was an inconsistency rather than a policy.
+        normalised = value.strip().lower()
+        if normalised not in options:
             errors.append(f"{name}={value!r} is not one of {', '.join(options)}")
             return default
-        return value
+        return normalised
+
+    def log_level(name: str, default: str) -> str:
+        value = source.get(name)
+        if value is None:
+            return default
+        normalised = value.strip().upper()
+        if normalised not in _LEVELS:
+            # Validated here rather than left to `logging.setLevel`, which raises a raw ValueError from
+            # a different part of the program -- and which never appears in this loader's collected
+            # error report, breaking the "report every invalid variable" rule.
+            errors.append(f"{name}={value!r} is not one of {', '.join(sorted(_LEVELS))}")
+            return default
+        return normalised
 
     def name_list(name: str) -> tuple[str, ...]:
         value = source.get(name)
@@ -176,7 +201,7 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         block_retries=integer("AUTO_INFORM_BLOCK_RETRIES", 2, minimum=0),
         retry_base_delay_seconds=number("AUTO_INFORM_RETRY_BASE_DELAY_SECONDS", 1.0, minimum=0.0),
         retryable_exceptions=name_list("AUTO_INFORM_RETRYABLE_EXCEPTIONS"),
-        log_level=raw("AUTO_INFORM_LOG_LEVEL", "INFO") or "INFO",
+        log_level=log_level("AUTO_INFORM_LOG_LEVEL", "INFO"),
         log_format=choice("AUTO_INFORM_LOG_FORMAT", "json", ("json", "console")),  # type: ignore[arg-type]
         error_detail=choice("AUTO_INFORM_ERROR_DETAIL", "summary", ("summary", "detailed")),  # type: ignore[arg-type]
         fail_on_block_error=boolean("AUTO_INFORM_FAIL_ON_BLOCK_ERROR", True),
