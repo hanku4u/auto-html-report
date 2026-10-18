@@ -21,7 +21,7 @@ from jinja2 import DictLoader, Environment, StrictUndefined
 
 from auto_inform._version import get_version
 from auto_inform.domain.report import Report
-from auto_inform.rendering.cells import RowView, build_report_rows
+from auto_inform.rendering.cells import ErrorDetail, RowView, build_report_rows
 
 #: Human-readable form for the header's "Generated" value.
 _ISO_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
@@ -48,8 +48,11 @@ class _ReportView:
     tool_version: str
 
 
-def render_report(report: Report) -> str:
+def render_report(report: Report, *, error_detail: ErrorDetail = "summary") -> str:
     """Render ``report`` as a complete, self-contained HTML document.
+
+    ``error_detail`` controls how much of a failed block's message the error cell shows; it is a
+    presentation setting, which is why the renderer -- not collection -- builds that cell.
 
     Raises :class:`ValueError` if ``report.generated_at`` is naive. The dataclass documents it as
     timezone-aware UTC; a naive value means something bypassed the injected clock, and formatting it
@@ -57,10 +60,10 @@ def render_report(report: Report) -> str:
     is worse than a loud failure.
     """
     template = _environment().get_template(_TEMPLATE_NAME)
-    return template.render(report=_to_view(report))
+    return template.render(report=_to_view(report, error_detail=error_detail))
 
 
-def _to_view(report: Report) -> _ReportView:
+def _to_view(report: Report, *, error_detail: ErrorDetail) -> _ReportView:
     return _ReportView(
         title=report.definition.title,
         subtitle=report.definition.subtitle,
@@ -68,7 +71,7 @@ def _to_view(report: Report) -> _ReportView:
         generated_at_iso=_format_utc(report.generated_at, _ISO_FORMAT),
         run_id=report.run_id,
         metadata=_metadata_items(report.definition.metadata),
-        rows=build_report_rows(report),
+        rows=build_report_rows(report, detail=error_detail),
         tool_version=get_version(),
     )
 

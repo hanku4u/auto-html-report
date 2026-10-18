@@ -193,12 +193,17 @@ The naive implementation is wrong, so the rule is explicit:
 
 - The retry loop **and** the timeout check both live **inside** the worker function. The timeout
   therefore covers `collect()` itself, not time spent queued behind other blocks.
+- An attempt that **returns** after its budget is `TIMED_OUT`, not `OK`, and is not retried: the work
+  came back, but too late to be usable, and another attempt would overrun again.
 - The calling thread reads `future.result(...)` with an outer backstop of
   `attempt_timeout * total_attempts + sum(backoffs) + grace`. Hitting it yields `TIMED_OUT` rather
   than an exception escaping the pipeline.
-- Both layers of enforcement are driven by the injected `Clock`: budgets are measured with
-  `monotonic()` and every wait goes through `sleep()`. That is what allows a fake clock to produce a
-  deterministic `TIMED_OUT` with no real waiting — see [03 §5](03-report-api.md#5-the-injected-contexts).
+- The per-attempt budget and retry backoff are driven by the injected `Clock`: budgets are measured with
+  `monotonic()` and every backoff wait goes through `sleep()`, which is what allows a fake clock to
+  produce a deterministic `TIMED_OUT` with no real waiting. **The outer backstop is the deliberate
+  exception**: it waits on real time, because a deadline measured on a clock the wedged code controls is
+  not a hang guard — a block stuck inside `collect()` never advances it. See
+  [10 — ADR-0027](10-decision-log.md#adr-0027--the-last-resort-hang-guard-waits-on-real-time).
 - **A block's HTTP timeout must not exceed its own budget.** Handing the transport the global default
   while declaring a shorter `timeout_seconds` reaches the same place as passing no timeout at all: the
   framework stops waiting at the budget while the call runs on. Pass the block's *effective* budget — its

@@ -92,11 +92,19 @@ def collect_blocks(
     blocks: Sequence[Block[Any]],
     *,
     context: ReportContext,
+    report_title: str = "",
 ) -> tuple[ReportRow, ...]:
     """Collect and render every block concurrently; return rows in argument order.
 
     Never raises for a block-level failure: a failed block yields a ReportRow whose
-    outcome is FAILED or TIMED_OUT and whose html is the framework's error cell.
+    outcome is FAILED or TIMED_OUT and whose **html is empty**. The renderer builds
+    the error cell from the outcome, because that cell is markup and this module is
+    application logic — see rule 2 of [01 §4](01-overview.md#4-architectural-overview).
+
+    ``report_title`` reaches each block through its ``RenderContext``. It defaults to
+    empty because collection is usable outside a report definition, but a report should
+    always pass it.
+
     Raises ConfigurationError for an invalid block set (duplicate names, empty list).
 
     Exposed publicly so a caller can audit outcomes before deciding to write anything.

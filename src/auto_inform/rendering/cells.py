@@ -53,8 +53,15 @@ class RowView:
     block_id: str
 
 
-def build_row_views(rows: Sequence[ReportRow]) -> tuple[RowView, ...]:
+def build_row_views(
+    rows: Sequence[ReportRow], *, detail: ErrorDetail = "summary"
+) -> tuple[RowView, ...]:
     """Flatten rows for the template, preserving order and making ``block_id`` unique.
+
+    **A failed row's cell is built here, not during collection.** Collection records the outcome and
+    leaves ``html`` empty; this is where an outcome becomes markup, because the error detail level is a
+    presentation setting and ``application/`` may not import ``rendering/``
+    (``docs/01-overview.md`` §4 rule 2).
 
     ``block_id`` is the slug of the row's Item text rather than of its block type. Two instances of one
     block type routinely appear in the same report -- "Maintenance -- T-104" and "Maintenance -- T-112"
@@ -70,7 +77,9 @@ def build_row_views(rows: Sequence[ReportRow]) -> tuple[RowView, ...]:
     return tuple(
         RowView(
             item=row.item,
-            html=row.html,
+            html=row.html
+            if row.outcome.status is BlockStatus.OK
+            else error_cell_html(row.outcome, detail=detail),
             is_error=row.outcome.status is not BlockStatus.OK,
             block_id=_unique_block_id(row.item, used),
         )
@@ -78,9 +87,9 @@ def build_row_views(rows: Sequence[ReportRow]) -> tuple[RowView, ...]:
     )
 
 
-def build_report_rows(report: Report) -> tuple[RowView, ...]:
+def build_report_rows(report: Report, *, detail: ErrorDetail = "summary") -> tuple[RowView, ...]:
     """Convenience for the renderer: the view rows of a whole report."""
-    return build_row_views(report.rows)
+    return build_row_views(report.rows, detail=detail)
 
 
 def _unique_block_id(item: str, used: set[str]) -> str:

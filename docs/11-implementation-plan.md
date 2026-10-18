@@ -107,7 +107,17 @@ test file, before it is buried under the report and job layers.
 **Done when:** the execution semantics in [02 §6](02-block-authoring.md#6-execution-semantics-for-one-report)
 are covered — inverted completion order, retry counts and delays against a fake clock, timeout
 producing `TIMED_OUT` without aborting the run, one failing block not preventing its peers, and the
-sixteen-thread figure test.
+sixteen-thread figure test. **Completed 2026-10-18**
+
+**Amended during implementation:** three things this description did not settle. **The error cell moved to
+the renderer.** `collect_blocks` records the outcome and leaves a failed row's `html` empty;
+`render_report(..., error_detail=...)` builds the cell. The layering audit made this unavoidable —
+`application/` may not import `rendering/` — and it is the better split anyway: collection knows what
+happened, the renderer knows how it looks, and the detail level is a presentation setting. `03 §2` and
+`06 §6` say so. **The hang guard waits on real time** (ADR-0027), after a probe showed the fake-clock
+polling design abandoned healthy blocks; every other timing test remains fake-driven, and exactly one
+test costs real milliseconds. And **`collect_blocks` gained a `report_title`** parameter, because
+`RenderContext` carries one and collection had no other way to supply it.
 
 ## Stage 6 — Public entry points and the local writer
 

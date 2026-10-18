@@ -17,10 +17,9 @@ from pathlib import Path
 
 from auto_inform.domain.block import BlockStatus
 from auto_inform.domain.report import Report
-from auto_inform.rendering.cells import error_cell_html
 from auto_inform.rendering.escaping import html_table
 from auto_inform.rendering.shell import render_report
-from tests.support.builders import make_outcome, make_report, make_row
+from tests.support.builders import make_report, make_row
 
 GOLDEN_PATH = Path(__file__).resolve().parents[1] / "golden" / "report.html"
 
@@ -69,17 +68,11 @@ def golden_report() -> Report:
         ),
         make_row(
             "Trend chart — yield",
-            error_cell_html(
-                make_outcome(
-                    "Trend chart — yield",
-                    BlockStatus.FAILED,
-                    duration_seconds=61.2,
-                    attempts=3,
-                    error_type="TimeoutError",
-                    error_message="trend service did not respond",
-                )
-            ),
             status=BlockStatus.FAILED,
+            duration_seconds=61.2,
+            attempts=3,
+            error_type="TimeoutError",
+            error_message="trend service did not respond",
         ),
         title="LINE 4 — Daily Health",
         subtitle="Failed wafer — EVT-88213",
