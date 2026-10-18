@@ -36,7 +36,7 @@ every block.
 | `AUTO_INFORM_BLOCK_RETRIES` | `block_retries` | `int` | `2` |
 | `AUTO_INFORM_RETRY_BASE_DELAY_SECONDS` | `retry_base_delay_seconds` | `float` | `1.0` |
 | `AUTO_INFORM_RETRYABLE_EXCEPTIONS` | `retryable_exceptions` | `tuple[str, ...]` | `()` |
-| `AUTO_INFORM_LOG_LEVEL` | `log_level` | `str` | `"INFO"` |
+| `AUTO_INFORM_LOG_LEVEL` | `log_level` | `Literal["DEBUG","INFO","WARNING","ERROR","CRITICAL"]` | `"INFO"` |
 | `AUTO_INFORM_LOG_FORMAT` | `log_format` | `Literal["json","console"]` | `"json"` |
 | `AUTO_INFORM_ERROR_DETAIL` | `error_detail` | `Literal["summary","detailed"]` | `"summary"` |
 | `AUTO_INFORM_FAIL_ON_BLOCK_ERROR` | `fail_on_block_error` | `bool` | `True` |
@@ -158,6 +158,7 @@ one line per notable event. Every line carries `run_id`; every block line carrie
 | `block.failed` | as above, plus `error_type`, `error_message`, and the traceback |
 | `block.abandoned` | `run_id`, `block`, `overrun_s` — a timed-out worker thread that outlived its budget |
 | `report.finish` | `run_id`, `report_title`, `failed_blocks`, `duration_ms`, `output_uri` |
+| `report.failed` | `run_id`, `report_title`, `error_type`, and the traceback — the document was rendered but could not be written. Emitted before `report.finish`, which then carries `output_uri: null`, so the report-level pair is complete on the failure path too. |
 | `discovery.finish` | `run_id`, `event_type`, `new`, `duplicates`, `duration_ms` |
 | `event.processed` | `run_id`, `event_type`, `event_id`, `output_uri` |
 | `event.failed` | `run_id`, `event_type`, `event_id`, `attempts`, `reason` |

@@ -58,9 +58,10 @@ This set specifies **auto_inform v0.1** — package version `0.1.0`, see
   across documents is not useful, so the second form is normal here.
 - The rule exists so that no document is large enough to be un-reviewable and un-sequencable at once.
   It is a prompt to write a plan, not a filing requirement to be argued past.
-- **Exempt:** append-only reference documents that specify no build work. Today that is
-  [10-decision-log.md](10-decision-log.md) only — a decision log necessarily grows without bound and
-  has nothing to stage. Once it passes a few hundred lines, split it into
+- **Exempt:** append-only reference documents and the plan itself. Today that is
+  [10-decision-log.md](10-decision-log.md) and [11-implementation-plan.md](11-implementation-plan.md) — a
+  decision log grows without bound and has nothing to stage, and requiring the implementation plan to
+  contain a plan is circular. Once the decision log passes a few hundred lines, split it into
   `docs/adr/NNNN-short-title.md` files rather than bolting a plan onto it.
 
 ### Dependencies

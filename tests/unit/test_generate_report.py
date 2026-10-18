@@ -22,8 +22,8 @@ from auto_inform.application.context import RenderContext, ReportContext
 from auto_inform.blocks.maintenance_history import MaintenanceHistoryBlock
 from auto_inform.blocks.wafer_map import WaferMapBlock
 from auto_inform.domain.block import Block
-from auto_inform.domain.errors import PermanentBlockError
-from auto_inform.domain.report import ReportDefinition
+from auto_inform.domain.errors import OutputError, PermanentBlockError
+from auto_inform.domain.report import OutputLocation, ReportDefinition
 from auto_inform.generate import generate_report, report_filename
 from auto_inform.infrastructure.settings import Settings
 from auto_inform.infrastructure.writers.local_writer import LocalDirectoryWriter
@@ -221,3 +221,31 @@ def test_generate_report_should_stamp_blocks_and_header_with_one_instant() -> No
     # collection duration, and a block rendering the timestamp would contradict the document header
     assert result.report.generated_at.isoformat() in result.html
     assert 'class="ai-header"' in result.html
+
+
+def test_generate_report_with_a_failing_writer_should_still_close_the_report_event_pair(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # given a writer that cannot write, on the one path where the report does not land
+    class _FailingWriter:
+        def write(self, *, filename: str, content: str) -> OutputLocation:
+            raise OutputError("disk full")
+
+    caplog.set_level(logging.INFO)
+
+    # when a report is generated
+    with pytest.raises(OutputError):
+        generate_report(
+            _definition(_WorkBlock(name="Row")),
+            context=make_report_context(),
+            writer=_FailingWriter(),
+        )
+
+    # then the report-level pair is complete: a start, an explicit failure, and a finish with no URI.
+    # Otherwise the log leaves an orphaned report.start on the path a reader most needs to find
+    messages = [record.message for record in caplog.records]
+    assert "report.start" in messages
+    assert "report.failed" in messages
+    assert "report.finish" in messages
+    finished = next(r for r in caplog.records if r.message == "report.finish")
+    assert getattr(finished, "output_uri", "missing") is None

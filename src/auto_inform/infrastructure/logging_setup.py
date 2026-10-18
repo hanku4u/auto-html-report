@@ -58,6 +58,17 @@ _RESERVED: Final = frozenset(
 #: Marks the handler this module installed, so a second call can replace it without touching others.
 _OURS: Final = "_auto_inform_handler"
 
+#: The level names this project accepts. One list, shared with :func:`load_settings`, so the loader and
+#: the logging setup cannot disagree about what a valid level is -- they did, which is how `WARN` passed
+#: one and `info` failed the other.
+VALID_LOG_LEVELS: Final = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
+
+
+def normalise_log_level(value: str) -> str | None:
+    """Upper-case and validate a level name, returning ``None`` when it is not one of ours."""
+    normalised = value.strip().upper()
+    return normalised if normalised in VALID_LOG_LEVELS else None
+
 
 class JsonFormatter(logging.Formatter):
     """One object per line: timestamp, level, event name, then every structured field."""
@@ -105,11 +116,14 @@ def configure_logging(level: str = "INFO", fmt: str = "json") -> None:
     """
     if fmt not in ("json", "console"):
         raise ConfigurationError(f"unknown log format {fmt!r}; expected 'json' or 'console'")
-    if not isinstance(logging.getLevelName(level), int):
-        raise ConfigurationError(f"unknown log level {level!r}")
+    normalised_level = normalise_log_level(level)
+    if normalised_level is None:
+        raise ConfigurationError(
+            f"unknown log level {level!r}; expected one of {', '.join(VALID_LOG_LEVELS)}"
+        )
 
     root = logging.getLogger()
-    root.setLevel(level)
+    root.setLevel(normalised_level)
 
     for handler in list(root.handlers):
         if getattr(handler, _OURS, False):

@@ -178,6 +178,15 @@ errors rather than leaving the hierarchy's promise overstated.
 **Also closed here:** `report.start` and `report.finish` were in the logging contract but nothing emitted
 them; `generate_report` logs both now. `discovery.finish` and the `event.*` events belong to stages 8–9.
 
+**Second review (2026-10-18, after the fix commit):** the five configuration factories are now **exported
+from `auto_inform`** — the module docstring already promised them and `05 §6`'s job scripts import them, so
+the public surface and the documents now agree, with a test that the documented import resolves. The
+injected-clock fix has its **control**: both context factories assert `started_at` equals the fake clock's
+instant. `load_settings` and `configure_logging` now share **one** definition of a valid log level, having
+previously disagreed about `WARN`, `NOTSET` and `info`. And a failed write logs **`report.failed`** before
+`report.finish` with no URI, so the report-level event pair is complete on the one path where nothing was
+written.
+
 **Amended during implementation:** two things. The three context/writer factories live in
 `infrastructure/factories.py` — the one module allowed to name concrete adapters — and accept optional
 keyword overrides for `http`, `clock` and `logger`. The documented `new_report_context(settings)` call is

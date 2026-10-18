@@ -151,3 +151,22 @@ def test_json_formatter_extras_should_not_clobber_the_envelope() -> None:
     assert payload["event"] == "block.finish"
     assert payload["level"] == "INFO"
     assert payload["ts"] != "CLOBBERED"
+
+
+@pytest.mark.parametrize(
+    ("level", "accepted"),
+    [("info", True), ("Info", True), ("WARN", False), ("NOTSET", False), ("CHATTY", False)],
+)
+def test_configure_logging_should_accept_the_same_levels_as_the_loader(
+    level: str, accepted: bool
+) -> None:
+    # given the level names this project accepts, which live in one shared definition
+    # when configure_logging is asked for one
+    # then it agrees with load_settings about it: the two used to disagree, accepting `info` in one and
+    # `WARN` in the other, which made neither authoritative
+    if accepted:
+        configure_logging(level=level)
+        assert logging.getLogger().level == logging.INFO
+    else:
+        with pytest.raises(ConfigurationError, match="unknown log level"):
+            configure_logging(level=level)

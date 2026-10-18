@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Final, Literal
 
 from auto_inform.domain.errors import ConfigurationError
+from auto_inform.infrastructure.logging_setup import VALID_LOG_LEVELS, normalise_log_level
 
 OutputKind = Literal["local", "s3"]
 StoreKind = Literal["sqlite", "postgres"]
@@ -32,7 +33,6 @@ _REDACTED: Final = "***"
 _SECRET_HINTS: Final = ("TOKEN", "SECRET", "PASSWORD", "DSN", "KEY")
 _TRUE: Final = frozenset({"1", "true", "yes", "on"})
 _FALSE: Final = frozenset({"0", "false", "no", "off"})
-_LEVELS: Final = frozenset({"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,12 +168,11 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         value = source.get(name)
         if value is None:
             return default
-        normalised = value.strip().upper()
-        if normalised not in _LEVELS:
-            # Validated here rather than left to `logging.setLevel`, which raises a raw ValueError from
-            # a different part of the program -- and which never appears in this loader's collected
-            # error report, breaking the "report every invalid variable" rule.
-            errors.append(f"{name}={value!r} is not one of {', '.join(sorted(_LEVELS))}")
+        # Shared with `configure_logging` through one helper: the loader and the logging setup used to
+        # disagree, accepting `info` in one and `WARN` in the other, which made neither authoritative.
+        normalised = normalise_log_level(value)
+        if normalised is None:
+            errors.append(f"{name}={value!r} is not one of {', '.join(VALID_LOG_LEVELS)}")
             return default
         return normalised
 

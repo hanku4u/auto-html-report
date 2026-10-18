@@ -93,17 +93,27 @@ def generate_report(
     html = render_report(report, error_detail=context.settings.error_detail)
 
     location = None
-    if writer is not None:
-        location = writer.write(filename=report_filename(definition, report), content=html)
+    try:
+        if writer is not None:
+            location = writer.write(filename=report_filename(definition, report), content=html)
+    except Exception:
+        # The report-level pair stays complete: without this, the one path where nothing was written --
+        # the path a reader most needs to find -- leaves an orphaned `report.start` and no terminal event.
+        context.logger.exception(
+            "report.failed",
+            extra={"run_id": context.run.run_id, "report_title": definition.title},
+        )
+        raise
+    finally:
+        context.logger.info(
+            "report.finish",
+            extra={
+                "run_id": context.run.run_id,
+                "report_title": definition.title,
+                "failed_blocks": len(report.failed_rows),
+                "duration_ms": round((context.clock.monotonic() - started) * 1000, 1),
+                "output_uri": location.uri if location is not None else None,
+            },
+        )
 
-    context.logger.info(
-        "report.finish",
-        extra={
-            "run_id": context.run.run_id,
-            "report_title": definition.title,
-            "failed_blocks": len(report.failed_rows),
-            "duration_ms": round((context.clock.monotonic() - started) * 1000, 1),
-            "output_uri": location.uri if location is not None else None,
-        },
-    )
     return ReportResult(report=report, html=html, location=location)

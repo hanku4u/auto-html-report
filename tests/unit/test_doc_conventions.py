@@ -32,10 +32,10 @@ README = DOCS / "README.md"
 #: Documents above this many lines must carry a Dev plan, unless exempted below.
 DEV_PLAN_THRESHOLD = 250
 
-#: Append-only reference documents that specify no build work, exempted by docs/README.md. A decision
-#: log grows without bound and has nothing to stage, so demanding a plan of it is absurdity rather than
-#: rigour.
-DEV_PLAN_EXEMPT = frozenset({"10-decision-log.md"})
+#: Append-only reference documents and the plan itself, exempted by docs/README.md. A decision log grows
+#: without bound and has nothing to stage, and requiring the implementation plan to contain a plan is
+#: circular -- it *is* the staged plan that oversized documents are supposed to point at.
+DEV_PLAN_EXEMPT = frozenset({"10-decision-log.md", "11-implementation-plan.md"})
 
 KNOWN_STATUSES = frozenset({"proposed", "active", "superseded"})
 
