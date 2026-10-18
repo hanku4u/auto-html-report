@@ -12,6 +12,7 @@ them, and a test in ``tests/unit/test_rendering_figures.py`` pins that in a subp
 
 from __future__ import annotations
 
+from auto_inform._version import get_version
 from auto_inform.application.context import DiscoveryContext, RenderContext, ReportContext
 from auto_inform.application.discovery import (
     Discoverer,
@@ -67,6 +68,11 @@ from auto_inform.rendering.figures import figure_lock, figure_to_data_uri
 # Deliberately flat and alphabetical. The names fall into groups -- writing a block, building a report,
 # producing the document, configuring it, and classifying a failure -- but the ordering carries no
 # meaning, because an unsorted __all__ is a lint error in this project.
+#: The installed version, computed once at import from the distribution metadata. ``get_version()``
+#: remains the source (``docs/08-packaging.md`` §7); this is the attribute a consumer reaches for first.
+__version__ = get_version()
+
+
 __all__ = [
     "AutoInformError",
     "Block",
@@ -102,6 +108,7 @@ __all__ = [
     "StoreError",
     "SystemClock",
     "TransientBlockError",
+    "__version__",
     "build_output_writer",
     "configure_logging",
     "escape",

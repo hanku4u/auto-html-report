@@ -10,6 +10,7 @@ from importlib.metadata import PackageNotFoundError, version
 
 import pytest
 
+import auto_inform
 from auto_inform import _version
 
 
@@ -43,3 +44,9 @@ def test_unknown_version_should_be_visibly_unknown() -> None:
     # then it says so in words, because a reader of a report footer should never be shown a version
     # that was never built
     assert "unknown" in _version.UNKNOWN_VERSION
+
+
+def test_the_package_should_expose_the_version_it_resolves() -> None:
+    # given the conventional `__version__` attribute a consumer reaches for
+    # then it is computed from the resolver, never a hard-coded copy that could drift
+    assert auto_inform.__version__ == _version.get_version()

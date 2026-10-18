@@ -20,7 +20,11 @@ import pytest
 
 from tests.support.markdown import lines_outside_fences
 
-DOCS = Path(__file__).resolve().parents[2] / "docs"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DOCS = REPO_ROOT / "docs"
+#: The user-facing README lives outside ``docs/`` but is the first document a reader sees, so its links
+#: are audited with the rest.
+README = REPO_ROOT / "README.md"
 
 _LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 _HEADING = re.compile(r"^#{1,6}\s+(.*?)\s*$")
@@ -68,11 +72,11 @@ def anchors_for(headings: Sequence[str]) -> set[str]:
     return anchors
 
 
-def broken_links(docs: Path) -> list[str]:
+def broken_links(docs: Path, extra: Sequence[Path] = ()) -> list[str]:
     """Every link in the document set that points at a missing file or a missing heading."""
     problems: list[str] = []
 
-    for path in sorted(docs.glob("*.md")):
+    for path in [*sorted(docs.glob("*.md")), *extra]:
         for target in _LINK.findall("\n".join(lines_outside_fences(path))):
             if target.startswith(("http://", "https://", "mailto:")):
                 continue
@@ -93,8 +97,8 @@ def broken_links(docs: Path) -> list[str]:
 
 
 def test_every_link_in_the_document_set_should_resolve() -> None:
-    # given every cross-reference between the specification documents
-    problems = broken_links(DOCS)
+    # given every cross-reference between the specification documents, and the README's links into them
+    problems = broken_links(DOCS, extra=[README])
 
     # when each is resolved against the file and heading it names
     # then none is broken. Markdown fails silently here -- the reader simply lands at the top of the
@@ -212,3 +216,20 @@ def test_anchor_generation_should_match_the_anchors_used_in_the_documents(
     # then it matches, so the audit agrees with the links actually written -- including the em-dash case,
     # which produces a double hyphen and is easy to get wrong by hand
     assert anchor_for(heading) == expected
+
+
+def test_the_link_audit_should_report_a_broken_link_in_an_extra_document(
+    tmp_path: Path,
+) -> None:
+    # given a README-shaped document outside docs/ that links to a file which does not exist
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "a.md").write_text("# A\n", encoding="utf-8")
+    readme = tmp_path / "README.md"
+    readme.write_text("[gone](docs/missing.md)\n", encoding="utf-8")
+
+    # when the audit includes it
+    problems = broken_links(docs, extra=(readme,))
+
+    # then it objects: the extra path is really scanned, not merely accepted (docs/09 §2 rule 7)
+    assert any("no such file" in problem for problem in problems)

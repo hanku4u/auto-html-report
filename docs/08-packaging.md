@@ -203,7 +203,9 @@ def get_version() -> str:
 ```
 
 `pyproject.toml` is the single source of truth. Nothing in the package writes down a second copy, for
-the same reason `requirements.txt` was removed: a second copy of the truth drifts (ADR-0021). See
+the same reason `requirements.txt` was removed: a second copy of the truth drifts (ADR-0021).
+`auto_inform.__version__` is computed once at import from `get_version()`, so the conventional attribute
+a consumer reaches for cannot disagree with the installed metadata. See
 ADR-0023 for the decision and what was rejected.
 
 Two properties are load-bearing, and both were verified rather than assumed:

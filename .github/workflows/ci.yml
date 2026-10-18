@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Lint, types, tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      # The same commands the README's Development section quotes, in the same order.
+      - run: uv sync --frozen --all-extras
+      - run: uv lock --check
+      - run: uv run ruff check
+      - run: uv run ruff format --check
+      - run: uv run mypy
+      - run: uv run pytest
+
+  package:
+    name: Install the wheel, run the quick start
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      # Builds the wheel, installs it into a scratch environment, and runs the README's quick start from
+      # it -- the one check a source-tree test cannot make.
+      - run: ./scripts/check_install.sh
+      # The README's install form, exercised against the checked-out tree: a git URL pinned to a commit.
+      # `file://` rather than `https://` so a private repository needs no token, and the SHA is the commit
+      # CI already has; the command shape is the same one the Installation section documents.
+      - name: Install from a git URL pinned to the commit
+        run: |
+          scratch="$(mktemp -d)"
+          cd "$scratch"
+          uv init --bare --name install-check >/dev/null
+          uv add "auto_inform @ git+file://${GITHUB_WORKSPACE}@${GITHUB_SHA}"
+          uv run python -c "import auto_inform; print(auto_inform.__version__)"

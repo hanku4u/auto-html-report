@@ -41,7 +41,10 @@ from tests.support.clocks import DEFAULT_START, FakeClock
 from tests.support.contexts import make_report_context
 from tests.support.stores import FakeEventStore
 
-EVENT_TYPE = "WAFER_FAILURE"
+#: A type of the tests' own. ``WAFER_FAILURE`` belongs to the production family (reports/manufacturing),
+#: which is registered as soon as anything imports it -- a test that registered over it would fail with
+#: "a report factory is already registered".
+EVENT_TYPE = "TEST_EVENT"
 
 
 # --- the pieces a report is made of -------------------------------------------

@@ -7,8 +7,10 @@ __pycache__/
 .venv/
 
 # build artefacts
-dist/
-build/
+# Anchored: an unanchored `build/` would ignore `src/auto_inform/build/` just as `reports/`
+# ignored the report package (stage 10's review found exactly that).
+/dist/
+/build/
 
 # tool caches
 .pytest_cache/
@@ -18,5 +20,11 @@ build/
 # auto_inform output. Reports and the event store are generated artefacts:
 # they carry production data and never belong in the repository.
 # See docs/06-output-html.md and docs/04-events-and-stores.md.
-reports/
+#
+# `/reports/` is anchored to the repository root: unanchored, it also matched
+# `src/auto_inform/reports/`, so the report package silently never entered a commit (stage 10).
+/reports/
 *.sqlite3
+
+# Review notes are working documents, not part of the repository.
+/FIXME.md

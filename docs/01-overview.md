@@ -114,9 +114,10 @@ and nothing would have noticed.
    extend a tuple; granting a genuine new permission means changing this rule as well as the test.
 3. Concrete stores and writers are injected by the caller, or built by a small factory that reads
    `Settings`.
-4. `blocks/` and `reports/` import from `domain/` and the rendering helpers — never from `application/`
-   or `infrastructure/`. They receive everything they need through `ReportContext` and their own
-   constructor parameters.
+4. `blocks/` and `reports/` import from `domain/`, the rendering helpers, the registry, and the other
+   plugin modules they compose (a report family instantiates blocks) — never from `application/` or
+   `infrastructure/`. They receive everything they need through `ReportContext` and their own constructor
+   parameters.
 5. `rendering/` imports `domain/` and the standard library, plus Jinja2 and matplotlib in the modules that
    need them — never `application/` or `infrastructure/`.
 6. Modules directly under the package root — `registry.py`, `_naming.py`, `_version.py` — may reach into
@@ -172,8 +173,11 @@ auto-inform/
 ├── pyproject.toml                  # uv_build; exact pins, extras, dependency groups
 ├── uv.lock                         # resolved dependency closure (committed)
 ├── .python-version                 # 3.11 — the supported floor
-├── README.md
+├── README.md                       # user-facing: install, quick start, two-phase model, blocks
 ├── docs/                           # this specification set
+├── examples/                       # runnable: quick_start.py and the two job scripts
+├── scripts/check_install.sh        # wheel install + quick start; also CI's packaging job
+├── .github/workflows/ci.yml        # the checks of docs/09 §5 and the packaging job
 ├── src/
 │   └── auto_inform/
 │       ├── __init__.py             # THE public surface — re-exports only
@@ -240,6 +244,12 @@ auto-inform/
 | Install or release the package | [08](08-packaging.md) |
 | Know what was rejected and why | [10](10-decision-log.md) |
 | Start implementing | [11](11-implementation-plan.md) |
+
+## Dev plan
+
+This document describes what the framework is, not the order it was built in. That order — stages 1 to 11,
+each with its own done-when — lives in [11-implementation-plan.md](11-implementation-plan.md), which is the
+single source of truth and the place to start if you are building any part of it.
 
 ## Open questions
 
