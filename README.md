@@ -12,8 +12,9 @@ The report is one table with three columns:
 | Wafer map — L1001 | an embedded PNG chart | |
 
 Each row is contributed by a **block**: a class that knows how to gather one piece of information
-(`collect()`) and how to render it as HTML (`render()`). The Check column is deliberately empty — it is
-there for a human to tick off after reading the report.
+(`collect()`) and how to render it as HTML (`render()`). The Check column is deliberately empty: it is a
+placeholder for a human reviewer's sign-off. The document is static — nothing writes to that column,
+and v1 ships no JavaScript — so you print it or annotate it outside the browser.
 
 The framework does the parts that are tedious to get right in every job script:
 
@@ -277,6 +278,9 @@ no config file and no flags. These are the ones a job normally sets:
 | `AUTO_INFORM_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` or `CRITICAL`. |
 | `AUTO_INFORM_LOG_FORMAT` | `json` | `json` for log shippers, `console` for humans. |
 | `AUTO_INFORM_MAX_WORKERS` | `8` | In-flight blocks per report (capped at 64). |
+| `AUTO_INFORM_MAX_CONCURRENT_REPORTS` | `1` | Reports built in parallel per run (capped at 32); raises in-flight HTTP calls, so size it against the API. |
+| `AUTO_INFORM_BLOCK_TIMEOUT_SECONDS` | `60` | Per-attempt budget for one block. |
+| `AUTO_INFORM_BLOCK_RETRIES` | `2` | Retries after the first attempt (capped at 10). |
 | `AUTO_INFORM_PROCESSING_LIMIT` | `500` | Events one processing run takes from the queue (capped at 10,000). |
 | `AUTO_INFORM_FAIL_ON_BLOCK_ERROR` | `true` | Treat a failed block as a failed event, so the run exits non-zero. |
 

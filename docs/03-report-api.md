@@ -212,6 +212,16 @@ def wafer_failure_report(event: Event, context: ReportContext) -> ReportDefiniti
 
 ```
 
+A report does not need a factory at all -- that mechanism is for *scheduled* per-event reports. An
+ad-hoc report is a definition the caller assembles at runtime:
+
+```python
+# An ad-hoc report, assembled from whatever the caller asked for
+blocks = [block_cls(**params) for block_cls, params in requested_blocks]
+definition = ReportDefinition(title="Ad-hoc review", blocks=blocks)
+generate_report(definition, context=ctx, writer=writer)
+```
+
 The registry keys on **`event_type` only**, and the factory receives the whole `Event`, so two
 events of the same type can produce entirely different block sets. This is how "another event needs
 a completely different context" is satisfied without a second framework mechanism.

@@ -325,6 +325,17 @@ whole pipeline — two failed lots, two reports with a chart and a maintenance t
 network. `examples/quick_start.py` is the README's quick start as a program, and it is what the packaging
 check runs.
 
+**Second review (2026-10-18):** the branch as committed was missing the report package. `.gitignore`'s
+unanchored `reports/` — meant for the generated output directory — also matched
+`src/auto_inform/reports/`, so the files were ignored, never entered the commit, and a clean checkout died
+at collection while the working tree stayed green. The patterns are anchored now (`/reports/`, `/dist/`,
+`/build/`) with the reason written beside them, the packaging check imports `auto_inform.reports.manufacturing`
+from the installed wheel so a missing subpackage fails there, and the accidentally committed `FIXME.md` is
+untracked and ignored. CI's install check now prints the new `auto_inform.__version__`, computed from
+`get_version()` rather than a second copy. The README's Check-column sentence and its configuration table
+were corrected, and `03 §3` regained the ad-hoc example that had illustrated the "dynamic lists" half of
+its title.
+
 **Review (2026-10-18):** the documented demo command was broken — `python examples/discover_wafers.py`
 puts `examples/` on `sys.path`, not the repository root, so the shared fixtures failed to import, and the
 in-process tests hid it. The README and the scripts now use `python -m examples.…`, with a subprocess test
