@@ -82,3 +82,14 @@ def test_report_filename_should_be_deterministic() -> None:
     # when the filename is derived twice
     # then it is identical, which is what allows the name to be computed before writing and compared after
     assert report_filename(report.definition, report) == report_filename(report.definition, report)
+
+
+def test_report_filename_is_unique_only_to_the_second(tmp_path: object = None) -> None:
+    # given two reports with the same title and event, generated at the same instant
+    first = make_report(make_row("Row"), title="Same", event_id="SAME-EVENT")
+    second = make_report(make_row("Row"), title="Same", event_id="SAME-EVENT")
+
+    # then the names collide. This is a known property rather than a surprise: uniqueness holds per
+    # title, event and *second*, and the scheduled path is protected by distinct event ids plus the store
+    # marking work processed, not by the clock (docs/06-output-html.md §2)
+    assert report_filename(first.definition, first) == report_filename(second.definition, second)

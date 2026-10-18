@@ -17,8 +17,8 @@ class ReportDefinition:
     title: str
     blocks: Sequence[Block[Any]]
     subtitle: str | None = None
-    event_id: str | None = None       # the event this report was built for, if any: names the file
     metadata: Mapping[str, str] = field(default_factory=dict)  # extra header key/value pairs
+    event_id: str | None = field(default=None, kw_only=True)    # names the file; 4th positional stays metadata
 
     def __post_init__(self) -> None:
         """Reject an empty block list and duplicate block names.
@@ -98,6 +98,7 @@ def collect_blocks(
     *,
     context: ReportContext,
     report_title: str = "",
+    generated_at: datetime | None = None,
 ) -> tuple[ReportRow, ...]:
     """Collect and render every block concurrently; return rows in argument order.
 
@@ -109,6 +110,10 @@ def collect_blocks(
     ``report_title`` reaches each block through its ``RenderContext``. It defaults to
     empty because collection is usable outside a report definition, but a report should
     always pass it.
+
+    ``generated_at`` is the instant the report is stamped with; it reaches every block's
+    ``RenderContext``. ``generate_report`` captures it once and passes the same value to
+    the ``Report``, so a block rendering it agrees with the document header.
 
     Raises ConfigurationError for an invalid block set (duplicate names, empty list).
 
@@ -135,8 +140,9 @@ def generate_report(
     Composes the two functions above:
 
         rows   = collect_blocks(definition.blocks, context=context,
-                                report_title=definition.title)
-        report = Report(definition, rows, generated_at=context.clock.now(),
+                                report_title=definition.title,
+                                generated_at=generated_at)
+        report = Report(definition, rows, generated_at=generated_at,
                         run_id=context.run.run_id)
         html   = render_report(report, error_detail=context.settings.error_detail)
         location = writer.write(filename=report_filename(definition, report),

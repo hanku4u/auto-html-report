@@ -42,15 +42,26 @@ class ReportDefinition:
     title: str
     blocks: Sequence[Block[Any]]
     subtitle: str | None = None
+    metadata: Mapping[str, str] = field(default_factory=dict)
     #: Identity of the event this report was built for, when there is one. It is what the filename's
     #: middle segment comes from (`docs/06-output-html.md` §2), and it belongs on the definition because
     #: that is the only thing `report_filename` is given besides the assembled report.
-    event_id: str | None = None
-    metadata: Mapping[str, str] = field(default_factory=dict)
+    #:
+    #: **Keyword-only on purpose.** It was added after the type had a public positional shape, and as a
+    #: positional field it would have re-pointed the fourth argument from ``metadata`` to this one --
+    #: silently accepting a mapping here and failing much later, inside the filename helper.
+    event_id: str | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         # Fail fast, and report every problem rather than only the first: a definition is
         # constructed by hand in code, so a mistake is cheap to fix once it is visible.
+        if not self.title:
+            raise ConfigurationError("a report must have a title")
+        if self.event_id is not None and not isinstance(self.event_id, str):
+            raise TypeError(
+                f"event_id must be a string or None, got {type(self.event_id).__name__}. It is "
+                "keyword-only, so a positional argument here is still metadata."
+            )
         if not self.blocks:
             raise ConfigurationError(f"report {self.title!r} contains no blocks")
 

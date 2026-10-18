@@ -64,11 +64,21 @@ def generate_report(
     settings and the renderer. A failed block still produces a document: its cell is an error cell and
     the run continues (``docs/03-report-api.md`` §2).
     """
-    rows = collect_blocks(definition.blocks, context=context, report_title=definition.title)
+    # One instant for the whole report: captured before collection, handed to the blocks and reused for
+    # the Report. Two separate reads of the clock would disagree by the collection duration -- a block
+    # that renders `generated_at` would then contradict the document header.
+    generated_at = context.clock.now()
+
+    rows = collect_blocks(
+        definition.blocks,
+        context=context,
+        report_title=definition.title,
+        generated_at=generated_at,
+    )
     report = Report(
         definition=definition,
         rows=rows,
-        generated_at=context.clock.now(),
+        generated_at=generated_at,
         run_id=context.run.run_id,
     )
     html = render_report(report, error_detail=context.settings.error_detail)

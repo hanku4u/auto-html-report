@@ -145,6 +145,16 @@ the filename's middle segment needs an event identity the definition did not car
 collapsed a message to its *first line*, so `detailed` could never show more than `summary`; the collector
 now keeps the whole message, capped, and the renderer chooses.
 
+**Post-review corrections (2026-10-18):** a review of this stage found seven things; five are fixed here.
+`event_id` was inserted **positionally before `metadata`**, silently re-pointing the fourth argument — it
+is keyword-only now and its type is validated, so the same mistake fails at construction instead of inside
+`report_filename`. The header and the blocks were stamped from **two different clock reads**, disagreeing
+by the whole collection duration; one instant is now captured and threaded through both. The writer's
+**0600 mode** and **second-resolution filename collisions** are documented as deliberate properties rather
+than left as accidents (the collision is pinned by a test). Publication also flushes the **directory
+entry** after the rename, so the replacement survives a power loss and not merely a crash. The writer's
+**POSIX scope** and its **sweepable temporary files** are stated in `06 §1`.
+
 ## Stage 7 — Configuration, logging and the stub
 
 `infrastructure/settings.py`, `logging_setup.py`, `http_stub.py`, and the five context factories from

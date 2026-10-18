@@ -13,7 +13,7 @@ deliverable; refusing to write because one block failed is the behaviour the fra
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -26,7 +26,7 @@ from auto_inform.domain.report import ReportDefinition
 from auto_inform.generate import generate_report, report_filename
 from auto_inform.infrastructure.settings import Settings
 from auto_inform.infrastructure.writers.local_writer import LocalDirectoryWriter
-from tests.support.clocks import DEFAULT_START
+from tests.support.clocks import DEFAULT_START, FakeClock
 from tests.support.contexts import make_report_context
 from tests.support.http import FakeHttpClient
 
@@ -172,3 +172,27 @@ def test_generate_report_with_the_built_in_blocks_should_produce_a_report(tmp_pa
     written = tmp_path / report_filename(definition, result.report)
     assert written.exists()
     assert "wafer-failure-lot-88213" in written.name
+
+
+class _StampBlock(Block[str]):
+    """Renders the generation instant it was given, after simulating ten seconds of work."""
+
+    def collect(self, context: ReportContext) -> str:
+        cast(FakeClock, context.clock).advance(10.0)
+        return "x"
+
+    def render(self, data: str, context: RenderContext) -> str:
+        return f"<p>{context.generated_at.isoformat()}</p>"
+
+
+def test_generate_report_should_stamp_blocks_and_header_with_one_instant() -> None:
+    # given a block that consumes ten seconds and then renders the instant it was handed
+    context = make_report_context()
+
+    # when a report is generated
+    result = generate_report(_definition(_StampBlock(name="Stamp")), context=context)
+
+    # then the header carries that same instant. Two independent reads of the clock would differ by the
+    # collection duration, and a block rendering the timestamp would contradict the document header
+    assert result.report.generated_at.isoformat() in result.html
+    assert 'class="ai-header"' in result.html

@@ -27,6 +27,7 @@ import time
 from collections.abc import Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
+from datetime import datetime
 from typing import Any, cast
 
 from auto_inform.application.context import RenderContext, ReportContext
@@ -83,6 +84,7 @@ def collect_blocks(
     *,
     context: ReportContext,
     report_title: str = "",
+    generated_at: datetime | None = None,
 ) -> tuple[ReportRow, ...]:
     """Collect and render every block concurrently; return rows in argument order.
 
@@ -92,10 +94,17 @@ def collect_blocks(
 
     ``report_title`` is offered to blocks through their ``RenderContext``. It defaults to empty because
     collection is also usable outside a report definition, but a report should always pass it.
+
+    ``generated_at`` is the instant the report is stamped with, and it reaches every block's
+    ``RenderContext``. Pass the same value the :class:`Report` will carry so that a block rendering it
+    agrees with the document header; it defaults to the clock's current reading for standalone use.
     """
     _validate(blocks, context.settings)
 
-    render_context = RenderContext(generated_at=context.clock.now(), report_title=report_title)
+    render_context = RenderContext(
+        generated_at=generated_at if generated_at is not None else context.clock.now(),
+        report_title=report_title,
+    )
     workers = max(1, min(context.settings.max_workers, len(blocks)))
     rows: list[ReportRow | None] = [None] * len(blocks)
     progress = [_Progress() for _ in blocks]

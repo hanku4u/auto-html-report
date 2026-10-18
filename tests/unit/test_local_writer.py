@@ -6,6 +6,7 @@ looks like a report, so the writer publishes by renaming a complete temporary fi
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -93,3 +94,15 @@ def test_write_should_raise_output_error_when_the_directory_cannot_be_created(
     # distinguish "could not write" from "the block failed"
     with pytest.raises(OutputError, match="could not write"):
         LocalDirectoryWriter(obstruction).write(filename="report.html", content="x")
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX file modes")
+def test_write_should_publish_owner_only(tmp_path: Path) -> None:
+    # given a written report
+    LocalDirectoryWriter(tmp_path).write(filename="report.html", content="x")
+
+    # when its mode is inspected
+    # then it is 0600. That is deliberate, not incidental: the temporary file from mkstemp is owner-only
+    # and the rename preserves it, and these documents carry production data. A consumer must run as the
+    # writing user or copy the file (docs/06-output-html.md §1)
+    assert (tmp_path / "report.html").stat().st_mode & 0o777 == 0o600
