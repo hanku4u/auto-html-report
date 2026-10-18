@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from dataclasses import FrozenInstanceError
 from datetime import UTC, datetime
 
@@ -268,3 +269,35 @@ def test_report_result_without_a_writer_should_carry_no_location() -> None:
     # "let me decide what to do with this" case
     assert result.html == "<html></html>"
     assert result.location is None
+
+
+# --- the optional event identity, and its positional shape (review item 1) ----
+
+
+def test_report_definition_should_keep_metadata_as_its_fourth_positional_argument() -> None:
+    # given a caller that builds a definition positionally, which the type has always allowed
+    definition = ReportDefinition("T", [_StubBlock("Row")], None, {"Lot": "LOT-1"})
+
+    # when the fields are read
+    # then the mapping is metadata and no event was invented from it: event_id is keyword-only, so adding
+    # it could not re-point an argument that already existed
+    assert dict(definition.metadata) == {"Lot": "LOT-1"}
+    assert definition.event_id is None
+
+
+def test_report_definition_event_id_should_be_keyword_only() -> None:
+    # given the public parameter list
+    parameter = inspect.signature(ReportDefinition).parameters["event_id"]
+
+    # then the field cannot be passed positionally, which is the property that keeps the fourth
+    # positional argument meaning what it always meant
+    assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+
+
+def test_report_definition_with_a_non_string_event_id_should_raise_type_error() -> None:
+    # given a mapping where an event identity belongs -- the mistake a positional caller used to make
+    # silently, only to fail later inside report_filename
+    # when the definition is constructed
+    # then it is refused at the point of the mistake
+    with pytest.raises(TypeError, match="event_id must be a string"):
+        ReportDefinition("T", [_StubBlock("Row")], event_id={"Lot": "LOT-1"})  # type: ignore[arg-type]

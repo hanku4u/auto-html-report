@@ -78,6 +78,7 @@ def make_report(
     *rows: ReportRow,
     title: str = "Test report",
     subtitle: str | None = None,
+    event_id: str | None = None,
     metadata: Mapping[str, str] | None = None,
     generated_at: datetime = FIXED_GENERATED_AT,
     run_id: str = FIXED_RUN_ID,
@@ -90,6 +91,7 @@ def make_report(
     definition = ReportDefinition(
         title=title,
         subtitle=subtitle,
+        event_id=event_id,
         blocks=[StubBlock(row.item) for row in rows],
         metadata=dict(metadata or {}),
     )

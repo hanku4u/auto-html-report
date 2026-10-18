@@ -1,6 +1,6 @@
 ---
 status: proposed
-description: ADR-0001 to ADR-0027 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
+description: ADR-0001 to ADR-0028 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
 replaces: docs/SPEC.md §11, §12
 ---
 
@@ -375,6 +375,27 @@ fire — the guard would be disabled precisely when it is needed, and it would b
 is guarding*. Real time is the only input the wedged code cannot influence. Rejected: polling (broken as
 shown); no guard at all, which trades a slow test for the possibility of a hung CI job; and a separate
 second clock for the guard, which is the same thing with more machinery.
+
+---
+
+### ADR-0028 — The public entry point composes at the package root
+
+**Context:** `generate_report` collects blocks, assembles the report, renders it and writes it. It is
+named in the specification as living in `application/generate_report.py`, but `application/` may not
+import `rendering/` (rule 2 of [01 §4](01-overview.md#4-architectural-overview)), and composing a document
+means calling the renderer. The layering audit refused the documented placement on the first run — the
+same way it refused the collector's original error-cell design a stage earlier.
+
+**Decision:** `generate_report` and `report_filename` live in `auto_inform/generate.py` at the package
+root, beside `registry.py`. The root is the composition point: it may see every layer, provided it
+acquires no infrastructure adapter — and it does not, because the writer arrives as an injected
+`OutputWriter`. The use case of gathering data stays in `application/collect_blocks.py`.
+
+**Consequences:** the dependency direction is honest — application logic never depends on HTML, and the
+one module that needs both is explicitly the composition point rather than a layer pretending to be
+application code. Rejected: widening the application allowlist to permit `rendering/`, which would let
+any application module grow a Jinja dependency; and inverting the dependency with an injected renderer, a
+seam with exactly one implementation and no second caller in sight.
 
 ---
 

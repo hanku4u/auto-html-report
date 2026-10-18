@@ -134,7 +134,26 @@ a correct file end to end, and `collect_blocks` / `render_report` are usable ind
 setting reaches the rendered cell, not merely that the parameter exists.
 
 **Review boundary:** at this point the library is genuinely usable for someone willing to pass
-explicit blocks. Everything after this stage is the scheduled-job story.
+explicit blocks. Everything after this stage is the scheduled-job story. **Completed 2026-10-18**
+
+**Amended during implementation:** three things. `generate_report` and `report_filename` live in
+`auto_inform/generate.py` at the **package root**, not in `application/`, because they compose collection,
+rendering and writing while `application/` may not import `rendering/` — ADR-0028; the layering audit
+refused the documented placement on the first run. `ReportDefinition` gained an **`event_id`**, because
+the filename's middle segment needs an event identity the definition did not carry. And wiring
+`Settings.error_detail` into `render_report` exposed a **stage-5 defect**: the collector's `_summarise`
+collapsed a message to its *first line*, so `detailed` could never show more than `summary`; the collector
+now keeps the whole message, capped, and the renderer chooses.
+
+**Post-review corrections (2026-10-18):** a review of this stage found seven things; five are fixed here.
+`event_id` was inserted **positionally before `metadata`**, silently re-pointing the fourth argument — it
+is keyword-only now and its type is validated, so the same mistake fails at construction instead of inside
+`report_filename`. The header and the blocks were stamped from **two different clock reads**, disagreeing
+by the whole collection duration; one instant is now captured and threaded through both. The writer's
+**0600 mode** and **second-resolution filename collisions** are documented as deliberate properties rather
+than left as accidents (the collision is pinned by a test). Publication also flushes the **directory
+entry** after the rename, so the replacement survives a power loss and not merely a crash. The writer's
+**POSIX scope** and its **sweepable temporary files** are stated in `06 §1`.
 
 ## Stage 7 — Configuration, logging and the stub
 

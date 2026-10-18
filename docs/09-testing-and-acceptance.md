@@ -24,6 +24,7 @@ replaces: docs/SPEC.md §9, §13
 | Layering | `tests/unit/test_layering.py` reads every module's imports and asserts the rules in [01 §4](01-overview.md#4-architectural-overview), with a negative control so the audit cannot pass vacuously. An import hook cannot do this job: importing any submodule runs the composition root, which wires every layer on purpose. |
 | Documentation set | `tests/unit/test_doc_conventions.py` and `test_doc_links.py` assert what used to be checked by hand — that the `pyproject.toml` snippet equals the real file, that the ADR range quoted in two places matches the entries, that numbering and frontmatter hold, that oversized documents carry a Dev plan, and that every cross-reference resolves to a heading that exists. |
 | Time doubles | `tests/support/clocks.py` provides the `FakeClock`, whose contract is specified in [§1.1](#11-the-fakeclock-contract) and pinned by its own tests. |
+| Entry point | `tests/unit/test_generate_report.py`, `test_report_filename.py`, `test_local_writer.py`. Assert the document written equals what was returned; that no writer means no file and no location; that a failed block still produces a written report; that the filename rule caps and slugs; that the writer publishes atomically and refuses a path; and — the wiring stage 5 left open — that `Settings.error_detail` decides whether a multi-line message's second line appears. |
 
 ### 1.1 The FakeClock contract
 

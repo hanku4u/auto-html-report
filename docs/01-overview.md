@@ -210,7 +210,8 @@ auto-inform/
 │       │       ├── report.html.j2  # page shell (package data)
 │       │       └── report.css      # inlined stylesheet, included by the template
 │       ├── _version.py            # resolves the version at runtime; source of truth is pyproject.toml
-│       ├── _naming.py             # slug(): shared by the row id and the report filename (stage 6)
+│       ├── _naming.py             # slug(): shared by the row id and the report filename
+│       ├── generate.py            # generate_report(), report_filename(): the composition entry point
 │       ├── registry.py             # register_block/get_block, register_report/get_report_factory
 │       ├── blocks/                 # built-in blocks: internal plugin modules
 │       │   ├── __init__.py         # the package docstring; the scan lives in registry.py

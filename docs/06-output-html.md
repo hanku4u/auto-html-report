@@ -59,6 +59,18 @@ class S3Writer:
 - AWS credentials are not the framework's business: `S3Writer` uses boto3's standard credential
   chain (environment, shared config, instance profile, CI OIDC role). No AWS key is ever read by
   this package.
+- The local writer publishes reports **owner-only (mode 0600)**, deliberately: `mkstemp` creates them
+  that way and the rename preserves it, and these documents carry production yield and maintenance
+  data. Least privilege is the default rather than an accident — a consumer (an artifact uploader, a web
+  server) must run as the writing user or copy the file. Widen the mode with `chmod` after writing if a
+  shared directory is genuinely wanted.
+- Filesystem semantics are **POSIX**. Windows reserved device names are not handled, and Windows is not
+  a supported target for the local writer in v1.
+- Publication is atomic **and** durable: the file is `fsync`'d before the rename and the directory entry
+  after it, so a power loss does not resurrect the previous file. A crash between the temporary file's
+  creation and the rename leaves an `.auto-inform-*.tmp` behind; the prefix makes those safe to sweep,
+  and nothing sweeps them automatically — that is the operator's job, not a race with a concurrent
+  writer.
 
 ## 2. Filename and destination
 
@@ -71,6 +83,10 @@ class S3Writer:
 def report_filename(definition: ReportDefinition, report: Report) -> str: ...
 ```
 
+The **event segment appears only when the definition names an event** (`ReportDefinition.event_id`); an
+ad-hoc report has no event and produces `<slug(title)>__<timestamp>.html`. The helper lives in
+`auto_inform/generate.py`, beside `generate_report`.
+
 **Ownership rule:** the filename is computed in exactly one place, `generate_report`, by calling
 this helper. `OutputWriter` implementations receive a complete filename and never derive one, so
 that a local writer and an S3 writer can never disagree about naming. `run_processing` obtains the
@@ -81,6 +97,10 @@ URI from `ReportResult.location`, which the writer returned.
   key limits.
 - The timestamp is UTC, formatted `%Y%m%dT%H%M%SZ`, and makes every run's output addressable rather
   than overwriting.
+- **Uniqueness is per title, event and _second_.** Two reports with the same title and `event_id`
+  generated inside one second collide, and the writer overwrites. The scheduled path is protected by
+  distinct event ids and by the store marking work processed, not by the clock; an ad-hoc caller that
+  loops over `generate_report` with one title should include a distinguishing part in the title itself.
 - Default destination: `AUTO_INFORM_OUTPUT_DIR`, default `./reports/`, relative to the process
   working directory.
 - S3 keys are `f"{prefix.strip('/')}/{filename}"` when a prefix is configured.
