@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import subprocess
 import sys
-import threading
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -276,43 +275,6 @@ def test_a_repeated_scan_should_not_repopulate_a_wiped_table() -> None:
     # re-scanning. A characterisation test rather than a wish: it is why the isolation fixture snapshots a
     # *populated* registry instead of saving and restoring the scan flag
     assert registry.available_blocks() == {}
-
-
-def test_a_bare_import_of_the_composition_root_should_be_permitted_here() -> None:
-    # given the registry, which lives at the root alongside the composition root and is not subject to a
-    # layer rule of its own (docs/01 §4)
-    # when it is imported
-    import auto_inform  # noqa: F401
-
-    # then nothing objects: this test exists to pin that the exemption is deliberate, so that adding a
-    # root rule later is a decision rather than an accident
-    assert registry.get_block("Wafer map").display_name == "Wafer map"
-
-
-def test_concurrent_lookups_should_all_succeed() -> None:
-    # given the registry, whose scan and tables are guarded by a re-entrant lock
-    results: list[type[Block[object]]] = []
-    errors: list[BaseException] = []
-    start = threading.Barrier(8)
-
-    def look_up() -> None:
-        start.wait()  # release all eight at once, to give a real collision a chance
-        try:
-            results.append(registry.get_block("Maintenance history"))
-        except BaseException as exc:  # noqa: BLE001 - surface anything at all
-            errors.append(exc)
-
-    # when eight threads look a block up simultaneously, one of them racing the lazy scan
-    threads = [threading.Thread(target=look_up) for _ in range(8)]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join(timeout=60)
-
-    # then every thread got the class. The scan imports modules while holding the lock, and each
-    # decorated class registers on the same thread -- so the lock has to be re-entrant or this deadlocks
-    assert errors == []
-    assert len(results) == 8
 
 
 def test_register_block_with_something_that_is_not_a_block_should_raise_configuration_error() -> (

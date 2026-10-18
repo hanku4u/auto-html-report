@@ -117,6 +117,8 @@ and nothing would have noticed.
 4. `blocks/` and `reports/` import from `domain/` and the rendering helpers — never from `application/`
    or `infrastructure/`. They receive everything they need through `ReportContext` and their own
    constructor parameters.
+5. `rendering/` imports `domain/` and the standard library, plus Jinja2 and matplotlib in the modules that
+   need them — never `application/` or `infrastructure/`.
 6. Modules directly under the package root — `registry.py`, `_naming.py`, `_version.py` — may reach into
    the layers but must never acquire a concrete adapter or the configuration that builds one: their rule
    forbids `infrastructure/`. They were ungoverned until the audit learned to enumerate them, which is how

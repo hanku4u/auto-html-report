@@ -23,6 +23,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.support.markdown import lines_outside_fences
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOCS = REPO_ROOT / "docs"
 README = DOCS / "README.md"
@@ -313,3 +315,67 @@ def test_the_dev_plan_check_should_honour_the_exemption(tmp_path: Path) -> None:
     # when the check runs with that document exempt
     # then it is skipped, which is what the exemption is for
     assert documents_without_dev_plan(tmp_path, threshold=10, exempt=frozenset({"01-big.md"})) == []
+
+
+# --- numbered lists -----------------------------------------------------------
+
+_NUMBERED_ITEM = re.compile(r"^(\s*)(\d+)\.\s")
+
+
+def numbered_list_problems(docs_dir: Path) -> list[str]:
+    """Every numbered list in the document set whose items do not run consecutively.
+
+    List numbering is part of the contract when a document *is* the contract: the architecture rules in
+    01 §4 are cited by number, so a list that skips one is not a typo, it is a missing rule. This check
+    exists because an edit replaced one of those rules instead of appending after it, leaving 1, 2, 3, 4,
+    6 — and nothing noticed.
+
+    Lists are delimited the way they are written: a blank line or an indented continuation does not end
+    one, but a top-level non-list line does. That distinction is what allows two separate lists in one
+    document both to start at 1 without being reported.
+    """
+    problems: list[str] = []
+    for path in sorted(docs_dir.glob("[0-9][0-9]-*.md")):
+        previous: tuple[int, int] | None = None
+        for line in lines_outside_fences(path):
+            match = _NUMBERED_ITEM.match(line)
+            if match is None:
+                if line.strip() and not line.startswith((" ", "\t")):
+                    previous = None
+                continue
+            indent, number = len(match.group(1)), int(match.group(2))
+            if previous is not None and previous[0] == indent and number != previous[1] + 1:
+                problems.append(f"{path.name}: list jumps {previous[1]} -> {number}")
+            previous = (indent, number)
+    return problems
+
+
+def test_numbered_lists_should_run_consecutively() -> None:
+    # given the numbered lists across the document set
+    problems = numbered_list_problems(DOCS)
+
+    # when each is checked for a gap or a repeat
+    # then none has one. The architecture rules are cited by number, so a list that skips one is a
+    # missing rule rather than a typo -- which is exactly how rule 5 of docs/01 §4 went missing
+    assert problems == []
+
+
+def test_the_numbered_list_check_should_flag_a_gap(tmp_path: Path) -> None:
+    # given a list that skips a number
+    (tmp_path / "01-thing.md").write_text("Intro:\n\n1. one\n2. two\n4. four\n", encoding="utf-8")
+
+    # when the check runs
+    # then it objects
+    assert numbered_list_problems(tmp_path) != []
+
+
+def test_the_numbered_list_check_should_allow_two_separate_lists(tmp_path: Path) -> None:
+    # given two lists in one document, each starting at 1
+    (tmp_path / "01-thing.md").write_text(
+        "First:\n\n1. a\n2. b\n\nSecond:\n\n1. c\n2. d\n", encoding="utf-8"
+    )
+
+    # when the check runs
+    # then it is content. Treating the second list as a continuation of the first would make this check
+    # cry wolf on every document with two lists, and a noisy check gets deleted
+    assert numbered_list_problems(tmp_path) == []
