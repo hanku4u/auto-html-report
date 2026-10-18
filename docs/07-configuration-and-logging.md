@@ -51,8 +51,10 @@ Rules for `load_settings`:
 - Validate cross-field requirements at load time: `output_kind="s3"` requires `output_s3_bucket`;
   `event_store="postgres"` requires `postgres_dsn`. Both raise `ConfigurationError` immediately,
   not at first use.
-- Reject non-positive values for every numeric setting; a zero timeout or zero workers is a
-  configuration bug, not a request for unlimited throughput.
+- Reject non-positive values where zero is meaningless — timeouts, workers, concurrent reports, attempt
+  ceilings — and negative values everywhere, including retry counts. A zero timeout or zero workers is a
+  configuration bug, not a request for unlimited throughput; a retry count of zero, by contrast, is a
+  legitimate preference.
 
 > **Secrets are never logged.** `Settings.__repr__` redacts any attribute whose name contains
 > `TOKEN`, `SECRET`, `PASSWORD`, `DSN` or `KEY` — because the first debugging session in production
@@ -119,6 +121,20 @@ Each returns a value rather than registering a global, so a long-lived process �
 session — can build several contexts with different settings without them contaminating each other.
 `run_id` is a fresh `uuid4().hex` per context, which is what makes a report traceable back to the
 log lines that produced it.
+
+**Where they live.** `load_settings` is in `infrastructure/settings.py`, `configure_logging` in
+`logging_setup.py`, and the three context/writer factories in `infrastructure/factories.py` — the one
+module allowed to name concrete adapters, because that is what wiring is.
+
+**Additive overrides.** `new_report_context` and `new_discovery_context` also accept optional keyword
+arguments for `http`, `clock` and `logger`. The documented call — `new_report_context(settings)` — still
+works unchanged; the overrides exist so a test or a demo job can supply canned fixtures and a
+deterministic clock without building a context by hand.
+
+**The S3 gap is loud.** `build_output_writer` selects the local writer, and for
+`AUTO_INFORM_OUTPUT_KIND=s3` it raises `ConfigurationError` rather than quietly writing to the
+filesystem: a job that believes it is uploading and is not is worse than one that will not start. The
+real branch arrives with stage 11.
 
 ## 4. Logging contract
 

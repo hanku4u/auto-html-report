@@ -162,6 +162,15 @@ entry** after the rename, so the replacement survives a power loss and not merel
 
 **Done when:** the env-var to attribute mapping test passes, secrets are redacted from `repr`, the
 stub is thread-safe, and a `block.finish` log line parses as JSON with the documented fields.
+**Completed 2026-10-18**
+
+**Amended during implementation:** two things. The three context/writer factories live in
+`infrastructure/factories.py` — the one module allowed to name concrete adapters — and accept optional
+keyword overrides for `http`, `clock` and `logger`. The documented `new_report_context(settings)` call is
+unchanged; the overrides make the factories testable and usable by a demo job with canned fixtures.
+`build_output_writer` **raises for `AUTO_INFORM_OUTPUT_KIND=s3`** instead of falling back to the local
+filesystem, because the S3 writer is stage 11's; a job that believes it is uploading and is not is worse
+than one that fails at start-up. Stage 11 replaces that error with the real branch.
 
 ## Stage 8 — Events and the discovery job
 
@@ -193,6 +202,10 @@ scratch directory, and the README's install commands are the ones CI actually ru
 
 `infrastructure/stores/postgres_store.py`, `infrastructure/writers/s3_writer.py`, and the shared
 behaviour suite extended to both. Both remain self-skipping in CI without their services.
+
+**Note for this stage:** `AUTO_INFORM_OUTPUT_KIND=s3` currently raises in `build_output_writer`; replace
+that with the real `S3Writer` branch here, and keep the failure mode loud — refusing to start beats
+silently writing locally.
 
 **Done when:** the store suite passes against PostgreSQL when a DSN is provided, and the S3 writer
 passes against an injected stub client with no network.

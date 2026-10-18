@@ -191,10 +191,11 @@ auto-inform/
 │       │   ├── exit_codes.py       # ExitCode, exit_code_for()
 │       │   └── ports.py            # Protocols: EventStore, OutputWriter, HttpClient, Clock
 │       ├── infrastructure/
-│       │   ├── settings.py         # env-var parsing -> Settings (frozen)
-│       │   ├── clock.py            # SystemClock: the real now()/monotonic()/sleep() (stage 7)
+│       │   ├── settings.py         # load_settings(): env-var parsing -> Settings (frozen)
+│       │   ├── clock.py            # SystemClock: the real now()/monotonic()/sleep()
 │       │   ├── logging_setup.py    # JSON / console formatters, configure_logging()
 │       │   ├── http_stub.py        # StubHttpClient (canned fixtures, no network)
+│       │   ├── factories.py        # new_report_context, new_discovery_context, build_output_writer
 │       │   ├── stores/
 │       │   │   ├── sqlite_store.py
 │       │   │   └── postgres_store.py
