@@ -81,20 +81,25 @@ This set specifies **auto_inform v0.1** — package version `0.1.0`, see
 
 ## The document set
 
+**Ratified 2026-10-18.** Every numbered document is `active`: the v1 implementation it describes is
+complete, and every acceptance criterion in [09 §3](09-testing-and-acceptance.md#3-acceptance-criteria)
+has a test. `active` is a statement about the specification and the code agreeing, not a claim of
+production use — the HTTP client is still the stub described in [07 §2](07-configuration-and-logging.md#2-the-http-stub).
+
 | # | Document | Status | Description |
 | --- | --- | --- | --- |
 | — | [README.md](README.md) | — | This index, plus the conventions above. |
-| 01 | [01-overview.md](01-overview.md) | proposed | What `auto_inform` is, v1 scope and non-goals, shared vocabulary, and the architectural shape of the framework. |
-| 02 | [02-block-authoring.md](02-block-authoring.md) | proposed | The `Block` contract, its injected context, the HTTP port and its error mapping, and the per-block execution rules. |
-| 03 | [03-report-api.md](03-report-api.md) | proposed | Report data types, the injected contexts, the three public entry points, the block and report registries, and how predefined and dynamic reports are expressed. |
-| 04 | [04-events-and-stores.md](04-events-and-stores.md) | proposed | The `Event` value object, the `EventStore` port, the shared schema, and the SQLite and PostgreSQL implementations. |
-| 05 | [05-discovery-and-processing.md](05-discovery-and-processing.md) | proposed | The two scheduled jobs: the `Discoverer` port, `run_discovery`, `run_processing`, throughput policy, and CI exit codes. |
-| 06 | [06-output-html.md](06-output-html.md) | proposed | Output writers, file naming, the HTML document contract, the escaping trust boundary, and figure embedding. |
-| 07 | [07-configuration-and-logging.md](07-configuration-and-logging.md) | proposed | Environment variables and their `Settings` attributes, the HTTP stub, and the structured logging contract. |
-| 08 | [08-packaging.md](08-packaging.md) | proposed | Distribution name, exact dependency pins, optional extras, package data, and install instructions. |
-| 09 | [09-testing-and-acceptance.md](09-testing-and-acceptance.md) | proposed | The testing strategy per layer, hermeticity rules, and the v1 acceptance criteria. |
-| 10 | [10-decision-log.md](10-decision-log.md) | proposed | ADR-0001 to ADR-0031: each ratified decision, its context, and the alternatives rejected. |
-| 11 | [11-implementation-plan.md](11-implementation-plan.md) | proposed | The staged build order for v1, with review boundaries and a definition of done per stage. |
+| 01 | [01-overview.md](01-overview.md) | active | What `auto_inform` is, v1 scope and non-goals, shared vocabulary, and the architectural shape of the framework. |
+| 02 | [02-block-authoring.md](02-block-authoring.md) | active | The `Block` contract, its injected context, the HTTP port and its error mapping, and the per-block execution rules. |
+| 03 | [03-report-api.md](03-report-api.md) | active | Report data types, the injected contexts, the three public entry points, the block and report registries, and how predefined and dynamic reports are expressed. |
+| 04 | [04-events-and-stores.md](04-events-and-stores.md) | active | The `Event` value object, the `EventStore` port, the shared schema, and the SQLite and PostgreSQL implementations. |
+| 05 | [05-discovery-and-processing.md](05-discovery-and-processing.md) | active | The two scheduled jobs: the `Discoverer` port, `run_discovery`, `run_processing`, throughput policy, and CI exit codes. |
+| 06 | [06-output-html.md](06-output-html.md) | active | Output writers, file naming, the HTML document contract, the escaping trust boundary, and figure embedding. |
+| 07 | [07-configuration-and-logging.md](07-configuration-and-logging.md) | active | Environment variables and their `Settings` attributes, the HTTP stub, and the structured logging contract. |
+| 08 | [08-packaging.md](08-packaging.md) | active | Distribution name, exact dependency pins, optional extras, package data, and install instructions. |
+| 09 | [09-testing-and-acceptance.md](09-testing-and-acceptance.md) | active | The testing strategy per layer, hermeticity rules, and the v1 acceptance criteria. |
+| 10 | [10-decision-log.md](10-decision-log.md) | active | ADR-0001 to ADR-0031: each ratified decision, its context, and the alternatives rejected. |
+| 11 | [11-implementation-plan.md](11-implementation-plan.md) | active | The staged build order for v1, with review boundaries and a definition of done per stage. |
 
 ## Reading order by role
 
@@ -107,8 +112,8 @@ This set specifies **auto_inform v0.1** — package version `0.1.0`, see
 
 ## Open questions index
 
-Every currently unanswered question across the spec set, with where it lives. These are acceptable
-because the documents are in `proposed` state.
+Every unanswered question across the spec set, with where it lives. Each has a named v1 default that the
+code implements, so each is an accepted deferral to v0.2 rather than a gap in v1.
 
 | Where | Question |
 | --- | --- |

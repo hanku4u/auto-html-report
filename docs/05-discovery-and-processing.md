@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: active
 description: The two scheduled jobs — the Discoverer port, run_discovery, run_processing, throughput policy, exit codes and worked job scripts.
 replaces: docs/SPEC.md §4.8, §4.9, §7.4, §10
 ---
@@ -402,3 +402,6 @@ part of stage 9's definition of done.
 | # | Question | v1 default |
 | --- | --- | --- |
 | 1 | Should the processing job emit a machine-readable run manifest (per-event outcomes and URIs) alongside the log? | Not in v1 — the structured log already carries every field, and `ProcessingRun` carries them in-process. Revisit in v0.2; it is roughly twenty lines and turns several CI debugging questions into a `jq` call. |
+
+**Status:** accepted and deferred for v1. The default above is what the code implements; revisit
+in v0.2 (the conventions require an `active` document to name its default, not to have none).

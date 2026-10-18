@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: active
 description: What auto_inform is, the scope and non-goals of v1, the vocabulary shared across the spec set, and the architectural shape of the framework.
 replaces: docs/SPEC.md §1-3
 ---

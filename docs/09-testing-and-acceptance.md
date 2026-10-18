@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: active
 description: The per-layer testing strategy, hermeticity rules, and the acceptance criteria that define v1 as done.
 replaces: docs/SPEC.md §9, §13
 ---

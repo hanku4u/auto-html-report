@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: active
 description: The Block contract, its injected context, the HTTP port and its error mapping, and the per-block execution rules for a single report.
 replaces: docs/SPEC.md §4.2-4.3, §5, §7.2
 ---
@@ -344,3 +344,6 @@ in the project.
 | # | Question | v1 default |
 | --- | --- | --- |
 | 1 | Should a block be able to declare a per-attempt timeout distinct from its overall budget (e.g. "3 attempts, 10 s each")? | No. One budget per attempt plus `max_retries`; revisit if a real block needs asymmetry. |
+
+**Status:** accepted and deferred for v1. The default above is what the code implements; revisit
+in v0.2 (the conventions require an `active` document to name its default, not to have none).

@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: active
 description: Report data types, the injected contexts, the three public entry points, the block and report registries, and how predefined and dynamic reports are expressed.
 replaces: docs/SPEC.md §4.4, §4.5, §4.6, §4.11, §4.12
 ---
@@ -380,3 +380,6 @@ layer.
 | # | Question | v1 default |
 | --- | --- | --- |
 | 1 | Does an ad-hoc report need an identity in the event store, or is it always written and forgotten? | Always written and forgotten. It has no `Event`, so it has no lifecycle. If ad-hoc reports later need tracking, that is a new port, not a change here. |
+
+**Status:** accepted and deferred for v1. The default above is what the code implements; revisit
+in v0.2 (the conventions require an `active` document to name its default, not to have none).

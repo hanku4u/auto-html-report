@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: active
 description: Distribution name, uv-managed exact dependency pins, optional extras, package data, and install instructions for CI.
 replaces: docs/SPEC.md §8
 ---

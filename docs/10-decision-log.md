@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: active
 description: ADR-0001 to ADR-0031 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
 replaces: docs/SPEC.md §11, §12
 ---
