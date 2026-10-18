@@ -11,9 +11,11 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import UTC, datetime
+from typing import Any
 
 from auto_inform.application.context import RenderContext, ReportContext
 from auto_inform.domain.block import Block, BlockOutcome, BlockStatus
+from auto_inform.domain.event import Event
 from auto_inform.domain.report import Report, ReportDefinition, ReportRow
 
 #: Fixed so that golden files are worth committing: a run id and a timestamp that never move.
@@ -100,4 +102,26 @@ def make_report(
         rows=tuple(rows),
         generated_at=generated_at,
         run_id=run_id,
+    )
+
+
+def make_event(
+    event_id: str = "evt-1",
+    *,
+    event_type: str = "WAFER_FAILURE",
+    payload: Mapping[str, Any] | None = None,
+    discovered_at: datetime = FIXED_GENERATED_AT,
+    source: str = "test-source",
+) -> Event:
+    """An :class:`Event` with a stable identity, overridable field by field.
+
+    The default ``discovered_at`` is fixed rather than "now", because the store's queue is ordered by
+    that column: a test that wanted ordering would otherwise have to sleep to produce it.
+    """
+    return Event(
+        event_type=event_type,
+        event_id=event_id,
+        payload=payload if payload is not None else {"id": event_id},
+        discovered_at=discovered_at,
+        source=source,
     )

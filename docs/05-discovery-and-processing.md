@@ -63,8 +63,21 @@ def run_discovery(
 
 Discoverers are subject to the same timeout, retry and failure-isolation rules as blocks — see
 [02 §6](02-block-authoring.md#6-execution-semantics-for-one-report). Those mechanics are implemented
-**once**, in `application/collect_blocks.py`, parameterised by the callable being run. Discoverers
-and blocks therefore cannot drift apart in behaviour, which is the point.
+**once**, in `application/execution.py`, parameterised by the work being run and by a vocabulary that
+names its log events (`block.*` or `discovery.*`) — see [ADR-0029](10-decision-log.md#adr-0029--timeout-retry-and-hang-guard-mechanics-live-in-one-executor).
+`collect_blocks` and `run_discovery` supply their own attempt callable and map the shared result to
+their own outcome type. Discoverers and blocks therefore cannot drift apart in behaviour, which is the
+point.
+
+A discoverer is identified by its **class name**: `DiscoveryOutcome.discoverer` and every
+`discovery.*` log line carry it, so a run rejects two instances of the same class rather than labelling
+them identically. A second source needs its own `Discoverer` subclass.
+
+`discover()` is materialised with a ceiling of **10,000 events per run**
+(`MAX_EVENTS_PER_DISCOVERER`); exceeding it fails that discoverer. The framework bounds *time* — budgets,
+retries, the hang guard — but not memory, and the hang guard only stops *waiting* for a wedged worker, it
+cannot stop it. Without the ceiling, an endless iterable from a broken or hostile upstream would grow one
+worker's buffer for as long as the process lives.
 
 `DiscoveryContext` carries `settings`, `http`, `logger`, `clock` and `run` — the same shape as
 `ReportContext` minus nothing, and equally frozen and thread-safe.

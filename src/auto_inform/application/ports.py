@@ -1,16 +1,19 @@
 """Ports: the interfaces the application layer depends on, injected at the edge.
 
-``EventStore`` arrives with the code that uses it (stage 8 of ``docs/11-implementation-plan.md``), because
-declaring an interface with no implementation and no caller is speculation, not design. ``OutputWriter``
-landed with stage 6, its first caller.
+Each port lands with the code that uses it -- ``OutputWriter`` with the entry point in stage 6, and
+``EventStore`` with discovery in stage 8 -- because declaring an interface with no implementation and no
+caller is speculation, not design. ``docs/04-events-and-stores.md`` §2 is the normative description of
+what a store must do; this module only states the shape.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Protocol
+from typing import Any, Protocol, Self
 
+from auto_inform.domain.event import Event
 from auto_inform.domain.report import OutputLocation
 
 
@@ -98,4 +101,72 @@ class OutputWriter(Protocol):
 
     def write(self, *, filename: str, content: str) -> OutputLocation:
         """Persist ``content`` under ``filename`` and report where it landed."""
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class SaveResult:
+    """What one :meth:`EventStore.save` call did, in the two numbers a caller reports.
+
+    ``save`` is insert-only: a row already present is a *duplicate* and is left completely untouched,
+    including its status, attempts and payload. Re-discovery therefore reports a rolling window as
+    duplicates rather than resetting work that has already been done (``docs/04`` §2.1).
+    """
+
+    new: int
+    duplicates: int
+
+
+class EventStore(Protocol):
+    """Where discovered events live between the discovery and processing jobs.
+
+    **Thread affinity is part of the contract:** every method must be called from the thread that
+    constructed the store. The processing job marshals its store calls onto the main thread for exactly
+    this reason (``docs/04`` §2.4, ``docs/05`` §4). SQLite is thread-affine by default, but the port
+    forbids any implementation from assuming otherwise, so code that happens to work against a
+    connection pool cannot quietly break the default backend.
+
+    Stores are context managers, and ``close()`` is idempotent and safe after an exception, because a
+    scheduled job must release its file handle or pool even when a report failed.
+    """
+
+    def save(self, events: Iterable[Event]) -> SaveResult:
+        """Insert events, leaving existing rows untouched. Idempotent on ``(event_type, event_id)``."""
+        ...
+
+    def pending(
+        self,
+        *,
+        event_type: str | None = None,
+        limit: int | None = None,
+    ) -> list[Event]:
+        """Events that still need a report: ``NEW``, under the attempt limit, oldest first.
+
+        Never returns ``PROCESSED`` rows or retired ``FAILED`` ones, so a permanently broken event
+        cannot be handed out for ever (ADR-0019).
+        """
+        ...
+
+    def mark_processed(self, event: Event, *, output_uri: str) -> None:
+        """Record that ``event`` produced a delivered document at ``output_uri``.
+
+        Called only after the writer has returned successfully, so a failed upload leaves the event
+        pending (``docs/05`` §3).
+        """
+        ...
+
+    def mark_failed(self, event: Event, *, reason: str) -> None:
+        """Record one failed attempt; retire the event when it reaches the attempt limit (ADR-0019)."""
+        ...
+
+    def close(self) -> None:
+        """Release the underlying handle or pool. Idempotent."""
+        ...
+
+    def __enter__(self) -> Self:
+        """Enter the context, returning the store itself."""
+        ...
+
+    def __exit__(self, *exc_info: object) -> None:
+        """Close on the way out, whatever happened inside."""
         ...

@@ -1,6 +1,6 @@
 ---
 status: proposed
-description: ADR-0001 to ADR-0028 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
+description: ADR-0001 to ADR-0029 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
 replaces: docs/SPEC.md §11, §12
 ---
 
@@ -396,6 +396,31 @@ one module that needs both is explicitly the composition point rather than a lay
 application code. Rejected: widening the application allowlist to permit `rendering/`, which would let
 any application module grow a Jinja dependency; and inverting the dependency with an injected renderer, a
 seam with exactly one implementation and no second caller in sight.
+
+---
+
+### ADR-0029 — Timeout, retry and hang-guard mechanics live in one executor
+
+**Context:** Blocks and discoverers are subject to the same execution rules
+([02 §6](02-block-authoring.md#6-execution-semantics-for-one-report),
+[05 §1](05-discovery-and-processing.md#1-discovery)). Stage 5 implemented them inside `collect_blocks`;
+discovery would have needed the same loop again, including the budget check that also runs when an
+attempt *fails*, the backoff schedule, and the real-time hang guard from
+[ADR-0027](#adr-0027--the-last-resort-hang-guard-waits-on-real-time). Two copies of that logic do not
+stay equal: the second copy is where the retry policy quietly stops applying.
+
+**Decision:** The mechanics live in `application/execution.py`. A caller supplies
+:class:`~auto_inform.application.execution.Task` values -- an attempt callable, an optional pure
+finalise step such as `render()`, and any per-task overrides -- plus an
+:class:`~auto_inform.application.execution.ExecutionVocabulary` naming its log events (`block.*` or
+`discovery.*`), the field that identifies a task, and the stage that appears in a timeout message.
+`collect_blocks` and `run_discovery` map the shared result to their own outcome types.
+
+**Consequences:** one place to fix a retry bug, and a new kind of concurrent work cannot acquire a
+different timeout policy by accident. The cost is one layer of indirection between a block and its retry
+loop, visible in the signatures rather than in behaviour. Rejected: a second loop in `discovery.py`
+(duplicate logic, guaranteed to drift); and a generic callback interface with five logging methods per
+caller, which is more surface than one vocabulary dataclass for the same separation.
 
 ---
 

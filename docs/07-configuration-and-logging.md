@@ -159,7 +159,11 @@ one line per notable event. Every line carries `run_id`; every block line carrie
 | `block.abandoned` | `run_id`, `block`, `overrun_s` — a timed-out worker thread that outlived its budget |
 | `report.finish` | `run_id`, `report_title`, `failed_blocks`, `duration_ms`, `output_uri` |
 | `report.failed` | `run_id`, `report_title`, `error_type`, and the traceback — the document was rendered but could not be written. Emitted before `report.finish`, which then carries `output_uri: null`, so the report-level pair is complete on the failure path too. |
-| `discovery.finish` | `run_id`, `event_type`, `new`, `duplicates`, `duration_ms` |
+| `discovery.start` | `run_id`, `discoverer`, `attempt` |
+| `discovery.retry` | `run_id`, `discoverer`, `attempt`, `delay_s`, `error_type` |
+| `discovery.finish` | `run_id`, `discoverer`, `event_type`, `new`, `duplicates`, `duration_ms` — emitted after the events are persisted, and only on the success path |
+| `discovery.failed` | `run_id`, `discoverer`, `attempts`, `error_type`, `error_message`, and the traceback — the discoverer itself failed, so nothing from it was persisted |
+| `discovery.abandoned` | `run_id`, `discoverer`, `overrun_s` — a timed-out discoverer thread that outlived its budget |
 | `event.processed` | `run_id`, `event_type`, `event_id`, `output_uri` |
 | `event.failed` | `run_id`, `event_type`, `event_id`, `attempts`, `reason` |
 | `event.retired` | `run_id`, `event_type`, `event_id`, `attempts` — attempts exhausted, no longer retried |

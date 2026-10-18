@@ -201,6 +201,41 @@ than one that fails at start-up. Stage 11 replaces that error with the real bran
 
 **Done when:** the shared store behaviour suite passes against SQLite, including the retirement
 boundary from ADR-0019, and a discovery run over a stub discoverer persists events idempotently.
+**Completed 2026-10-18**
+
+**Amended during implementation:** the execution rules were **extracted** from `collect_blocks` into
+`application/execution.py` rather than copied into discovery — see
+[ADR-0029](10-decision-log.md#adr-0029--timeout-retry-and-hang-guard-mechanics-live-in-one-executor).
+`05 §1` claimed they were parameterised "in `application/collect_blocks.py`"; that sentence now names
+the new module, because a document describing an implementation that moved is exactly the drift this
+project keeps catching. The extractor keeps the block success line **in the worker** through an
+`on_success` callback, so `block.finish` still appears when a block finishes rather than when the
+slowest sibling does.
+
+**Store preconditions:** `mark_processed` and `mark_failed` apply only to a `NEW` row and raise
+`StoreError` otherwise — recorded in `04 §2.3`, since the lifecycle table described the effect but not
+the precondition. Two observations are tested against the SQLite file with a plain connection because
+the port exposes no read-by-id method: a saved payload is never overwritten, and `last_error` is cleared
+by a later success. That gap is deliberate in v1 (an operator uses SQL); it is the first candidate for
+v0.2 if diagnosis through the API is ever wanted.
+
+**Noted, not fixed (security review of this stage):** `pending()` without a `limit` reads the whole
+queue, and `save()` is one transaction, so a very large batch holds a write long enough for the
+overlapping processing job to hit SQLite's busy timeout; an operator can also set a retry count high
+enough to overflow the hang-guard arithmetic; the console formatter does not escape control characters
+in `extra` values, so with `AUTO_INFORM_LOG_FORMAT=console` a source that embeds a response body in an
+exception can forge log lines (JSON logs are unaffected); and discoverer error text reaches the log with
+no redaction boundary, which will matter once the real HTTP client can put a token in a URL. Each is
+operator-sized rather than attacker-fed, or needs a policy decision (a cap, a chunk size, a bound in
+`load_settings`, a redaction filter), so they are recorded rather than guessed at. The discoverer-output
+ceiling *was* fixed, because that one is fed directly by external content.
+
+**Also here:** the discovery events that were missing from the logging contract — `discovery.start`,
+`retry`, `failed` and `abandoned` — mirror the block vocabulary the shared executor emits, and
+`discovery.finish` gained the `discoverer` field, without which two sources producing the same event
+type were indistinguishable in the log. A documented-import test now resolves every
+`from auto_inform import ...` in the documentation set, with a shrinking allowlist for the two names
+stage 9 lands; it found a real defect immediately (`register_report` was documented and unexported).
 
 ## Stage 9 — The processing job and exit codes
 
@@ -216,6 +251,10 @@ thread at any concurrency setting.
 collection or rendering leaves an orphaned `report.start`, because `generate_report`'s try/finally begins
 after rendering. Decide here whether the runner should own a broader `report.failed` or whether the
 event-level `event.failed` covers it, and make `07 §4`'s wording follow that decision.
+
+**Also this stage:** `FakeEventStore` lands here. `05` and `09` already describe it as the in-memory
+double that drives every `run_*` test, and stage 8's discovery tests used the real SQLite store instead
+because the fake had no caller yet.
 
 ## Stage 10 — Report factories, example jobs, and the README
 

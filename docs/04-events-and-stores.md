@@ -79,6 +79,13 @@ untouched**, including its status, attempts and payload.
 `save()` is idempotent: calling it twice with the same events reports the second batch entirely as
 duplicates.
 
+A duplicate whose stored `source` differs is **not** counted as a duplicate: `save()` raises
+`StoreError` and rolls the batch back. Two discoverers may legitimately share an `event_type` — that is
+how two feeds cover one kind of event — and `event_id` is required to be unique within it, so a
+cross-source collision means two different events are claiming one identity. Insert-only storage would
+let the first silently suppress the second for ever, with an inflated duplicate count as the only trace.
+One lookup per duplicate turns that silent loss into a loud failure.
+
 ### 2.2 `pending()` — the work queue
 
 Returns events with `status = NEW` and `attempts < max_attempts`, **oldest first** by
@@ -91,6 +98,12 @@ Returns events with `status = NEW` and `attempts < max_attempts`, **oldest first
 | --- | --- |
 | `mark_processed(event, output_uri=…)` | `status = PROCESSED`, `processed_at = now`, `output_uri` recorded, `last_error` cleared. |
 | `mark_failed(event, reason=…)` | `attempts += 1`. If `attempts < max_attempts`, the row stays `NEW` so the next run retries it. If it reaches `max_attempts`, `status = FAILED` and the row is **retired** — it is never returned by `pending()` again. `last_error` always records the reason. |
+
+Both transitions apply only to a row whose status is `NEW`. A call for an event that is already
+`PROCESSED` or retired raises `StoreError` rather than silently doing nothing, because a second
+transition is a bug in the caller and a silent no-op would hide it: the event would look delivered in
+the log while its row said otherwise. The store has no read-by-id method in v1, so diagnosing a retired
+event means a SQL query — deliberate, since retention policy belongs to whoever owns the data.
 
 **Retirement is what stops a permanently broken event from starving the queue.** `pending()` is
 oldest-first, so before retirement existed, one permanently failing event would be returned at the
@@ -147,7 +160,7 @@ deliberate, reviewed operation, not something that happens implicitly on open.
 
 | Class | Backend | Notes |
 | --- | --- | --- |
-| `SqliteEventStore(path)` | stdlib `sqlite3` | **Default.** WAL journal mode is enabled for the whole connection lifetime: it lets a reader proceed while the store holds a write, which matters because the discovery and processing jobs may overlap. `AUTO_INFORM_SQLITE_PATH` defaults to `<output_dir>/events.sqlite3`. |
+| `SqliteEventStore(path)` | stdlib `sqlite3` | **Default.** WAL journal mode is enabled for the whole connection lifetime: it lets a reader proceed while the store holds a write, which matters because the discovery and processing jobs may overlap. `AUTO_INFORM_SQLITE_PATH` defaults to `<output_dir>/events.sqlite3`. A new file is created **owner-only (0600)** and a new directory 0700, matching the report writer's policy ([06 §4](06-output-html.md#4-the-trust-boundary)); SQLite's own default is 0644 modified by the umask, and the `-wal`/`-shm` siblings inherit the database's mode. An existing file keeps the mode its operator chose. |
 | `PostgresEventStore(dsn, *, max_attempts)` | `psycopg[binary]` — extra `postgres` | Client supplies the DSN via environment. `save()` uses `ON CONFLICT (event_type, event_id) DO NOTHING`, matching the insert-only rule. `mark_failed` uses a single `UPDATE … SET attempts = attempts + 1, status = CASE WHEN attempts + 1 >= %s THEN 'FAILED' ELSE 'NEW' END` so that the increment and the retirement test cannot race within a statement. |
 
 Both are constructed explicitly; there is no hidden singleton:
@@ -178,6 +191,10 @@ with the artefacts it describes.
 - SQLite tests run against a temporary file via `tmp_path`. PostgreSQL tests are marked
   `@pytest.mark.postgres` and skipped unless `AUTO_INFORM_TEST_POSTGRES_DSN` is set, so CI without a
   Postgres service stays green. See [09](09-testing-and-acceptance.md).
+- Two of the cases above are asserted in each **backend's own** module, against its raw storage: that a
+  saved payload is never overwritten, and that `last_error` is cleared by a later success. The port
+  deliberately exposes no read-by-id method, so those properties are not observable through it. Stage 11
+  owes the PostgreSQL equivalents rather than a claim that the shared suite covers them.
 
 ## Open questions
 
