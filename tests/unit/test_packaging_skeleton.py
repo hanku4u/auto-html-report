@@ -128,6 +128,20 @@ def test_installed_distribution_metadata_should_require_python_three_eleven_or_n
     assert requires_python == ">=3.11"
 
 
+def test_installed_distribution_metadata_should_carry_what_a_pypi_page_needs() -> None:
+    # given the installed distribution's metadata
+    declared = metadata("auto-html-report")
+
+    # then the license and the links reach it, and no license classifier sits beside the expression,
+    # which PyPI rejects on upload
+    assert declared["License-Expression"] == "Apache-2.0"
+    assert "LICENSE" in declared.get_all("License-File", [])
+    assert any(url.startswith("Issues, ") for url in declared.get_all("Project-URL", []))
+    classifiers = declared.get_all("Classifier", [])
+    assert "Typing :: Typed" in classifiers
+    assert not any(classifier.startswith("License ::") for classifier in classifiers)
+
+
 def test_importing_the_package_should_not_import_the_optional_backends() -> None:
     # given a fresh interpreter and the base install (no extras imported by anything)
     # when the package is imported

@@ -174,6 +174,8 @@ auto-html-report/
 ├── uv.lock                         # resolved dependency closure (committed)
 ├── .python-version                 # 3.11 — the supported floor
 ├── README.md                       # user-facing: install, quick start, two-phase model, blocks
+├── LICENSE                         # Apache-2.0
+├── CHANGELOG.md                    # release notes, one section per version
 ├── docs/                           # this specification set
 ├── examples/                       # runnable: quick_start.py and the two job scripts
 ├── scripts/check_install.sh        # wheel install + quick start; also CI's packaging job

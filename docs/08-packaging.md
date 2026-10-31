@@ -16,11 +16,11 @@ replaces: docs/SPEC.md §8
 | Requires Python | `>=3.11` (`.python-version` pinned to `3.11`) |
 | Dependency manager | `uv` (ADR-0021) |
 | Published to PyPI | Not yet; planned in [12](12-publishing.md) (ADR-0032) |
-| Installed from | git tag or commit SHA |
+| Installed from | PyPI; git tag or commit SHA for unreleased commits |
+| License | Apache-2.0 (ADR-0032) |
 
-The import name has an underscore and the distribution name a hyphen. pip is inconsistent about
-which it accepts in the extras position, so **install commands in this project always spell the
-underscore form**: `auto_html_report[s3]`.
+The import name has an underscore and the distribution name a hyphen. Index installs use the
+distribution name, `auto-html-report[s3]`. Direct git references spell the underscore form, as below.
 
 ## 2. Dependency changes
 
@@ -98,11 +98,33 @@ version = "0.1.0"
 description = "Dynamic HTML report generator: composable blocks, concurrent collection, one file."
 readme = "README.md"
 requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "hanku4u" }]
+keywords = ["html", "report", "report-generator", "matplotlib", "ci"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing :: Markup :: HTML",
+    "Typing :: Typed",
+]
 dependencies = [
     "jinja2>=3.1,<4",
     "matplotlib>=3.7,<4",
     "numpy>=1.24,<3",
 ]
+
+[project.urls]
+Homepage = "https://github.com/hanku4u/auto-html-report"
+Documentation = "https://github.com/hanku4u/auto-html-report/tree/main/docs"
+Issues = "https://github.com/hanku4u/auto-html-report/issues"
+Changelog = "https://github.com/hanku4u/auto-html-report/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 postgres = ["psycopg[binary]>=3.1,<4"]
@@ -176,23 +198,19 @@ byte-identical package sets, and so that this document has a single place to sta
 ## 6. Installation
 
 ```bash
-# into a uv-managed project, pinned to a tag or commit SHA
-uv add "auto_html_report[s3] @ git+https://github.com/hanku4u/auto-html-report.git@v0.1.0"
+# from PyPI, once 0.1.0 is released
+pip install auto-html-report
+uv add "auto-html-report[postgres,s3]"
 
-# latest from main (unpinned — expect surprises)
-uv add "auto_html_report @ git+https://github.com/hanku4u/auto-html-report.git"
-
-# plain pip works too, and still needs the underscore form
-pip install "auto_html_report[postgres,s3] @ git+https://github.com/hanku4u/auto-html-report.git@v0.1.0"
+# an unreleased commit, pinned to a tag or SHA
+uv add "auto_html_report[s3] @ git+https://github.com/hanku4u/auto-html-report.git@<tag-or-sha>"
+pip install "auto_html_report[postgres,s3] @ git+https://github.com/hanku4u/auto-html-report.git@<tag-or-sha>"
 ```
 
 > **Gotcha:** uv and pip both cache git sources, so an unpinned `@main` can serve a stale package at
 > the worst possible moment. Pinning a tag or SHA is the fix, not a workaround; `--refresh` (uv) and
 > `--force-reinstall --no-cache-dir` (pip) are the escape hatches when you genuinely need to chase a
 > moving ref. This belongs in the README as well as here.
-
-A tag is not created by this work. `v0.1.0` is the intended first tag; until it exists, pin a commit
-SHA.
 
 ## 7. Version resolution
 
@@ -223,6 +241,12 @@ Two properties are load-bearing, and both were verified rather than assumed:
 `uv_build` refuses `dynamic = ["version"]`, so that would mean replacing the build backend. The version stays
 a literal in `pyproject.toml`, set with `uv version --bump`, and the release workflow refuses a tag that
 differs from it (ADR-0034).
+
+## Dev plan
+
+The packaging skeleton was stage 1 of [11-implementation-plan.md](11-implementation-plan.md). The move to
+ranges, the license and the metadata are stages 3 and 4 of [12 §7](12-publishing.md#7-dev-plan), and the first
+release is stage 6.
 
 ## Testing
 
