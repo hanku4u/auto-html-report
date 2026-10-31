@@ -1,11 +1,13 @@
 """Canned API responses, so the examples run without a network.
 
-v1 ships a stub HTTP client (``docs/07`` §2): every call is answered from a fixture table. These fixtures
-stand in for the yield and maintenance APIs. With a real client the wiring changes and the scripts do not
--- they are written against the ``HttpClient`` port, not against the stub.
+These stand in for the yield and maintenance APIs. ``demo_http()`` answers them from a stub client (``docs/07``
+§2), and ``examples.local_api`` serves the same data over real HTTP. With a real client the wiring changes and
+the scripts do not -- they are written against the ``HttpClient`` port, not against the stub.
 """
 
 from __future__ import annotations
+
+from typing import Any
 
 from auto_html_report.testing import StubHttpClient
 
@@ -41,10 +43,14 @@ _MAINTENANCE = {
 }
 
 
+#: Every path the example jobs use, and its response.
+ROUTES: dict[str, Any] = {
+    "/yield/failures": {"lots": list(LOT_IDS)},
+    **{f"/wafers/{lot_id}/binmap": _BIN_MAP for lot_id in LOT_IDS},
+    f"/maintenance/{TOOL_ID}": _MAINTENANCE,
+}
+
+
 def demo_http() -> StubHttpClient:
-    """A stub client answering the three paths the example jobs use."""
-    client = StubHttpClient({"/yield/failures": {"lots": list(LOT_IDS)}})
-    for lot_id in LOT_IDS:
-        client.with_fixture(f"/wafers/{lot_id}/binmap", _BIN_MAP)
-    client.with_fixture(f"/maintenance/{TOOL_ID}", _MAINTENANCE)
-    return client
+    """A stub client answering the paths the example jobs use."""
+    return StubHttpClient(ROUTES)

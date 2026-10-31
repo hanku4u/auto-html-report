@@ -50,6 +50,8 @@ jobs:
       - run: uv run ruff format --check
       - run: uv run mypy
       - run: uv run pytest
+      # Outside pytest because it opens real sockets, which the suite's rules forbid (docs/09 §2).
+      - run: uv run python -m examples.plumbing_check "$RUNNER_TEMP/plumbing-check"
 
   lowest-direct:
     name: Tests at the dependency floors

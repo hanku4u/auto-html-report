@@ -161,7 +161,7 @@ python_version = "3.11"
 strict = true
 # mypy has no default target: without this, a bare `uv run mypy` fails with
 # "Missing target module, package, files, or command."
-files = ["src", "tests"]
+files = ["src", "tests", "examples"]
 ```
 
 There is **no `all` extra**: consumers who want both backends spell `auto_html_report[postgres,s3]`
