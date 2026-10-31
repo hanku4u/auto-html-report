@@ -82,11 +82,13 @@ Rules for `load_settings`:
 
 ## 2. The HTTP stub
 
-Every external call is a stub in v1. Blocks and discoverers are written against the port, so
-swapping in a real client later is a one-line wiring change.
+The package ships no real HTTP client (ADR-0035): a consumer writes a small adapter, as in
+[02 §5.2](02-block-authoring.md#52-writing-an-adapter), and passes it as `http=`. The stub is what tests and
+demo reports pass instead. Blocks and discoverers are written against the port, so moving between the two is
+a one-line wiring change.
 
 ```python
-# auto_html_report/infrastructure/http_stub.py
+# auto_html_report/testing.py
 class StubHttpClient:
     """Deterministic stand-in for the real API client.
 
@@ -149,8 +151,13 @@ module allowed to name concrete adapters, because that is what wiring is.
 **Additive overrides.** `new_report_context` and `new_discovery_context` also accept optional keyword
 arguments for `http`, `clock` and `logger`, and `build_output_writer` accepts an optional `s3_client`. The
 documented calls — `new_report_context(settings)`, `build_output_writer(settings)` — still work
-unchanged; the overrides exist so a test or a demo job can supply canned fixtures, a deterministic clock
-and a stub S3 client without building the object by hand or touching the network.
+unchanged. `http=` is also how a production job supplies its client. The other overrides exist so a test or
+a demo job can supply a deterministic clock and a stub S3 client without building the object by hand or
+touching the network.
+
+**Omitting `http`.** A context built without `http=` gets a client that raises `ConfigurationError` on first
+use, naming `http=`. It does not raise at construction, because a report whose blocks do no HTTP needs no
+client. The failure stays per-block, as an error cell.
 
 **Both output backends are real.** `build_output_writer` selects `LocalDirectoryWriter` or `S3Writer`
 from `AUTO_HTML_REPORT_OUTPUT_KIND`; there is no fallback, and a missing bucket or a missing `s3` extra raises

@@ -304,7 +304,7 @@ class RunMetadata:
 @dataclass(frozen=True, slots=True)
 class ReportContext:
     settings: Settings       # immutable view of env-derived config
-    http: HttpClient         # injected port; stub in v1 (see 07 §2)
+    http: HttpClient         # injected port; the consumer's client (see 07 §2)
     logger: logging.Logger
     clock: Clock             # injectable for deterministic tests
     run: RunMetadata

@@ -177,6 +177,84 @@ change retry behaviour, so it is normative rather than advisory.
 > retried — the exact opposite of the intent. Mapping happens **inside the client**, so that block
 > authors never have to know which HTTP library is underneath.
 
+### 5.2 Writing an adapter
+
+The package ships no real client (ADR-0035), because authentication and connection handling depend on the
+API being called. A client is any object with these two methods, so there is nothing to subclass. This one
+uses only the standard library and implements the table above:
+
+```python
+import json
+import ssl
+import urllib.error
+import urllib.parse
+import urllib.request
+from collections.abc import Mapping
+from typing import Any
+
+from auto_html_report import PermanentBlockError, TransientBlockError
+
+_RETRYABLE_STATUSES = {408, 425, 429, 500, 502, 503, 504}
+
+
+class UrllibHttpClient:
+    """Holds no per-request state, so one instance is safe to share across block threads."""
+
+    def __init__(self, base_url: str, *, token: str | None = None) -> None:
+        self._base_url = base_url
+        self._auth = {"Authorization": f"Bearer {token}"} if token else {}
+
+    def get_bytes(
+        self,
+        path: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        timeout: float,
+        headers: Mapping[str, str] | None = None,
+    ) -> bytes:
+        url = urllib.parse.urljoin(self._base_url, path)
+        if params:
+            url = f"{url}?{urllib.parse.urlencode(params)}"
+        request = urllib.request.Request(url, headers={**self._auth, **(headers or {})})
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                return response.read()
+        except urllib.error.HTTPError as error:
+            kind = TransientBlockError if error.code in _RETRYABLE_STATUSES else PermanentBlockError
+            raise kind(f"{error.code} from {path}") from error
+        except urllib.error.URLError as error:
+            if isinstance(error.reason, ssl.SSLError):
+                raise PermanentBlockError(f"TLS failure for {path}") from error
+            if isinstance(error.reason, TimeoutError):
+                raise TimeoutError(f"timed out fetching {path}") from error
+            raise ConnectionError(f"could not reach {path}") from error
+
+    def get_json(
+        self,
+        path: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        timeout: float,
+        headers: Mapping[str, str] | None = None,
+    ) -> Any:
+        body = self.get_bytes(path, params=params, timeout=timeout, headers=headers)
+        try:
+            return json.loads(body)
+        except ValueError as error:
+            raise PermanentBlockError(f"unparsable body from {path}") from error
+```
+
+Pass it when building the context, and do the same for `new_discovery_context`:
+
+```python
+context = new_report_context(settings, http=UrllibHttpClient(base_url, token=token))
+```
+
+Without `http=`, a block that calls the client fails with a `ConfigurationError` in its own cell, and blocks
+that do no HTTP are unaffected. `urllib` follows up to 10 redirects rather than the table's 5, and opens a new
+connection per request, so a high-volume API is better served by adapting a pooling library the same way.
+`auto_html_report.testing.StubHttpClient` is the equivalent for tests: pass fixtures instead of a server.
+
 ## 6. Execution semantics for one report
 
 ### 6.1 Concurrency

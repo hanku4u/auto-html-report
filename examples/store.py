@@ -7,8 +7,7 @@ extra and a DSN.
 
 from __future__ import annotations
 
-from auto_html_report import PostgresEventStore, Settings, SqliteEventStore
-from auto_html_report.application.ports import EventStore
+from auto_html_report import EventStore, PostgresEventStore, Settings, SqliteEventStore
 
 
 def open_store(settings: Settings) -> EventStore:
