@@ -82,11 +82,10 @@ This set specifies **auto_html_report v0.1** — package version `0.1.0`, see
 
 ## The document set
 
-**Ratified 2026-10-18.** Documents 01 to 11 are `active`: the v1 implementation they describe is
+**Ratified 2026-10-18.** Every numbered document is `active`: the v1 implementation they describe is
 complete, and every acceptance criterion in [09 §3](09-testing-and-acceptance.md#3-acceptance-criteria)
 has a test. `active` is a statement about the specification and the code agreeing, not a claim of
-production use — the HTTP client is still the stub described in [07 §2](07-configuration-and-logging.md#2-the-http-stub).
-Document 12 is `proposed`: it describes the planned move to PyPI, not the code as it stands.
+production use. The package ships no real HTTP client; see [07 §2](07-configuration-and-logging.md#2-the-http-stub).
 
 | # | Document | Status | Description |
 | --- | --- | --- | --- |
@@ -102,7 +101,7 @@ Document 12 is `proposed`: it describes the planned move to PyPI, not the code a
 | 09 | [09-testing-and-acceptance.md](09-testing-and-acceptance.md) | active | The testing strategy per layer, hermeticity rules, and the v1 acceptance criteria. |
 | 10 | [10-decision-log.md](10-decision-log.md) | active | ADR-0001 to ADR-0035: each ratified decision, its context, and the alternatives rejected. |
 | 11 | [11-implementation-plan.md](11-implementation-plan.md) | active | The staged build order for v1, with review boundaries and a definition of done per stage. |
-| 12 | [12-publishing.md](12-publishing.md) | proposed | The move to the public PyPI package `auto-html-report`: identity, dependency policy, public-surface changes, and the release pipeline. |
+| 12 | [12-publishing.md](12-publishing.md) | active | The move to the public PyPI package `auto-html-report`: identity, dependency policy, public-surface changes, and the release pipeline. |
 
 ## Reading order by role
 

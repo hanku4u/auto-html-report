@@ -1,18 +1,17 @@
 ---
-status: proposed
+status: active
 description: The move from a git-installed internal tool to the public PyPI package auto-html-report, covering its identity, dependency policy, public-surface changes, and CI/CD release pipeline.
 ---
 
 # 12 — Publishing to PyPI
 
-This document specifies the target state and the order of work. It is `proposed`: every statement below
-describes what the change will do, and the stages in [§7](#7-dev-plan) move each part into the code and
-into the document that owns it. The reasoning is in ADR-0032 to ADR-0035 of
+This document specifies the move to PyPI and how releases are cut. The stages in [§7](#7-dev-plan) moved each
+part into the code and into the document that owns it. The reasoning is in ADR-0032 to ADR-0035 of
 [10-decision-log.md](10-decision-log.md).
 
 ## 1. Identity
 
-| | Original | Target |
+| | Original | Now |
 | --- | --- | --- |
 | Distribution name | `auto-inform` | `auto-html-report` |
 | Import name | `auto_inform` | `auto_html_report` |
@@ -33,10 +32,10 @@ as instances, which needs no registration.
 
 ## 2. Dependency policy
 
-Runtime dependencies and extras move from exact pins to ranges with an upper bound at the next major
+Runtime dependencies and extras moved from exact pins to ranges with an upper bound at the next major
 version. `uv.lock` continues to pin everything for this repository's own development and CI.
 
-| Package | Original | Target | Where |
+| Package | Original | Now | Where |
 | --- | --- | --- | --- |
 | `jinja2` | `==3.1.6` | `>=3.1,<4` | required |
 | `matplotlib` | `==3.11.2` | `>=3.7,<4` | required |

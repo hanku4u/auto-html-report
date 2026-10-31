@@ -15,7 +15,7 @@ replaces: docs/SPEC.md §8
 | Repository | `git@github.com:hanku4u/auto-html-report.git` |
 | Requires Python | `>=3.11` (`.python-version` pinned to `3.11`) |
 | Dependency manager | `uv` (ADR-0021) |
-| Published to PyPI | Not yet; planned in [12](12-publishing.md) (ADR-0032) |
+| Published to PyPI | Yes, from `0.1.0` ([12](12-publishing.md), ADR-0032) |
 | Installed from | PyPI; git tag or commit SHA for unreleased commits |
 | License | Apache-2.0 (ADR-0032) |
 
@@ -94,7 +94,7 @@ build-backend = "uv_build"
 
 [project]
 name = "auto-html-report"
-version = "0.1.0rc1"
+version = "0.1.0"
 description = "Dynamic HTML report generator: composable blocks, concurrent collection, one file."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -198,7 +198,7 @@ byte-identical package sets, and so that this document has a single place to sta
 ## 6. Installation
 
 ```bash
-# from PyPI, once 0.1.0 is released
+# from PyPI
 pip install auto-html-report
 uv add "auto-html-report[postgres,s3]"
 

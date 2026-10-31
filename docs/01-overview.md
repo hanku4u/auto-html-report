@@ -41,7 +41,6 @@ be re-run, be throttled, or be scheduled on a different cadence without affectin
 | Command-line interface | Deliberate: library-only public surface. See ADR-0001. |
 | Interactive JS charts | matplotlib → static PNG data URI. See ADR-0009. |
 | PDF or Excel export | HTML only in v1. |
-| Publishing to PyPI | Internal tool, installed from git. See ADR-0015. |
 | External plugin packages | Blocks are added to this package directly. See ADR-0003. |
 | Multi-report-per-file, or a block expanding to multiple rows | One block = one row in v1. See ADR-0011. |
 | End-user templating language | Report definitions are Python. See ADR-0016. |
