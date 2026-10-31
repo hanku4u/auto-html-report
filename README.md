@@ -41,7 +41,7 @@ uv run python examples/quick_start.py /tmp/report-demo
 That writes `quick-start__<timestamp>.html` into `/tmp/report-demo`. Open it in a browser: one row,
 filled by a block that reads nothing but the local interpreter, so the example runs anywhere.
 
-Here is the whole program ([`examples/quick_start.py`](examples/quick_start.py)):
+Here is the whole program ([`examples/quick_start.py`](https://github.com/hanku4u/auto-html-report/blob/main/examples/quick_start.py)):
 
 ```python
 import sys
@@ -100,31 +100,30 @@ That is the entire extension model.
 
 ## Installation
 
-The distribution is named `auto-html-report`; the import name is `auto_html_report`. It is not published to
-PyPI — install it straight from git, pinned to a tag or commit SHA.
+The distribution is named `auto-html-report`; the import name is `auto_html_report`.
 
 ```bash
-# into a uv-managed project
-uv add "auto_html_report @ git+https://github.com/hanku4u/auto-html-report.git@v0.1.0"
-
-# plain pip works too
-pip install "auto_html_report @ git+https://github.com/hanku4u/auto-html-report.git@v0.1.0"
+pip install auto-html-report
+# or, in a uv-managed project
+uv add auto-html-report
 ```
 
-Install commands always spell the **underscore** form, including in the extras position, because pip is
-inconsistent about the hyphen:
+Both extras are optional:
 
 ```bash
-uv add "auto_html_report[s3] @ git+https://github.com/hanku4u/auto-html-report.git@v0.1.0"
-pip install "auto_html_report[postgres,s3] @ git+https://github.com/hanku4u/auto-html-report.git@v0.1.0"
+pip install "auto-html-report[s3]"
+uv add "auto-html-report[postgres,s3]"
 ```
 
-**Pin a tag or SHA; do not install from a branch.** uv and pip both cache git sources, so an unpinned
-`@main` can serve a stale package at the worst possible moment. Pinning is the fix, not a workaround.
-When you genuinely need to chase a moving ref, force a refresh: `uv add --refresh ...` or
+To try an unreleased commit, install from git, pinned to a tag or SHA:
+
+```bash
+pip install "auto_html_report @ git+https://github.com/hanku4u/auto-html-report.git@<tag-or-sha>"
+```
+
+Pin it rather than following a branch: uv and pip both cache git sources, so an unpinned `@main` can
+serve a stale package. When you genuinely need a moving ref, force a refresh with `uv add --refresh ...` or
 `pip install --force-reinstall --no-cache-dir ...`.
-
-`v0.1.0` is the intended first tag. If it does not exist yet in your clone, pin a commit SHA instead.
 
 The extras select the optional backends: `s3` for uploading reports instead of writing them locally,
 `postgres` for a shared event store instead of SQLite. Both are optional — the defaults need neither,
@@ -141,7 +140,7 @@ A block subclasses `auto_html_report.Block[DataT]` and implements two methods:
   **inner HTML of the Data cell**, not a `<td>` and not a document.
 
 Here is the built-in maintenance block
-([`src/auto_html_report/blocks/maintenance_history.py`](src/auto_html_report/blocks/maintenance_history.py)),
+([`src/auto_html_report/blocks/maintenance_history.py`](https://github.com/hanku4u/auto-html-report/blob/main/src/auto_html_report/blocks/maintenance_history.py)),
 trimmed to the essentials:
 
 ```python
@@ -212,7 +211,7 @@ Blocks run concurrently, with a per-attempt timeout, retries with backoff, and f
 block that times out or raises produces an error cell and the other rows still render. One flaky API
 does not cost you the report.
 
-Read [`docs/02-block-authoring.md`](docs/02-block-authoring.md) for the full contract, the HTTP error
+Read [`docs/02-block-authoring.md`](https://github.com/hanku4u/auto-html-report/blob/main/docs/02-block-authoring.md) for the full contract, the HTTP error
 mapping, and the timeout accounting rules.
 
 ## Reports that scale with discovered data
@@ -264,9 +263,9 @@ the repository root, and the shared fixtures in `examples.demo_api` would not im
 answers every `get_json()` call from a fixture table. The package ships **no real HTTP client**: you write
 a small adapter for the `HttpClient` protocol and pass it as `http=`, and a block that needs a client when
 none was given fails in its own cell with an error saying so.
-[`docs/02-block-authoring.md`](docs/02-block-authoring.md) §5.2 has a recipe.
+[`docs/02-block-authoring.md`](https://github.com/hanku4u/auto-html-report/blob/main/docs/02-block-authoring.md) §5.2 has a recipe.
 
-See [`docs/05-discovery-and-processing.md`](docs/05-discovery-and-processing.md) for the job model,
+See [`docs/05-discovery-and-processing.md`](https://github.com/hanku4u/auto-html-report/blob/main/docs/05-discovery-and-processing.md) for the job model,
 throughput settings, and worked job scripts.
 
 ## Configuration
@@ -297,7 +296,7 @@ no config file and no flags. These are the ones a job normally sets:
 Invalid values are reported together in one `ConfigurationError`, not one typo per CI run.
 
 The full table — every variable, its `Settings` attribute, type and bound — is
-[`docs/07-configuration-and-logging.md`](docs/07-configuration-and-logging.md) §1.1.
+[`docs/07-configuration-and-logging.md`](https://github.com/hanku4u/auto-html-report/blob/main/docs/07-configuration-and-logging.md) §1.1.
 
 ## Development
 
@@ -333,7 +332,7 @@ Runtime dependencies are declared as ranges in `pyproject.toml`, and everything 
 
 ## Status
 
-v1 is complete: stages 1–11 of [`docs/11-implementation-plan.md`](docs/11-implementation-plan.md).
+v1 is complete: stages 1–11 of [`docs/11-implementation-plan.md`](https://github.com/hanku4u/auto-html-report/blob/main/docs/11-implementation-plan.md).
 Local directory output and SQLite are the defaults; the `s3` and `postgres` extras are implemented and
 optional. There is no built-in API client: blocks and discoverers are written against the `HttpClient`
 protocol, and you supply the implementation.
@@ -342,9 +341,13 @@ protocol, and you supply the implementation.
 
 | If you want to… | Read |
 | --- | --- |
-| Understand what the tool does and does not do | [`docs/01-overview.md`](docs/01-overview.md) |
-| Write a block | [`docs/02-block-authoring.md`](docs/02-block-authoring.md) |
-| Run discovery and processing jobs | [`docs/05-discovery-and-processing.md`](docs/05-discovery-and-processing.md) |
-| Configure it | [`docs/07-configuration-and-logging.md`](docs/07-configuration-and-logging.md) |
-| Know why a design decision was made | [`docs/10-decision-log.md`](docs/10-decision-log.md) |
-| See what is built and what is next | [`docs/11-implementation-plan.md`](docs/11-implementation-plan.md) |
+| Understand what the tool does and does not do | [`docs/01-overview.md`](https://github.com/hanku4u/auto-html-report/blob/main/docs/01-overview.md) |
+| Write a block | [`docs/02-block-authoring.md`](https://github.com/hanku4u/auto-html-report/blob/main/docs/02-block-authoring.md) |
+| Run discovery and processing jobs | [`docs/05-discovery-and-processing.md`](https://github.com/hanku4u/auto-html-report/blob/main/docs/05-discovery-and-processing.md) |
+| Configure it | [`docs/07-configuration-and-logging.md`](https://github.com/hanku4u/auto-html-report/blob/main/docs/07-configuration-and-logging.md) |
+| Know why a design decision was made | [`docs/10-decision-log.md`](https://github.com/hanku4u/auto-html-report/blob/main/docs/10-decision-log.md) |
+| See what is built and what is next | [`docs/11-implementation-plan.md`](https://github.com/hanku4u/auto-html-report/blob/main/docs/11-implementation-plan.md) |
+
+## License
+
+Apache-2.0; see [`LICENSE`](https://github.com/hanku4u/auto-html-report/blob/main/LICENSE). Release notes are in [`CHANGELOG.md`](https://github.com/hanku4u/auto-html-report/blob/main/CHANGELOG.md).

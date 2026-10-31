@@ -10,11 +10,33 @@ version = "0.1.0"
 description = "Dynamic HTML report generator: composable blocks, concurrent collection, one file."
 readme = "README.md"
 requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "hanku4u" }]
+keywords = ["html", "report", "report-generator", "matplotlib", "ci"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing :: Markup :: HTML",
+    "Typing :: Typed",
+]
 dependencies = [
     "jinja2>=3.1,<4",
     "matplotlib>=3.7,<4",
     "numpy>=1.24,<3",
 ]
+
+[project.urls]
+Homepage = "https://github.com/hanku4u/auto-html-report"
+Documentation = "https://github.com/hanku4u/auto-html-report/tree/main/docs"
+Issues = "https://github.com/hanku4u/auto-html-report/issues"
+Changelog = "https://github.com/hanku4u/auto-html-report/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 postgres = ["psycopg[binary]>=3.1,<4"]

@@ -26,6 +26,10 @@ DOCS = REPO_ROOT / "docs"
 #: are audited with the rest.
 README = REPO_ROOT / "README.md"
 
+#: PyPI cannot resolve a relative link, so the README spells links into the repository in full. They are
+#: audited as local paths, so a typo in one fails here rather than as a 404 on the package's page.
+REPOSITORY_BLOB = "https://github.com/hanku4u/auto-html-report/blob/main/"
+
 _LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 _HEADING = re.compile(r"^#{1,6}\s+(.*?)\s*$")
 
@@ -72,17 +76,30 @@ def anchors_for(headings: Sequence[str]) -> set[str]:
     return anchors
 
 
-def broken_links(docs: Path, extra: Sequence[Path] = ()) -> list[str]:
+def relative_links(path: Path) -> list[str]:
+    """Every link in a document that would break when rendered away from the repository."""
+    return [
+        target
+        for target in _LINK.findall("\n".join(lines_outside_fences(path)))
+        if not target.startswith(("http://", "https://", "mailto:", "#"))
+    ]
+
+
+def broken_links(
+    docs: Path, extra: Sequence[Path] = (), *, repository_root: Path = REPO_ROOT
+) -> list[str]:
     """Every link in the document set that points at a missing file or a missing heading."""
     problems: list[str] = []
 
     for path in [*sorted(docs.glob("*.md")), *extra]:
         for target in _LINK.findall("\n".join(lines_outside_fences(path))):
-            if target.startswith(("http://", "https://", "mailto:")):
+            in_repository = target.startswith(REPOSITORY_BLOB)
+            if not in_repository and target.startswith(("http://", "https://", "mailto:")):
                 continue
 
-            file_part, _, anchor = target.partition("#")
-            destination = (path.parent / file_part).resolve() if file_part else path
+            file_part, _, anchor = target.removeprefix(REPOSITORY_BLOB).partition("#")
+            base = repository_root if in_repository else path.parent
+            destination = (base / file_part).resolve() if file_part else path
 
             if file_part and not destination.exists():
                 problems.append(f"{path.name} -> {target}: no such file")
@@ -233,3 +250,42 @@ def test_the_link_audit_should_report_a_broken_link_in_an_extra_document(
 
     # then it objects: the extra path is really scanned, not merely accepted (docs/09 §2 rule 7)
     assert any("no such file" in problem for problem in problems)
+
+
+def test_the_readme_should_have_no_relative_links_because_pypi_cannot_resolve_them() -> None:
+    # given the README, which is the package's description on PyPI
+    # when its links are collected
+    # then every one is absolute, and the audit above checks the ones that point into this repository
+    assert relative_links(README) == []
+
+
+def test_the_relative_link_check_should_flag_a_relative_link(tmp_path: Path) -> None:
+    # given a document with one relative link, one absolute link and one in-page anchor
+    document = tmp_path / "README.md"
+    document.write_text(
+        "[a](docs/a.md) [b](https://example.com) [c](#heading)\n",
+        encoding="utf-8",
+    )
+
+    # when its links are collected
+    # then only the relative one is reported (docs/09 §2 rule 7)
+    assert relative_links(document) == ["docs/a.md"]
+
+
+def test_the_link_audit_should_check_absolute_links_into_the_repository(tmp_path: Path) -> None:
+    # given a README spelling a missing repository file as a full URL, beside one that exists
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "a.md").write_text("# A\n", encoding="utf-8")
+    readme = tmp_path / "README.md"
+    readme.write_text(
+        f"[gone]({REPOSITORY_BLOB}docs/missing.md) [here]({REPOSITORY_BLOB}docs/a.md)\n",
+        encoding="utf-8",
+    )
+
+    # when the audit runs against that repository root
+    problems = broken_links(docs, extra=(readme,), repository_root=tmp_path)
+
+    # then only the missing one is reported: a full URL is not an exemption from the audit
+    assert len(problems) == 1
+    assert "missing.md" in problems[0]

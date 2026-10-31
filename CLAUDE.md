@@ -5,8 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 `auto_html_report` is a Python library (no CLI, no service) that turns `Block` classes into one self-contained
-HTML report: inline CSS, charts as base64 PNG data URIs, no JavaScript, no external requests. It is installed
-from git, not PyPI. The distribution is `auto-html-report`; the import name is `auto_html_report`. It ships no real HTTP
+HTML report: inline CSS, charts as base64 PNG data URIs, no JavaScript, no external requests. It is licensed
+Apache-2.0 and bound for PyPI (`docs/12-publishing.md`). The distribution is `auto-html-report`; the import name is `auto_html_report`. It ships no real HTTP
 client: consumers implement the `HttpClient` port and pass `http=`; `auto_html_report.testing.StubHttpClient`
 answers from fixtures for tests and demos.
 
