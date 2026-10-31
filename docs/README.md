@@ -15,7 +15,7 @@ This set specifies **auto_inform v0.1** — package version `0.1.0`, see
 ### Naming and status
 
 - Files are named `NN-short-description.md`. `NN` is a two-digit, sequential, unique number. The
-  next unused number for a new document is **12**.
+  next unused number for a new document is **13**.
 - [README.md](README.md) is the index: it is deliberately unnumbered and carries no frontmatter.
   The remaining rules in this section apply to numbered documents.
 - Every numbered document opens with YAML frontmatter:
@@ -81,10 +81,11 @@ This set specifies **auto_inform v0.1** — package version `0.1.0`, see
 
 ## The document set
 
-**Ratified 2026-10-18.** Every numbered document is `active`: the v1 implementation it describes is
+**Ratified 2026-10-18.** Documents 01 to 11 are `active`: the v1 implementation they describe is
 complete, and every acceptance criterion in [09 §3](09-testing-and-acceptance.md#3-acceptance-criteria)
 has a test. `active` is a statement about the specification and the code agreeing, not a claim of
 production use — the HTTP client is still the stub described in [07 §2](07-configuration-and-logging.md#2-the-http-stub).
+Document 12 is `proposed`: it describes the planned move to PyPI, not the code as it stands.
 
 | # | Document | Status | Description |
 | --- | --- | --- | --- |
@@ -98,8 +99,9 @@ production use — the HTTP client is still the stub described in [07 §2](07-co
 | 07 | [07-configuration-and-logging.md](07-configuration-and-logging.md) | active | Environment variables and their `Settings` attributes, the HTTP stub, and the structured logging contract. |
 | 08 | [08-packaging.md](08-packaging.md) | active | Distribution name, exact dependency pins, optional extras, package data, and install instructions. |
 | 09 | [09-testing-and-acceptance.md](09-testing-and-acceptance.md) | active | The testing strategy per layer, hermeticity rules, and the v1 acceptance criteria. |
-| 10 | [10-decision-log.md](10-decision-log.md) | active | ADR-0001 to ADR-0031: each ratified decision, its context, and the alternatives rejected. |
+| 10 | [10-decision-log.md](10-decision-log.md) | active | ADR-0001 to ADR-0035: each ratified decision, its context, and the alternatives rejected. |
 | 11 | [11-implementation-plan.md](11-implementation-plan.md) | active | The staged build order for v1, with review boundaries and a definition of done per stage. |
+| 12 | [12-publishing.md](12-publishing.md) | proposed | The move to the public PyPI package `auto-html-report`: identity, dependency policy, public-surface changes, and the release pipeline. |
 
 ## Reading order by role
 
