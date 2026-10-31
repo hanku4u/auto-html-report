@@ -7,8 +7,10 @@ metadata, and the names the docs tell block authors to import actually resolve.
 
 import subprocess
 import sys
+import tomllib
 from importlib.metadata import metadata, version
 from importlib.resources import files
+from pathlib import Path
 
 import pytest
 
@@ -114,10 +116,14 @@ def test_the_configuration_factories_should_be_importable_from_the_root() -> Non
 
 
 def test_installed_distribution_metadata_should_report_the_declared_version() -> None:
-    # given the package installed from pyproject.toml rather than resolved from the source tree
+    # given the version pyproject.toml declares, which is the only place it is written (ADR-0034)
+    pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
+    declared = tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]["version"]
+
     # when the installed metadata is read
-    # then the version matches the declaration, which only holds if the build backend ran
-    assert version("auto-html-report") == "0.1.0"
+    # then it reports that version: comparing against the file rather than a literal is what stops this
+    # test failing on every release
+    assert version("auto-html-report") == declared
 
 
 def test_installed_distribution_metadata_should_require_python_three_eleven_or_newer() -> None:

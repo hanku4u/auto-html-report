@@ -1,0 +1,129 @@
+name: Release
+
+# Publishing is specified in docs/12 §6. PyPI and TestPyPI trust this file by name, and the two environment
+# names below, so renaming any of them means updating the trusted publishers too.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Check the tag can be released
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      final: ${{ steps.version.outputs.final }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+      - name: The tag must match the version, on a commit from main
+        id: version
+        run: |
+          version="$(uv version --short)"
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match pyproject.toml version $version"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME is not on main"
+            exit 1
+          fi
+          # Anything but plain digits and dots stops at TestPyPI, so an unusual version fails safe.
+          if [[ "$version" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then final=true; else final=false; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "final=$final" >> "$GITHUB_OUTPUT"
+      # Checked here rather than at the end, so a missing section stops the release before anything is
+      # published, since a published version cannot be replaced.
+      - name: A final release must have changelog notes
+        if: steps.version.outputs.final == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: ./scripts/changelog_section.sh "$VERSION" > /dev/null
+
+  checks:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Build and check the distribution
+    needs: [verify, checks]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+      - run: uv build --out-dir dist
+      - name: Run the quick start from the wheel that will be published
+        run: ./scripts/check_install.sh dist/*.whl
+      # Every later job uses these files. Nothing is rebuilt, so what was tested is what ships.
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  testpypi:
+    name: Publish to TestPyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment: TestPyPI
+    permissions:
+      id-token: write
+    steps:
+      # No cache: this job has no lockfile to key one on, and nothing it installs should come from one.
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          enable-cache: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: dist
+          path: dist
+      # --check-url so re-running a failed release skips what already reached the index.
+      - run: >-
+          uv publish --trusted-publishing always
+          --publish-url https://test.pypi.org/legacy/
+          --check-url https://test.pypi.org/simple/
+          dist/*
+
+  pypi:
+    name: Publish to PyPI
+    needs: [verify, testpypi]
+    if: needs.verify.outputs.final == 'true'
+    runs-on: ubuntu-latest
+    # Requires the owner's approval, configured on the environment.
+    environment: PyPI
+    permissions:
+      id-token: write
+    steps:
+      # No cache: this job has no lockfile to key one on, and nothing it installs should come from one.
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          enable-cache: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: dist
+          path: dist
+      - run: uv publish --trusted-publishing always --check-url https://pypi.org/simple/ dist/*
+
+  github-release:
+    name: Create the GitHub Release
+    needs: [verify, pypi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: dist
+          path: dist
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          ./scripts/changelog_section.sh "$VERSION" > notes.md
+          gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --notes-file notes.md

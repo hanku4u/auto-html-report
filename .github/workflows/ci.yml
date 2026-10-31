@@ -5,6 +5,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The release workflow runs these same jobs, so a tag cannot publish what CI would reject.
+  workflow_call:
 
 permissions:
   contents: read

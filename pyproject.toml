@@ -6,7 +6,7 @@ build-backend = "uv_build"
 
 [project]
 name = "auto-html-report"
-version = "0.1.0"
+version = "0.1.0rc1"
 description = "Dynamic HTML report generator: composable blocks, concurrent collection, one file."
 readme = "README.md"
 requires-python = ">=3.11"
