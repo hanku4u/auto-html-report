@@ -76,7 +76,8 @@ jobs:
         with:
           python-version: "3.11"
       # `uv pip` rather than `uv sync`: the lockfile holds the newest versions, which is not the point.
-      - run: uv venv
+      # --clear: setup-uv has already created .venv, because it was given a Python version.
+      - run: uv venv --clear
       - run: uv pip install --resolution lowest-direct -e ".[postgres,s3]" --group dev
       # Not `uv run`, which would sync the environment back to the lockfile first.
       - run: .venv/bin/python -m pytest
