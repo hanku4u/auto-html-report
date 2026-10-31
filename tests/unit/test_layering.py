@@ -1,9 +1,9 @@
 """The layering rules of ``docs/01-overview.md`` §4, enforced.
 
 **Why this reads source instead of blocking imports.** The obvious implementation -- install an import
-hook that refuses ``auto_inform.application``, then import ``auto_inform.domain.block`` -- cannot work.
+hook that refuses ``auto_html_report.application``, then import ``auto_html_report.domain.block`` -- cannot work.
 Importing any submodule executes the package ``__init__`` first, and that module is the composition
-root: it legitimately wires every layer together so that ``from auto_inform import Block`` works. Any
+root: it legitimately wires every layer together so that ``from auto_html_report import Block`` works. Any
 import of anything under this package therefore pulls the upper layers in, by design.
 
 So the rules are checked statically, module by module. That is also the more useful check, because the
@@ -14,7 +14,7 @@ accident.
 world is permitted to them. ``application/`` uses an *allowlist* instead, because its rule is a general
 prohibition -- "never a concrete adapter" -- and a denylist cannot express that: a newly added adapter
 would simply not be on the list, and would be permitted by default. An earlier version of this audit made
-exactly that mistake, and a probe confirmed ``from auto_inform.infrastructure.clock import SystemClock``
+exactly that mistake, and a probe confirmed ``from auto_html_report.infrastructure.clock import SystemClock``
 passed it silently, even though ``clock.py`` is a file the layout tree already plans.
 
 **Relative imports are resolved, not skipped.** An earlier version read ``ImportFrom.module`` without
@@ -38,57 +38,57 @@ from pathlib import Path
 
 import pytest
 
-PACKAGE = Path(__file__).resolve().parents[2] / "src" / "auto_inform"
+PACKAGE = Path(__file__).resolve().parents[2] / "src" / "auto_html_report"
 
 #: The import root: the directory that *contains* the top-level package, and therefore the base a
 #: relative import is resolved against. Not the package itself -- ``from . import x`` inside
-#: ``auto_inform/domain/`` means ``auto_inform.domain.x``, which only the parent directory can tell us.
+#: ``auto_html_report/domain/`` means ``auto_html_report.domain.x``, which only the parent directory can tell us.
 IMPORT_ROOT = PACKAGE.parent
 
 #: Nothing in domain/ may touch a layer above it at runtime, except under the documented exception.
 DOMAIN_FORBIDDEN = (
-    "auto_inform.application",
-    "auto_inform.infrastructure",
-    "auto_inform.rendering",
+    "auto_html_report.application",
+    "auto_html_report.infrastructure",
+    "auto_html_report.rendering",
 )
 
 #: The exception rule 1 names: a type-only import of the two block contexts, and nothing else.
 DOMAIN_TYPE_ONLY_ALLOWED = frozenset(
     {
-        "auto_inform.application.context",
-        "auto_inform.application.context.ReportContext",
-        "auto_inform.application.context.RenderContext",
+        "auto_html_report.application.context",
+        "auto_html_report.application.context.ReportContext",
+        "auto_html_report.application.context.RenderContext",
     }
 )
 
 #: Rule 2 is a general prohibition, so it is enforced as an allowlist: domain, its own layer, the
 #: Settings *value* type, and the shared private helpers at the package root. Everything else under
-#: ``auto_inform`` is off limits -- in particular every concrete adapter, and rendering -- so a newly
+#: ``auto_html_report`` is off limits -- in particular every concrete adapter, and rendering -- so a newly
 #: added adapter is forbidden by default rather than by somebody remembering to extend a tuple.
 #:
-#: Note what is *not* here: the bare ``auto_inform``. Adding it to permit ``from auto_inform import
+#: Note what is *not* here: the bare ``auto_html_report``. Adding it to permit ``from auto_html_report import
 #: _naming`` was tried and reverted, because a prefix entry for the root matches every submodule under
 #: it -- so it permitted ``rendering`` and every adapter, which a probe caught immediately. The root is
 #: a container rather than a dependency, and ``_read_imports`` therefore does not record it when names
 #: are imported from it; the submodule that carries the real dependency is recorded instead.
 APPLICATION_ALLOWED = (
-    "auto_inform.domain",
-    "auto_inform.application",
-    "auto_inform.infrastructure.settings",
-    "auto_inform._naming",
-    "auto_inform._version",
+    "auto_html_report.domain",
+    "auto_html_report.application",
+    "auto_html_report.infrastructure.settings",
+    "auto_html_report._naming",
+    "auto_html_report._version",
 )
 
 #: rendering/ sits downstream of domain/ and the standard library only.
 RENDERING_FORBIDDEN = (
-    "auto_inform.application",
-    "auto_inform.infrastructure",
+    "auto_html_report.application",
+    "auto_html_report.infrastructure",
 )
 
 #: blocks/ (stage 4) and reports/ are written by block authors: domain and rendering helpers only.
 PLUGIN_FORBIDDEN = (
-    "auto_inform.application",
-    "auto_inform.infrastructure",
+    "auto_html_report.application",
+    "auto_html_report.infrastructure",
 )
 
 #: Modules directly under the package root -- everything except the composition root itself. They are
@@ -96,7 +96,7 @@ PLUGIN_FORBIDDEN = (
 #: concrete adapter or the configuration that builds one. An audit that skipped them let `registry.py`
 #: grow a store dependency unnoticed, since the layer rules enumerate directories and root modules are
 #: not in one.
-ROOT_FORBIDDEN = ("auto_inform.infrastructure",)
+ROOT_FORBIDDEN = ("auto_html_report.infrastructure",)
 
 
 @dataclass(frozen=True)
@@ -136,8 +136,8 @@ def _matches(module: str, prefixes: tuple[str, ...]) -> bool:
     return any(module == prefix or module.startswith(f"{prefix}.") for prefix in prefixes)
 
 
-#: The package itself. Imported by :mod:`auto_inform.__init__`, so a layer importing it is a cycle.
-_ROOT_PACKAGE = "auto_inform"
+#: The package itself. Imported by :mod:`auto_html_report.__init__`, so a layer importing it is a cycle.
+_ROOT_PACKAGE = "auto_html_report"
 
 
 def _package_parts(path: Path, import_root: Path) -> tuple[str, ...] | None:
@@ -154,7 +154,7 @@ def _escaping_relative_import(
 ) -> str | None:
     """A description of a relative import that climbs above the import root, if it does.
 
-    ``from ...something import x`` inside ``auto_inform/domain/`` reaches past the top-level package,
+    ``from ...something import x`` inside ``auto_html_report/domain/`` reaches past the top-level package,
     which Python refuses at runtime. The audit refuses it too, rather than resolving it to a bare name
     that matches no rule and therefore passes silently -- which is exactly the failure mode this audit
     was rewritten to eliminate.
@@ -241,12 +241,12 @@ def _read_imports(path: Path, *, import_root: Path = IMPORT_ROOT) -> ModuleImpor
 
         resolved = _resolve_relative(node, package_parts)
         if resolved:
-            # The package root itself is a container, not a dependency: ``from auto_inform import
-            # _naming`` depends on ``auto_inform._naming``, which is recorded just below. Recording the
+            # The package root itself is a container, not a dependency: ``from auto_html_report import
+            # _naming`` depends on ``auto_html_report._naming``, which is recorded just below. Recording the
             # bare root as well would make any allowlist entry for it match every submodule by prefix,
-            # which is the opposite of what an allowlist is for. A bare ``import auto_inform`` *is*
+            # which is the opposite of what an allowlist is for. A bare ``import auto_html_report`` *is*
             # recorded, and :func:`violations` reports it whatever the rule style -- see `_ROOT_PACKAGE`.
-            if resolved != "auto_inform":
+            if resolved != "auto_html_report":
                 target.add(resolved)
             target.update(f"{resolved}.{alias.name}" for alias in node.names)
 
@@ -274,7 +274,7 @@ def violations(
     ours = {
         module
         for module in imports.runtime
-        if module == "auto_inform" or module.startswith("auto_inform.")
+        if module == "auto_html_report" or module.startswith("auto_html_report.")
     }
 
     if allowed is not None:
@@ -282,7 +282,7 @@ def violations(
     else:
         judged = {module for module in ours if _matches(module, forbidden)}
 
-    # A bare `import auto_inform` is reported in *every* rule style, not merely judged by the rule's
+    # A bare `import auto_html_report` is reported in *every* rule style, not merely judged by the rule's
     # own list: the composition root imports the layers, so a layer importing it back is a cycle. Under
     # the denylist rules the bare name would otherwise match no forbidden prefix and pass.
     root_import = {_ROOT_PACKAGE} if _ROOT_PACKAGE in imports.runtime else set()
@@ -367,9 +367,9 @@ def test_the_composition_root_should_import_the_layers_it_wires() -> None:
     # when its imports are inspected
     # then it does reach into the layers, which is the point of a composition root -- and this assertion
     # documents that exemption rather than leaving it to look like an oversight
-    assert any(module.startswith("auto_inform.application") for module in runtime)
-    assert any(module.startswith("auto_inform.domain") for module in runtime)
-    assert any(module.startswith("auto_inform.rendering") for module in runtime)
+    assert any(module.startswith("auto_html_report.application") for module in runtime)
+    assert any(module.startswith("auto_html_report.domain") for module in runtime)
+    assert any(module.startswith("auto_html_report.rendering") for module in runtime)
 
 
 # --- controls ------------------------------------------------------------------
@@ -380,11 +380,11 @@ def test_the_composition_root_should_import_the_layers_it_wires() -> None:
 
 
 def _control_module(tmp_path: Path, layer: str, body: str) -> tuple[Path, Path]:
-    """Write a module into ``<tmp>/src/auto_inform/<layer>/`` and return (path, import_root)."""
+    """Write a module into ``<tmp>/src/auto_html_report/<layer>/`` and return (path, import_root)."""
     import_root = tmp_path / "src"
-    directory = import_root / "auto_inform" / layer
+    directory = import_root / "auto_html_report" / layer
     directory.mkdir(parents=True, exist_ok=True)
-    (import_root / "auto_inform" / "__init__.py").touch()
+    (import_root / "auto_html_report" / "__init__.py").touch()
     path = directory / "control_module.py"
     path.write_text(body, encoding="utf-8")
     return path, import_root
@@ -395,15 +395,15 @@ def test_the_layering_audit_should_flag_a_forbidden_absolute_import(tmp_path: Pa
     path, root = _control_module(
         tmp_path,
         "domain",
-        "from auto_inform.infrastructure.stores.sqlite_store import SqliteEventStore\n",
+        "from auto_html_report.infrastructure.stores.sqlite_store import SqliteEventStore\n",
     )
 
     # when the audit runs over it
     # then it objects. Without this, a bug that made violations() always return an empty set would let
     # every rule pass while enforcing nothing
     assert violations(path, forbidden=DOMAIN_FORBIDDEN, import_root=root) == {
-        "auto_inform.infrastructure.stores.sqlite_store",
-        "auto_inform.infrastructure.stores.sqlite_store.SqliteEventStore",
+        "auto_html_report.infrastructure.stores.sqlite_store",
+        "auto_html_report.infrastructure.stores.sqlite_store.SqliteEventStore",
     }
 
 
@@ -418,8 +418,8 @@ def test_the_layering_audit_should_flag_a_forbidden_relative_import(tmp_path: Pa
     # then it objects just as loudly. An earlier version read the module name without the level, recorded
     # "application.context", matched no prefix, and passed -- so the guarantee was bypassable by two dots
     assert violations(path, forbidden=DOMAIN_FORBIDDEN, import_root=root) == {
-        "auto_inform.application.context",
-        "auto_inform.application.context.ReportContext",
+        "auto_html_report.application.context",
+        "auto_html_report.application.context.ReportContext",
     }
 
 
@@ -431,7 +431,7 @@ def test_the_layering_audit_should_flag_a_relative_import_that_names_no_module(
 
     # when the audit runs over it
     # then the resolved package itself is checked, not just the name imported from it
-    assert "auto_inform.application" in violations(
+    assert "auto_html_report.application" in violations(
         path, forbidden=DOMAIN_FORBIDDEN, import_root=root
     )
 
@@ -453,7 +453,7 @@ def test_the_layering_audit_should_flag_a_relative_import_that_escapes_the_packa
 
 def test_the_layering_audit_should_not_flag_a_legal_relative_sibling_import(tmp_path: Path) -> None:
     # given a relative import of a sibling inside the same layer, which is perfectly legal
-    path, root = _control_module(tmp_path, "domain", "from .errors import AutoInformError\n")
+    path, root = _control_module(tmp_path, "domain", "from .errors import AutoHtmlReportError\n")
 
     # when the audit runs over it
     # then it is content, and the module is named correctly -- resolving relatives must not turn every
@@ -469,7 +469,7 @@ def test_the_layering_audit_should_not_flag_a_type_only_import(tmp_path: Path) -
         "from __future__ import annotations\n"
         "from typing import TYPE_CHECKING\n"
         "if TYPE_CHECKING:\n"
-        "    from auto_inform.application.context import ReportContext\n",
+        "    from auto_html_report.application.context import ReportContext\n",
     )
 
     # when the audit runs over it
@@ -488,13 +488,13 @@ def test_the_layering_audit_should_flag_an_upward_import_hidden_in_a_type_checki
         "from typing import TYPE_CHECKING\n"
         "if TYPE_CHECKING:\n"
         "    def deferred():\n"
-        "        from auto_inform.infrastructure.clock import SystemClock\n",
+        "        from auto_html_report.infrastructure.clock import SystemClock\n",
     )
 
     # when the audit runs over it
     # then it objects: only imports *directly* in the guarded block are excused, so a runtime import
     # cannot hide behind the guard
-    assert "auto_inform.infrastructure.clock" in violations(
+    assert "auto_html_report.infrastructure.clock" in violations(
         path, forbidden=DOMAIN_FORBIDDEN, import_root=root
     )
 
@@ -505,7 +505,7 @@ def test_the_layering_audit_should_flag_an_adapter_that_is_not_on_any_denylist(
     # given an application module importing an adapter that does not exist yet, and that no denylist
     # would have named -- the layout tree already plans infrastructure/clock.py
     path, root = _control_module(
-        tmp_path, "application", "from auto_inform.infrastructure.clock import SystemClock\n"
+        tmp_path, "application", "from auto_html_report.infrastructure.clock import SystemClock\n"
     )
 
     # when the application rule is applied, taken from RULES rather than from the tuple, so that a
@@ -514,7 +514,7 @@ def test_the_layering_audit_should_flag_an_adapter_that_is_not_on_any_denylist(
 
     # then it objects, because that rule is an allowlist: a newly added adapter is forbidden by default
     # rather than permitted until somebody remembers to extend a tuple
-    assert "auto_inform.infrastructure.clock" in violations(
+    assert "auto_html_report.infrastructure.clock" in violations(
         path, allowed=rule.allowed, import_root=root
     )
 
@@ -525,8 +525,8 @@ def test_the_layering_audit_should_permit_the_documented_way_to_reach_a_root_hel
     # given the two natural ways to reach a private helper at the package root, which rule 2 permits
     # stage 6's filename helper will need
     for body in (
-        "from auto_inform import _naming\n",
-        "from auto_inform._naming import slug\n",
+        "from auto_html_report import _naming\n",
+        "from auto_html_report._naming import slug\n",
     ):
         path, root = _control_module(tmp_path, "application", body)
 
@@ -539,12 +539,14 @@ def test_the_layering_audit_should_still_forbid_reaching_rendering_through_the_r
     tmp_path: Path,
 ) -> None:
     # given the indirection form used to reach something that is *not* permitted
-    path, root = _control_module(tmp_path, "application", "from auto_inform import rendering\n")
+    path, root = _control_module(
+        tmp_path, "application", "from auto_html_report import rendering\n"
+    )
 
     # when the application rule is applied
     # then it objects: permitting the bare root opens no hole, because the submodule is recorded
     # alongside it
-    assert "auto_inform.rendering" in violations(
+    assert "auto_html_report.rendering" in violations(
         path, allowed=APPLICATION_ALLOWED, import_root=root
     )
 
@@ -570,12 +572,12 @@ def test_the_layering_audit_should_flag_a_root_module_reaching_for_an_adapter(
     path, root = _control_module(
         tmp_path,
         "domain",
-        "from auto_inform.infrastructure.stores.sqlite_store import SqliteEventStore\n",
+        "from auto_html_report.infrastructure.stores.sqlite_store import SqliteEventStore\n",
     )
 
     # when the root rule is applied
     # then it objects. Without the rule this file would pass, since no layer directory contains it
-    assert "auto_inform.infrastructure.stores.sqlite_store" in violations(
+    assert "auto_html_report.infrastructure.stores.sqlite_store" in violations(
         path, forbidden=ROOT_FORBIDDEN, import_root=root
     )
 
@@ -591,9 +593,9 @@ def test_the_layering_audit_should_flag_a_bare_import_of_the_composition_root(
     tmp_path: Path, style: str, kwargs: dict[str, object]
 ) -> None:
     # given a layer module importing the composition root -- a cycle, since that module imports the layers
-    path, root = _control_module(tmp_path, "domain", "import auto_inform\n")
+    path, root = _control_module(tmp_path, "domain", "import auto_html_report\n")
 
     # when the rule is applied, in either style
     # then it objects both times. Under a denylist the bare name matches no forbidden prefix, so it used
     # to pass silently -- the comment claiming otherwise was the review's fourth finding
-    assert violations(path, import_root=root, **kwargs) == {"auto_inform"}  # type: ignore[arg-type]
+    assert violations(path, import_root=root, **kwargs) == {"auto_html_report"}  # type: ignore[arg-type]

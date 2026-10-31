@@ -1,8 +1,8 @@
 """Test-only helpers for the optional PostgreSQL backend.
 
-The suite runs in a **dedicated schema** (``auto_inform_test``), never the public one. The shared cases
+The suite runs in a **dedicated schema** (``auto_html_report_test``), never the public one. The shared cases
 drop the table to start from an empty store, and doing that in whatever database
-``AUTO_INFORM_TEST_POSTGRES_DSN`` happens to name could wipe a developer's real queue — the DSN is the
+``AUTO_HTML_REPORT_TEST_POSTGRES_DSN`` happens to name could wipe a developer's real queue — the DSN is the
 operator's, the schema is this suite's.
 """
 
@@ -14,15 +14,15 @@ from urllib.parse import quote
 import pytest
 
 #: Owned by the test suite; dropped and recreated as needed.
-TEST_SCHEMA = "auto_inform_test"
+TEST_SCHEMA = "auto_html_report_test"
 
-_DSN_VARIABLE = "AUTO_INFORM_TEST_POSTGRES_DSN"
+_DSN_VARIABLE = "AUTO_HTML_REPORT_TEST_POSTGRES_DSN"
 
 
 def postgres_test_dsn(*, timezone: str | None = None) -> str:
     """A DSN for the test schema with an empty ``events`` table.
 
-    Skips when ``AUTO_INFORM_TEST_POSTGRES_DSN`` is not set. Once it *is* set, psycopg is imported
+    Skips when ``AUTO_HTML_REPORT_TEST_POSTGRES_DSN`` is not set. Once it *is* set, psycopg is imported
     normally rather than skipped: a configured database with no driver is a broken environment, not a
     reason to pass quietly.
     """

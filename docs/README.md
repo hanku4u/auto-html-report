@@ -1,13 +1,13 @@
-# auto_inform specification documents
+# auto_html_report specification documents
 
-This directory holds the specification set for `auto_inform`. It is spec-driven: no feature or
+This directory holds the specification set for `auto_html_report`. It is spec-driven: no feature or
 nontrivial refactor is implemented before the relevant document here has been reviewed and moved
 to `active`.
 
 Start with [01-overview.md](01-overview.md) if you are new, or jump to the document for the area
 you are working in.
 
-This set specifies **auto_inform v0.1** — package version `0.1.0`, see
+This set specifies **auto_html_report v0.1** — package version `0.1.0`, see
 [08-packaging.md](08-packaging.md).
 
 ## Conventions
@@ -90,7 +90,7 @@ Document 12 is `proposed`: it describes the planned move to PyPI, not the code a
 | # | Document | Status | Description |
 | --- | --- | --- | --- |
 | — | [README.md](README.md) | — | This index, plus the conventions above. |
-| 01 | [01-overview.md](01-overview.md) | active | What `auto_inform` is, v1 scope and non-goals, shared vocabulary, and the architectural shape of the framework. |
+| 01 | [01-overview.md](01-overview.md) | active | What `auto_html_report` is, v1 scope and non-goals, shared vocabulary, and the architectural shape of the framework. |
 | 02 | [02-block-authoring.md](02-block-authoring.md) | active | The `Block` contract, its injected context, the HTTP port and its error mapping, and the per-block execution rules. |
 | 03 | [03-report-api.md](03-report-api.md) | active | Report data types, the injected contexts, the three public entry points, the block and report registries, and how predefined and dynamic reports are expressed. |
 | 04 | [04-events-and-stores.md](04-events-and-stores.md) | active | The `Event` value object, the `EventStore` port, the shared schema, and the SQLite and PostgreSQL implementations. |

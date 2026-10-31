@@ -10,13 +10,13 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 
-from auto_inform.application.context import (
+from auto_html_report.application.context import (
     DiscoveryContext,
     RenderContext,
     ReportContext,
     RunMetadata,
 )
-from auto_inform.infrastructure.settings import Settings
+from auto_html_report.infrastructure.settings import Settings
 from tests.support.builders import FIXED_RUN_ID
 from tests.support.clocks import DEFAULT_START, FakeClock
 from tests.support.http import FakeHttpClient
@@ -34,7 +34,7 @@ def make_report_context(
     return ReportContext(
         settings=settings or Settings(),
         http=http or FakeHttpClient(),
-        logger=logging.getLogger("auto_inform.tests"),
+        logger=logging.getLogger("auto_html_report.tests"),
         clock=clock or FakeClock(),
         run=RunMetadata(run_id=FIXED_RUN_ID, started_at=DEFAULT_START),
     )
@@ -63,7 +63,7 @@ def make_discovery_context(
     return DiscoveryContext(
         settings=settings or Settings(),
         http=http or FakeHttpClient(),
-        logger=logging.getLogger("auto_inform.tests"),
+        logger=logging.getLogger("auto_html_report.tests"),
         clock=clock or FakeClock(),
         run=RunMetadata(run_id=FIXED_RUN_ID, started_at=DEFAULT_START),
     )

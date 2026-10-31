@@ -9,7 +9,7 @@ import subprocess
 import sys
 from importlib.metadata import metadata, version
 
-import auto_inform
+import auto_html_report
 
 # The exact line docs/06-output-html.md §4 gives to block authors. Imported at module scope on purpose:
 # if the documented import breaks, this file fails to collect rather than failing one assertion.
@@ -18,7 +18,7 @@ import auto_inform
 # the root, and the module docstring promises them.
 # docs/03 §2 calls collect_blocks, generate_report and render_report "the three public entry points".
 # Imported at module scope so removing one from the surface fails collection, not one assertion.
-from auto_inform import (
+from auto_html_report import (
     build_output_writer,
     collect_blocks,
     configure_logging,
@@ -51,7 +51,7 @@ def test_importing_the_package_should_expose_the_block_authoring_surface() -> No
         "TransientBlockError",
         "PermanentBlockError",
     }
-    assert expected <= set(auto_inform.__all__)
+    assert expected <= set(auto_html_report.__all__)
 
 
 def test_the_public_surface_should_declare_everything_it_exposes() -> None:
@@ -59,9 +59,9 @@ def test_the_public_surface_should_declare_everything_it_exposes() -> None:
     # when each name is resolved
     # then every declared export exists, and the list has no duplicate entries -- a stale name here is
     # an ImportError waiting for whoever copies an example
-    assert len(auto_inform.__all__) == len(set(auto_inform.__all__))
-    for name in auto_inform.__all__:
-        assert hasattr(auto_inform, name), name
+    assert len(auto_html_report.__all__) == len(set(auto_html_report.__all__))
+    for name in auto_html_report.__all__:
+        assert hasattr(auto_html_report, name), name
 
 
 def test_the_import_advertised_in_the_specification_should_be_callable() -> None:
@@ -93,14 +93,14 @@ def test_installed_distribution_metadata_should_report_the_declared_version() ->
     # given the package installed from pyproject.toml rather than resolved from the source tree
     # when the installed metadata is read
     # then the version matches the declaration, which only holds if the build backend ran
-    assert version("auto-inform") == "0.1.0"
+    assert version("auto-html-report") == "0.1.0"
 
 
 def test_installed_distribution_metadata_should_require_python_three_eleven_or_newer() -> None:
     # given the interpreter running the test suite
     # when the declared requirement is read
     # then the floor is at least 3.11, which is what matplotlib 3.11 needs
-    requires_python = metadata("auto-inform")["Requires-Python"]
+    requires_python = metadata("auto-html-report")["Requires-Python"]
     assert requires_python == ">=3.11"
 
 
@@ -111,7 +111,7 @@ def test_importing_the_package_should_not_import_the_optional_backends() -> None
         [
             sys.executable,
             "-c",
-            "import sys, auto_inform; print('boto3' in sys.modules, 'psycopg' in sys.modules)",
+            "import sys, auto_html_report; print('boto3' in sys.modules, 'psycopg' in sys.modules)",
         ],
         check=True,
         capture_output=True,

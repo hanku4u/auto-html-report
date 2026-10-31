@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from auto_inform.domain.errors import OutputError
-from auto_inform.infrastructure.writers.local_writer import LocalDirectoryWriter
+from auto_html_report.domain.errors import OutputError
+from auto_html_report.infrastructure.writers.local_writer import LocalDirectoryWriter
 
 
 def test_write_should_create_the_directory_and_the_file(tmp_path: Path) -> None:

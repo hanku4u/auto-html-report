@@ -3,7 +3,7 @@
 Two tests here are more than wiring checks.
 
 The **error-detail** test proves that `Settings.error_detail` actually reaches the rendered cell. It was
-wired through `render_report` in stage 5 with no supplier, so `AUTO_INFORM_ERROR_DETAIL` was silently dead
+wired through `render_report` in stage 5 with no supplier, so `AUTO_HTML_REPORT_ERROR_DETAIL` was silently dead
 until `generate_report` connected the two -- and a test that the parameter exists would not have noticed.
 
 The **failed-block** test proves that a report with a red cell is still written. The error cells are the
@@ -18,15 +18,15 @@ from typing import Any, cast
 
 import pytest
 
-from auto_inform.application.context import RenderContext, ReportContext
-from auto_inform.blocks.maintenance_history import MaintenanceHistoryBlock
-from auto_inform.blocks.wafer_map import WaferMapBlock
-from auto_inform.domain.block import Block
-from auto_inform.domain.errors import OutputError, PermanentBlockError
-from auto_inform.domain.report import OutputLocation, Report, ReportDefinition
-from auto_inform.generate import generate_report, report_filename
-from auto_inform.infrastructure.settings import Settings
-from auto_inform.infrastructure.writers.local_writer import LocalDirectoryWriter
+from auto_html_report.application.context import RenderContext, ReportContext
+from auto_html_report.blocks.maintenance_history import MaintenanceHistoryBlock
+from auto_html_report.blocks.wafer_map import WaferMapBlock
+from auto_html_report.domain.block import Block
+from auto_html_report.domain.errors import OutputError, PermanentBlockError
+from auto_html_report.domain.report import OutputLocation, Report, ReportDefinition
+from auto_html_report.generate import generate_report, report_filename
+from auto_html_report.infrastructure.settings import Settings
+from auto_html_report.infrastructure.writers.local_writer import LocalDirectoryWriter
 from tests.support.clocks import DEFAULT_START, FakeClock
 from tests.support.contexts import make_report_context
 from tests.support.http import FakeHttpClient
@@ -263,7 +263,7 @@ def test_a_renderer_failure_should_end_the_report_pair_with_failure_not_a_finish
     def explode(report: Report, *, error_detail: object) -> str:
         raise RuntimeError("renderer bug")
 
-    monkeypatch.setattr("auto_inform.generate.render_report", explode)
+    monkeypatch.setattr("auto_html_report.generate.render_report", explode)
     caplog.set_level(logging.INFO)
 
     # when a report is generated

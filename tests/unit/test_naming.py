@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from auto_inform._naming import DEFAULT_MAX_LENGTH, slug
+from auto_html_report._naming import DEFAULT_MAX_LENGTH, slug
 
 
 def test_slug_should_lowercase_and_hyphenate_runs_of_punctuation() -> None:

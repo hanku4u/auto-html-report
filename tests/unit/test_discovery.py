@@ -20,17 +20,17 @@ from typing import Any, Self
 
 import pytest
 
-from auto_inform.application.discovery import Discoverer, run_discovery
-from auto_inform.application.ports import EventStore, FailureRecord, SaveResult
-from auto_inform.domain.errors import (
+from auto_html_report.application.discovery import Discoverer, run_discovery
+from auto_html_report.application.ports import EventStore, FailureRecord, SaveResult
+from auto_html_report.domain.errors import (
     ConfigurationError,
     PermanentBlockError,
     StoreError,
     TransientBlockError,
 )
-from auto_inform.domain.event import Event
-from auto_inform.infrastructure.settings import Settings
-from auto_inform.infrastructure.stores.sqlite_store import SqliteEventStore
+from auto_html_report.domain.event import Event
+from auto_html_report.infrastructure.settings import Settings
+from auto_html_report.infrastructure.stores.sqlite_store import SqliteEventStore
 from tests.support.builders import make_event
 from tests.support.clocks import DEFAULT_START, FakeClock
 from tests.support.contexts import make_discovery_context
@@ -587,7 +587,7 @@ def test_a_discoverer_exceeding_the_event_ceiling_should_fail_without_persisting
     store: SqliteEventStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # given a source that keeps yielding, and a ceiling small enough to test cheaply
-    monkeypatch.setattr("auto_inform.application.discovery.MAX_EVENTS_PER_DISCOVERER", 2)
+    monkeypatch.setattr("auto_html_report.application.discovery.MAX_EVENTS_PER_DISCOVERER", 2)
 
     class _FloodDiscoverer(Discoverer):
         event_type = "WAFER_FAILURE"

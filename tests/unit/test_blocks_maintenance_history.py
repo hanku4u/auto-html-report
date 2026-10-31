@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import pytest
 
-from auto_inform.blocks.maintenance_history import MaintenanceHistoryBlock, MaintenanceRecord
-from auto_inform.domain.errors import TransientBlockError
-from auto_inform.infrastructure.settings import Settings
-from auto_inform.registry import get_block
+from auto_html_report.blocks.maintenance_history import MaintenanceHistoryBlock, MaintenanceRecord
+from auto_html_report.domain.errors import TransientBlockError
+from auto_html_report.infrastructure.settings import Settings
+from auto_html_report.registry import get_block
 from tests.support.contexts import make_render_context, make_report_context
 from tests.support.http import FakeHttpClient
 

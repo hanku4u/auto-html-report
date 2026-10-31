@@ -13,7 +13,7 @@ so is escaping.
 ## 1. Writers
 
 ```python
-# Defined in auto_inform/domain/report.py, despite being produced only by writers: a pure value
+# Defined in auto_html_report/domain/report.py, despite being produced only by writers: a pure value
 # type belongs in the domain, and ReportResult references it, so putting it in the application layer
 # would invert the dependency.
 @dataclass(frozen=True, slots=True)
@@ -26,7 +26,7 @@ class OutputWriter(Protocol):
     def write(self, *, filename: str, content: str) -> OutputLocation: ...
 
 
-# Writers are called from concurrent report workers (AUTO_INFORM_MAX_CONCURRENT_REPORTS), so an
+# Writers are called from concurrent report workers (AUTO_HTML_REPORT_MAX_CONCURRENT_REPORTS), so an
 # implementation must be thread-safe and must bound its own I/O: the processing runner waits for
 # write() without a per-report deadline, and only blocks have budgets (ADR-0027, ADR-0030).
 
@@ -66,7 +66,7 @@ class S3Writer:
   chain (environment, shared config, instance profile, CI OIDC role). No AWS key is ever read by
   this package.
 - **The S3 client is created with bounded transport timeouts** — `connect_timeout` and `read_timeout`
-  both default to 30 s, overridable with `timeout_seconds=` or `AUTO_INFORM_OUTPUT_S3_TIMEOUT_SECONDS`
+  both default to 30 s, overridable with `timeout_seconds=` or `AUTO_HTML_REPORT_OUTPUT_S3_TIMEOUT_SECONDS`
 through `build_output_writer`. This is a requirement, not tuning: the
   processing runner waits for `write()` with no per-report deadline (ADR-0030), so a stalled upload would
   wedge the job instead of raising `OutputError`. The client is created when the writer is constructed,
@@ -80,7 +80,7 @@ through `build_output_writer`. This is a requirement, not tuning: the
   a supported target for the local writer in v1.
 - Publication is atomic **and** durable: the file is `fsync`'d before the rename and the directory entry
   after it, so a power loss does not resurrect the previous file. A crash between the temporary file's
-  creation and the rename leaves an `.auto-inform-*.tmp` behind; the prefix makes those safe to sweep,
+  creation and the rename leaves an `.auto-html-report-*.tmp` behind; the prefix makes those safe to sweep,
   and nothing sweeps them automatically — that is the operator's job, not a race with a concurrent
   writer.
 
@@ -98,7 +98,7 @@ def report_filename(definition: ReportDefinition, report: Report) -> str: ...
 
 The **event segment appears only when the definition names an event** (`ReportDefinition.event_id`); an
 ad-hoc report has no event and produces `<slug(title)>__<timestamp>.html`. The helper lives in
-`auto_inform/generate.py`, beside `generate_report`.
+`auto_html_report/generate.py`, beside `generate_report`.
 
 **Ownership rule:** the filename is computed in exactly one place, `generate_report`, by calling
 this helper. `OutputWriter` implementations receive a complete filename and never derive one, so
@@ -119,7 +119,7 @@ URI from `ReportResult.location`, which the writer returned.
   generated inside one second collide, and the writer overwrites — that is deliberate idempotency for a
   retried run, not an accident. Distinct events can no longer collide; the scheduled path is protected
   by distinct event ids and by the store marking work processed, not by the clock.
-- Default destination: `AUTO_INFORM_OUTPUT_DIR`, default `./reports/`, relative to the process
+- Default destination: `AUTO_HTML_REPORT_OUTPUT_DIR`, default `./reports/`, relative to the process
   working directory.
 - S3 keys are `f"{prefix.strip('/')}/{filename}"` when a prefix is configured.
 
@@ -157,7 +157,7 @@ URI from `ReportResult.location`, which the writer returned.
     </tbody>
   </table>
 
-  <footer class="ai-footer">auto_inform 0.1.0</footer>
+  <footer class="ai-footer">auto_html_report 0.1.0</footer>
 </body>
 </html>
 ```
@@ -184,14 +184,14 @@ To make escaping the path of least resistance rather than a lecture, the framewo
 escaping-first helpers:
 
 ```python
-from auto_inform import html_table, escape, figure_to_data_uri
+from auto_html_report import html_table, escape, figure_to_data_uri
 
 html_table(headers=["Date", "Engineer"], rows=[(a, b)])   # escapes every cell
 escape(user_supplied_string)                              # explicit escape
 figure_to_data_uri(fig)                                   # no user data involved
 ```
 
-All of these are exported from `auto_inform` itself, as is `figure_lock` (§5). The author-facing
+All of these are exported from `auto_html_report` itself, as is `figure_lock` (§5). The author-facing
 surface landed in stage 3 rather than stage 6 because stage 4 writes blocks from exactly these
 examples; stage 6 completes it with the writers, stores, job runners and exit codes
 ([11](11-implementation-plan.md)).
@@ -249,11 +249,11 @@ Rules for the implementation:
   depend on anything outside the data passed in.
 
 ```python
-# auto_inform/blocks/wafer_map.py
+# auto_html_report/blocks/wafer_map.py
 import matplotlib.pyplot as plt
 import numpy as np
 
-from auto_inform import Block, ReportContext, RenderContext, figure_lock, figure_to_data_uri
+from auto_html_report import Block, ReportContext, RenderContext, figure_lock, figure_to_data_uri
 
 
 class WaferMapBlock(Block[np.ndarray]):
@@ -332,7 +332,7 @@ rendered by the framework and never by a block.
 - Error text is derived from the exception type and a truncated message **only**. Tracebacks go to
   the log, never into the document: reports get emailed to people who should not be reading stack
   frames, and stack frames leak internal hostnames and file paths.
-- `AUTO_INFORM_ERROR_DETAIL=summary` (default) shows the exception type plus the first line of the
+- `AUTO_HTML_REPORT_ERROR_DETAIL=summary` (default) shows the exception type plus the first line of the
   message, truncated to 160 characters. `detailed` shows the whole recorded message. Neither ever
   shows a traceback: there is no "full traceback in HTML" mode, on purpose.
 - **Corrected during implementation:** the original text said `detailed` adds the exception's

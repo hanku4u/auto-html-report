@@ -13,8 +13,8 @@ from typing import Any
 
 import pytest
 
-from auto_inform.domain.errors import ConfigurationError, OutputError
-from auto_inform.infrastructure.writers.s3_writer import S3Writer
+from auto_html_report.domain.errors import ConfigurationError, OutputError
+from auto_html_report.infrastructure.writers.s3_writer import S3Writer
 
 
 class _StubClient:

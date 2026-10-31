@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from auto_inform.domain.event import Event, EventStatus
+from auto_html_report.domain.event import Event, EventStatus
 
 DISCOVERED_AT = datetime(2026, 10, 17, 9, 0, tzinfo=UTC)
 

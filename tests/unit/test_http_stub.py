@@ -6,8 +6,8 @@ import threading
 
 import pytest
 
-from auto_inform.domain.errors import TransientBlockError
-from auto_inform.infrastructure.http_stub import StubHttpClient, StubNotConfiguredError
+from auto_html_report.domain.errors import TransientBlockError
+from auto_html_report.infrastructure.http_stub import StubHttpClient, StubNotConfiguredError
 
 
 def test_get_json_should_return_the_fixture_for_the_path() -> None:

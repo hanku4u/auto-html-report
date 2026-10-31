@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import pytest
 
-from auto_inform.domain.errors import ConfigurationError, StoreError
-from auto_inform.infrastructure.settings import Settings
-from auto_inform.infrastructure.stores.postgres_store import PostgresEventStore, _redact
+from auto_html_report.domain.errors import ConfigurationError, StoreError
+from auto_html_report.infrastructure.settings import Settings
+from auto_html_report.infrastructure.stores.postgres_store import PostgresEventStore, _redact
 
 
 def test_from_settings_with_sqlite_selected_should_refuse() -> None:

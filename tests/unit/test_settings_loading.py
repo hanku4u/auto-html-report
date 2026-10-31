@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from auto_inform.domain.errors import ConfigurationError
-from auto_inform.infrastructure.settings import Settings, load_settings
+from auto_html_report.domain.errors import ConfigurationError
+from auto_html_report.infrastructure.settings import Settings, load_settings
 
 
 def test_load_settings_with_an_empty_environment_should_equal_the_declared_defaults() -> None:
@@ -26,30 +26,30 @@ def test_load_settings_with_an_empty_environment_should_equal_the_declared_defau
 def test_load_settings_should_read_every_documented_variable() -> None:
     # given one value for every variable in the table
     environ = {
-        "AUTO_INFORM_OUTPUT_KIND": "local",
-        "AUTO_INFORM_OUTPUT_DIR": "/tmp/somewhere",
-        "AUTO_INFORM_OUTPUT_S3_BUCKET": "bucket",
-        "AUTO_INFORM_OUTPUT_S3_PREFIX": "reports",
-        "AUTO_INFORM_OUTPUT_S3_SSE": "AES256",
-        "AUTO_INFORM_OUTPUT_S3_TIMEOUT_SECONDS": "12.5",
-        "AUTO_INFORM_EVENT_STORE": "postgres",
-        "AUTO_INFORM_SQLITE_PATH": "/tmp/events.db",
-        "AUTO_INFORM_POSTGRES_DSN": "postgresql://user@host/db",
-        "AUTO_INFORM_EVENT_MAX_ATTEMPTS": "5",
-        "AUTO_INFORM_MAX_WORKERS": "3",
-        "AUTO_INFORM_MAX_CONCURRENT_REPORTS": "2",
-        "AUTO_INFORM_PROCESSING_LIMIT": "25",
-        "AUTO_INFORM_BLOCK_TIMEOUT_SECONDS": "12.5",
-        "AUTO_INFORM_BLOCK_RETRIES": "0",
-        "AUTO_INFORM_RETRY_BASE_DELAY_SECONDS": "0.25",
-        "AUTO_INFORM_RETRYABLE_EXCEPTIONS": "KeyError, TooManyRequests",
-        "AUTO_INFORM_LOG_LEVEL": "DEBUG",
-        "AUTO_INFORM_LOG_FORMAT": "console",
-        "AUTO_INFORM_ERROR_DETAIL": "detailed",
-        "AUTO_INFORM_FAIL_ON_BLOCK_ERROR": "false",
-        "AUTO_INFORM_HTTP_BASE_URL": "https://api.example",
-        "AUTO_INFORM_HTTP_API_TOKEN": "s3cret",
-        "AUTO_INFORM_HTTP_MAX_REDIRECTS": "2",
+        "AUTO_HTML_REPORT_OUTPUT_KIND": "local",
+        "AUTO_HTML_REPORT_OUTPUT_DIR": "/tmp/somewhere",
+        "AUTO_HTML_REPORT_OUTPUT_S3_BUCKET": "bucket",
+        "AUTO_HTML_REPORT_OUTPUT_S3_PREFIX": "reports",
+        "AUTO_HTML_REPORT_OUTPUT_S3_SSE": "AES256",
+        "AUTO_HTML_REPORT_OUTPUT_S3_TIMEOUT_SECONDS": "12.5",
+        "AUTO_HTML_REPORT_EVENT_STORE": "postgres",
+        "AUTO_HTML_REPORT_SQLITE_PATH": "/tmp/events.db",
+        "AUTO_HTML_REPORT_POSTGRES_DSN": "postgresql://user@host/db",
+        "AUTO_HTML_REPORT_EVENT_MAX_ATTEMPTS": "5",
+        "AUTO_HTML_REPORT_MAX_WORKERS": "3",
+        "AUTO_HTML_REPORT_MAX_CONCURRENT_REPORTS": "2",
+        "AUTO_HTML_REPORT_PROCESSING_LIMIT": "25",
+        "AUTO_HTML_REPORT_BLOCK_TIMEOUT_SECONDS": "12.5",
+        "AUTO_HTML_REPORT_BLOCK_RETRIES": "0",
+        "AUTO_HTML_REPORT_RETRY_BASE_DELAY_SECONDS": "0.25",
+        "AUTO_HTML_REPORT_RETRYABLE_EXCEPTIONS": "KeyError, TooManyRequests",
+        "AUTO_HTML_REPORT_LOG_LEVEL": "DEBUG",
+        "AUTO_HTML_REPORT_LOG_FORMAT": "console",
+        "AUTO_HTML_REPORT_ERROR_DETAIL": "detailed",
+        "AUTO_HTML_REPORT_FAIL_ON_BLOCK_ERROR": "false",
+        "AUTO_HTML_REPORT_HTTP_BASE_URL": "https://api.example",
+        "AUTO_HTML_REPORT_HTTP_API_TOKEN": "s3cret",
+        "AUTO_HTML_REPORT_HTTP_MAX_REDIRECTS": "2",
     }
 
     # when they are parsed
@@ -85,9 +85,9 @@ def test_load_settings_should_read_every_documented_variable() -> None:
 def test_load_settings_should_report_every_invalid_variable_at_once() -> None:
     # given three unrelated typos
     environ = {
-        "AUTO_INFORM_MAX_WORKERS": "many",
-        "AUTO_INFORM_BLOCK_TIMEOUT_SECONDS": "soon",
-        "AUTO_INFORM_LOG_FORMAT": "xml",
+        "AUTO_HTML_REPORT_MAX_WORKERS": "many",
+        "AUTO_HTML_REPORT_BLOCK_TIMEOUT_SECONDS": "soon",
+        "AUTO_HTML_REPORT_LOG_FORMAT": "xml",
     }
 
     # when they are parsed
@@ -96,9 +96,9 @@ def test_load_settings_should_report_every_invalid_variable_at_once() -> None:
         load_settings(environ)
 
     message = str(failure.value)
-    assert "AUTO_INFORM_MAX_WORKERS" in message
-    assert "AUTO_INFORM_BLOCK_TIMEOUT_SECONDS" in message
-    assert "AUTO_INFORM_LOG_FORMAT" in message
+    assert "AUTO_HTML_REPORT_MAX_WORKERS" in message
+    assert "AUTO_HTML_REPORT_BLOCK_TIMEOUT_SECONDS" in message
+    assert "AUTO_HTML_REPORT_LOG_FORMAT" in message
 
 
 def test_load_settings_with_s3_output_but_no_bucket_should_fail() -> None:
@@ -106,13 +106,13 @@ def test_load_settings_with_s3_output_but_no_bucket_should_fail() -> None:
     # when settings are loaded
     # then the cross-field requirement is caught at start-up, not at the first write
     with pytest.raises(ConfigurationError, match="OUTPUT_S3_BUCKET is required"):
-        load_settings({"AUTO_INFORM_OUTPUT_KIND": "s3"})
+        load_settings({"AUTO_HTML_REPORT_OUTPUT_KIND": "s3"})
 
 
 def test_load_settings_with_postgres_but_no_dsn_should_fail() -> None:
     # given a store that cannot connect
     with pytest.raises(ConfigurationError, match="POSTGRES_DSN is required"):
-        load_settings({"AUTO_INFORM_EVENT_STORE": "postgres"})
+        load_settings({"AUTO_HTML_REPORT_EVENT_STORE": "postgres"})
 
 
 @pytest.mark.parametrize("value", ["nan", "inf", "-inf", "NaN", "Infinity"])
@@ -122,19 +122,19 @@ def test_load_settings_should_reject_a_non_finite_number(value: str) -> None:
     # then it is refused. Both pass every `<` comparison, and both disable a safety net: a NaN budget makes
     # `consumed > budget` always false, and an infinite one makes the hang guard unreachable
     with pytest.raises(ConfigurationError, match="finite"):
-        load_settings({"AUTO_INFORM_BLOCK_TIMEOUT_SECONDS": value})
+        load_settings({"AUTO_HTML_REPORT_BLOCK_TIMEOUT_SECONDS": value})
 
 
 def test_load_settings_should_reject_a_non_finite_retry_delay() -> None:
     # given a NaN backoff base, which would make the first retry raise from time.sleep
     with pytest.raises(ConfigurationError, match="finite"):
-        load_settings({"AUTO_INFORM_RETRY_BASE_DELAY_SECONDS": "nan"})
+        load_settings({"AUTO_HTML_REPORT_RETRY_BASE_DELAY_SECONDS": "nan"})
 
 
 def test_load_settings_should_validate_and_normalise_the_log_level() -> None:
     # given a lower-case level
     # then it is accepted and stored canonically, matching how boolean values are handled
-    assert load_settings({"AUTO_INFORM_LOG_LEVEL": "debug"}).log_level == "DEBUG"
+    assert load_settings({"AUTO_HTML_REPORT_LOG_LEVEL": "debug"}).log_level == "DEBUG"
 
 
 def test_load_settings_with_an_unknown_log_level_should_fail_at_load() -> None:
@@ -142,25 +142,25 @@ def test_load_settings_with_an_unknown_log_level_should_fail_at_load() -> None:
     # then the loader reports it -- rather than letting it through to fail later inside configure_logging,
     # which is where it used to surface as a raw ValueError
     with pytest.raises(ConfigurationError, match="LOG_LEVEL"):
-        load_settings({"AUTO_INFORM_LOG_LEVEL": "CHATTY"})
+        load_settings({"AUTO_HTML_REPORT_LOG_LEVEL": "CHATTY"})
 
 
 @pytest.mark.parametrize("value", ["JSON", "Console", " console "])
 def test_load_settings_should_treat_enum_values_case_insensitively(value: str) -> None:
     # given an enum-like value in the wrong case, which boolean settings already accepted
     # then it is accepted and normalised to the canonical lower-case form
-    assert load_settings({"AUTO_INFORM_LOG_FORMAT": value}).log_format == value.strip().lower()
+    assert load_settings({"AUTO_HTML_REPORT_LOG_FORMAT": value}).log_format == value.strip().lower()
 
 
 @pytest.mark.parametrize(
     "environ",
     [
-        {"AUTO_INFORM_MAX_WORKERS": "0"},
-        {"AUTO_INFORM_BLOCK_TIMEOUT_SECONDS": "0"},
-        {"AUTO_INFORM_MAX_CONCURRENT_REPORTS": "0"},
-        {"AUTO_INFORM_EVENT_MAX_ATTEMPTS": "0"},
-        {"AUTO_INFORM_BLOCK_RETRIES": "-1"},
-        {"AUTO_INFORM_HTTP_MAX_REDIRECTS": "-1"},
+        {"AUTO_HTML_REPORT_MAX_WORKERS": "0"},
+        {"AUTO_HTML_REPORT_BLOCK_TIMEOUT_SECONDS": "0"},
+        {"AUTO_HTML_REPORT_MAX_CONCURRENT_REPORTS": "0"},
+        {"AUTO_HTML_REPORT_EVENT_MAX_ATTEMPTS": "0"},
+        {"AUTO_HTML_REPORT_BLOCK_RETRIES": "-1"},
+        {"AUTO_HTML_REPORT_HTTP_MAX_REDIRECTS": "-1"},
     ],
 )
 def test_load_settings_with_a_nonsensical_number_should_fail(environ: dict[str, str]) -> None:
@@ -175,18 +175,18 @@ def test_load_settings_with_a_nonsensical_number_should_fail(environ: dict[str, 
 def test_load_settings_should_allow_zero_retries() -> None:
     # given a retry count of zero, which is a legitimate preference rather than a bug
     # then it is accepted -- "no retries" is a decision, unlike "no timeout"
-    assert load_settings({"AUTO_INFORM_BLOCK_RETRIES": "0"}).block_retries == 0
+    assert load_settings({"AUTO_HTML_REPORT_BLOCK_RETRIES": "0"}).block_retries == 0
 
 
 def test_load_settings_with_a_non_boolean_should_fail() -> None:
     with pytest.raises(ConfigurationError, match="not a boolean"):
-        load_settings({"AUTO_INFORM_FAIL_ON_BLOCK_ERROR": "maybe"})
+        load_settings({"AUTO_HTML_REPORT_FAIL_ON_BLOCK_ERROR": "maybe"})
 
 
 def test_load_settings_should_ignore_unrelated_environment_variables() -> None:
     # given a normal shell with a hundred variables in it
     # when settings are loaded
-    # then only AUTO_INFORM_* is considered, and nothing else is treated as an error
+    # then only AUTO_HTML_REPORT_* is considered, and nothing else is treated as an error
     assert load_settings({"PATH": "/usr/bin", "HOME": "/root"}) == Settings()
 
 
@@ -194,8 +194,8 @@ def test_repr_should_redact_anything_secret_shaped() -> None:
     # given settings carrying a token and a connection string
     settings = load_settings(
         {
-            "AUTO_INFORM_HTTP_API_TOKEN": "s3cret",
-            "AUTO_INFORM_POSTGRES_DSN": "postgresql://user:password@host/db",
+            "AUTO_HTML_REPORT_HTTP_API_TOKEN": "s3cret",
+            "AUTO_HTML_REPORT_POSTGRES_DSN": "postgresql://user:password@host/db",
         }
     )
 
@@ -210,7 +210,7 @@ def test_repr_should_redact_anything_secret_shaped() -> None:
 def test_repr_should_still_show_ordinary_values() -> None:
     # given settings with nothing secret in them
     # then the repr is useful, because a redacted-everything repr helps nobody
-    text = repr(load_settings({"AUTO_INFORM_MAX_WORKERS": "3"}))
+    text = repr(load_settings({"AUTO_HTML_REPORT_MAX_WORKERS": "3"}))
     assert "max_workers=3" in text
 
 
@@ -219,26 +219,26 @@ def test_load_settings_with_an_excessive_retry_count_should_be_refused() -> None
     # when it is loaded
     # then it is a configuration error at the edge, not an OverflowError from inside the executor
     with pytest.raises(ConfigurationError, match="at most 10"):
-        load_settings({"AUTO_INFORM_BLOCK_RETRIES": "2000"})
+        load_settings({"AUTO_HTML_REPORT_BLOCK_RETRIES": "2000"})
 
 
 def test_load_settings_with_an_excessive_attempt_limit_should_be_refused() -> None:
     # given an attempt limit beyond what SQLite's INTEGER can bind
     with pytest.raises(ConfigurationError, match="at most 1000"):
-        load_settings({"AUTO_INFORM_EVENT_MAX_ATTEMPTS": "100000"})
+        load_settings({"AUTO_HTML_REPORT_EVENT_MAX_ATTEMPTS": "100000"})
 
 
 def test_load_settings_with_an_excessive_processing_limit_should_be_refused() -> None:
     # given a batch ceiling large enough to hold a whole backlog in memory
     with pytest.raises(ConfigurationError, match="at most 10000"):
-        load_settings({"AUTO_INFORM_PROCESSING_LIMIT": "100000"})
+        load_settings({"AUTO_HTML_REPORT_PROCESSING_LIMIT": "100000"})
 
 
 @pytest.mark.parametrize(
     ("variable", "value", "bound"),
     [
-        ("AUTO_INFORM_MAX_WORKERS", "65", "64"),
-        ("AUTO_INFORM_MAX_CONCURRENT_REPORTS", "33", "32"),
+        ("AUTO_HTML_REPORT_MAX_WORKERS", "65", "64"),
+        ("AUTO_HTML_REPORT_MAX_CONCURRENT_REPORTS", "33", "32"),
     ],
 )
 def test_load_settings_with_an_excessive_concurrency_should_be_refused(
@@ -274,4 +274,4 @@ def test_an_invalid_s3_timeout_should_be_refused(value: str, problem: str) -> No
     # when it is loaded
     # then it is refused with the bound in the message
     with pytest.raises(ConfigurationError, match=problem):
-        load_settings({"AUTO_INFORM_OUTPUT_S3_TIMEOUT_SECONDS": value})
+        load_settings({"AUTO_HTML_REPORT_OUTPUT_S3_TIMEOUT_SECONDS": value})

@@ -19,9 +19,9 @@ from pathlib import Path
 
 import pytest
 
-from auto_inform.domain.errors import ConfigurationError, StoreError
-from auto_inform.infrastructure.settings import Settings
-from auto_inform.infrastructure.stores.sqlite_store import SqliteEventStore
+from auto_html_report.domain.errors import ConfigurationError, StoreError
+from auto_html_report.infrastructure.settings import Settings
+from auto_html_report.infrastructure.stores.sqlite_store import SqliteEventStore
 from tests.support.builders import make_event
 from tests.support.clocks import DEFAULT_START, FakeClock
 

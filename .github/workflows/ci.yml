@@ -19,16 +19,16 @@ jobs:
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
-          POSTGRES_DB: auto_inform
+          POSTGRES_DB: auto_html_report
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U test -d auto_inform"
+          --health-cmd "pg_isready -U test -d auto_html_report"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
-      AUTO_INFORM_TEST_POSTGRES_DSN: postgresql://test:test@localhost:5432/auto_inform
+      AUTO_HTML_REPORT_TEST_POSTGRES_DSN: postgresql://test:test@localhost:5432/auto_html_report
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -57,5 +57,5 @@ jobs:
           scratch="$(mktemp -d)"
           cd "$scratch"
           uv init --bare --name install-check >/dev/null
-          uv add "auto_inform @ git+file://${GITHUB_WORKSPACE}@${GITHUB_SHA}"
-          uv run python -c "import auto_inform; print(auto_inform.__version__)"
+          uv add "auto_html_report @ git+file://${GITHUB_WORKSPACE}@${GITHUB_SHA}"
+          uv run python -c "import auto_html_report; print(auto_html_report.__version__)"

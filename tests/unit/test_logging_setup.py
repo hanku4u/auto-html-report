@@ -14,8 +14,8 @@ from collections.abc import Iterator
 
 import pytest
 
-from auto_inform.domain.errors import ConfigurationError
-from auto_inform.infrastructure.logging_setup import (
+from auto_html_report.domain.errors import ConfigurationError
+from auto_html_report.infrastructure.logging_setup import (
     ConsoleFormatter,
     JsonFormatter,
     configure_logging,
@@ -34,7 +34,7 @@ def _restore_root_logger() -> Iterator[None]:
 
 def _record(msg: str = "block.finish", **extra: object) -> logging.LogRecord:
     record = logging.LogRecord(
-        name="auto_inform",
+        name="auto_html_report",
         level=logging.INFO,
         pathname=__file__,
         lineno=1,
@@ -102,7 +102,9 @@ def test_configure_logging_should_be_idempotent() -> None:
 
     # when the handlers are counted
     # then exactly one of ours is installed: the second call replaced the first rather than stacking
-    ours = [h for h in logging.getLogger().handlers if getattr(h, "_auto_inform_handler", False)]
+    ours = [
+        h for h in logging.getLogger().handlers if getattr(h, "_auto_html_report_handler", False)
+    ]
     assert len(ours) == 1
 
 

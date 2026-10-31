@@ -18,7 +18,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from auto_inform.rendering.shell import render_report
+from auto_html_report.rendering.shell import render_report
 from tests.support.golden import golden_report, normalise_document
 
 GOLDEN_PATH = Path(__file__).resolve().parents[1] / "golden" / "report.html"
@@ -53,15 +53,13 @@ def test_the_golden_document_should_exercise_the_contract_not_just_the_happy_pat
 
 def test_normalising_document_should_remove_the_version_token_and_collapse_whitespace() -> None:
     # given two documents differing only in version and whitespace
-    first = '<html><body><footer class="ai-footer">auto_inform 0.1.0</footer></body></html>'
-    second = (
-        '<html>\n  <body>\n<footer class="ai-footer">auto_inform 9.9.9</footer>\n</body></html>'
-    )
+    first = '<html><body><footer class="ai-footer">auto_html_report 0.1.0</footer></body></html>'
+    second = '<html>\n  <body>\n<footer class="ai-footer">auto_html_report 9.9.9</footer>\n</body></html>'
 
     # when both are normalised
     # then they are equal, which is exactly the tolerance the golden comparison needs and no more
     assert normalise_document(first) == normalise_document(second)
-    assert normalise_document(first).count("auto_inform") == 1
+    assert normalise_document(first).count("auto_html_report") == 1
 
 
 def test_normalising_document_should_still_notice_a_changed_structure() -> None:
@@ -81,4 +79,4 @@ def test_the_golden_document_should_not_contain_a_hard_coded_version() -> None:
     # when the footer is examined
     # then the version is a placeholder, not a real number: a real one would pin the snapshot to a
     # release and break the suite on the next bump
-    assert re.search(r'<footer class="ai-footer">auto_inform <version></footer>', raw)
+    assert re.search(r'<footer class="ai-footer">auto_html_report <version></footer>', raw)

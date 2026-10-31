@@ -21,39 +21,39 @@ every block.
 
 | Environment variable | `Settings` attribute | Type | Default |
 | --- | --- | --- | --- |
-| `AUTO_INFORM_OUTPUT_KIND` | `output_kind` | `Literal["local","s3"]` | `"local"` |
-| `AUTO_INFORM_OUTPUT_DIR` | `output_dir` | `Path` | `./reports` |
-| `AUTO_INFORM_OUTPUT_S3_BUCKET` | `output_s3_bucket` | `str \| None` | `None` |
-| `AUTO_INFORM_OUTPUT_S3_PREFIX` | `output_s3_prefix` | `str` | `""` |
-| `AUTO_INFORM_OUTPUT_S3_SSE` | `output_s3_sse` | `str \| None` | `None` |
-| `AUTO_INFORM_OUTPUT_S3_TIMEOUT_SECONDS` | `output_s3_timeout_seconds` | `float` | `30.0` |
-| `AUTO_INFORM_EVENT_STORE` | `event_store` | `Literal["sqlite","postgres"]` | `"sqlite"` |
-| `AUTO_INFORM_SQLITE_PATH` | `sqlite_path` | `Path` | `<output_dir>/events.sqlite3` |
-| `AUTO_INFORM_POSTGRES_DSN` | `postgres_dsn` | `str \| None` | `None` |
-| `AUTO_INFORM_EVENT_MAX_ATTEMPTS` | `event_max_attempts` | `int` | `3` |
-| `AUTO_INFORM_MAX_WORKERS` | `max_workers` | `int` | `8` |
-| `AUTO_INFORM_MAX_CONCURRENT_REPORTS` | `max_concurrent_reports` | `int` | `1` |
-| `AUTO_INFORM_PROCESSING_LIMIT` | `processing_limit` | `int` | `500` |
-| `AUTO_INFORM_BLOCK_TIMEOUT_SECONDS` | `block_timeout_seconds` | `float` | `60.0` |
-| `AUTO_INFORM_BLOCK_RETRIES` | `block_retries` | `int` | `2` |
-| `AUTO_INFORM_RETRY_BASE_DELAY_SECONDS` | `retry_base_delay_seconds` | `float` | `1.0` |
-| `AUTO_INFORM_RETRYABLE_EXCEPTIONS` | `retryable_exceptions` | `tuple[str, ...]` | `()` |
-| `AUTO_INFORM_LOG_LEVEL` | `log_level` | `Literal["DEBUG","INFO","WARNING","ERROR","CRITICAL"]` | `"INFO"` |
-| `AUTO_INFORM_LOG_FORMAT` | `log_format` | `Literal["json","console"]` | `"json"` |
-| `AUTO_INFORM_ERROR_DETAIL` | `error_detail` | `Literal["summary","detailed"]` | `"summary"` |
-| `AUTO_INFORM_FAIL_ON_BLOCK_ERROR` | `fail_on_block_error` | `bool` | `True` |
-| `AUTO_INFORM_HTTP_BASE_URL` | `http_base_url` | `str \| None` | `None` |
-| `AUTO_INFORM_HTTP_API_TOKEN` | `http_api_token` | `str \| None` | `None` |
-| `AUTO_INFORM_HTTP_MAX_REDIRECTS` | `http_max_redirects` | `int` | `5` |
+| `AUTO_HTML_REPORT_OUTPUT_KIND` | `output_kind` | `Literal["local","s3"]` | `"local"` |
+| `AUTO_HTML_REPORT_OUTPUT_DIR` | `output_dir` | `Path` | `./reports` |
+| `AUTO_HTML_REPORT_OUTPUT_S3_BUCKET` | `output_s3_bucket` | `str \| None` | `None` |
+| `AUTO_HTML_REPORT_OUTPUT_S3_PREFIX` | `output_s3_prefix` | `str` | `""` |
+| `AUTO_HTML_REPORT_OUTPUT_S3_SSE` | `output_s3_sse` | `str \| None` | `None` |
+| `AUTO_HTML_REPORT_OUTPUT_S3_TIMEOUT_SECONDS` | `output_s3_timeout_seconds` | `float` | `30.0` |
+| `AUTO_HTML_REPORT_EVENT_STORE` | `event_store` | `Literal["sqlite","postgres"]` | `"sqlite"` |
+| `AUTO_HTML_REPORT_SQLITE_PATH` | `sqlite_path` | `Path` | `<output_dir>/events.sqlite3` |
+| `AUTO_HTML_REPORT_POSTGRES_DSN` | `postgres_dsn` | `str \| None` | `None` |
+| `AUTO_HTML_REPORT_EVENT_MAX_ATTEMPTS` | `event_max_attempts` | `int` | `3` |
+| `AUTO_HTML_REPORT_MAX_WORKERS` | `max_workers` | `int` | `8` |
+| `AUTO_HTML_REPORT_MAX_CONCURRENT_REPORTS` | `max_concurrent_reports` | `int` | `1` |
+| `AUTO_HTML_REPORT_PROCESSING_LIMIT` | `processing_limit` | `int` | `500` |
+| `AUTO_HTML_REPORT_BLOCK_TIMEOUT_SECONDS` | `block_timeout_seconds` | `float` | `60.0` |
+| `AUTO_HTML_REPORT_BLOCK_RETRIES` | `block_retries` | `int` | `2` |
+| `AUTO_HTML_REPORT_RETRY_BASE_DELAY_SECONDS` | `retry_base_delay_seconds` | `float` | `1.0` |
+| `AUTO_HTML_REPORT_RETRYABLE_EXCEPTIONS` | `retryable_exceptions` | `tuple[str, ...]` | `()` |
+| `AUTO_HTML_REPORT_LOG_LEVEL` | `log_level` | `Literal["DEBUG","INFO","WARNING","ERROR","CRITICAL"]` | `"INFO"` |
+| `AUTO_HTML_REPORT_LOG_FORMAT` | `log_format` | `Literal["json","console"]` | `"json"` |
+| `AUTO_HTML_REPORT_ERROR_DETAIL` | `error_detail` | `Literal["summary","detailed"]` | `"summary"` |
+| `AUTO_HTML_REPORT_FAIL_ON_BLOCK_ERROR` | `fail_on_block_error` | `bool` | `True` |
+| `AUTO_HTML_REPORT_HTTP_BASE_URL` | `http_base_url` | `str \| None` | `None` |
+| `AUTO_HTML_REPORT_HTTP_API_TOKEN` | `http_api_token` | `str \| None` | `None` |
+| `AUTO_HTML_REPORT_HTTP_MAX_REDIRECTS` | `http_max_redirects` | `int` | `5` |
 
 Two integers have an upper bound as well as a floor, because the executor's arithmetic cannot survive
-them: `AUTO_INFORM_BLOCK_RETRIES` is capped at **10** — the backoff doubles per attempt, so a larger
-count overflows the hang-guard computation before any work starts — and `AUTO_INFORM_EVENT_MAX_ATTEMPTS`
+them: `AUTO_HTML_REPORT_BLOCK_RETRIES` is capped at **10** — the backoff doubles per attempt, so a larger
+count overflows the hang-guard computation before any work starts — and `AUTO_HTML_REPORT_EVENT_MAX_ATTEMPTS`
 at **1000**, beyond which the value cannot be bound to SQLite's `INTEGER`. A block's own `max_retries`
 override is subject to the same cap, and the executor enforces both on a directly constructed
 `Settings`, because `load_settings` is not the only way to build one. Concurrency is capped too, because
-it multiplies: `AUTO_INFORM_MAX_WORKERS` at **64**, `AUTO_INFORM_MAX_CONCURRENT_REPORTS` at **32** (each
-report starts its own block pool), and `AUTO_INFORM_PROCESSING_LIMIT` at **10,000**. The S3 transport
+it multiplies: `AUTO_HTML_REPORT_MAX_WORKERS` at **64**, `AUTO_HTML_REPORT_MAX_CONCURRENT_REPORTS` at **32** (each
+report starts its own block pool), and `AUTO_HTML_REPORT_PROCESSING_LIMIT` at **10,000**. The S3 transport
 timeout is bounded at **300 seconds**: a longer value is not a bound worth having and is usually a units
 mistake.
 
@@ -86,7 +86,7 @@ Every external call is a stub in v1. Blocks and discoverers are written against 
 swapping in a real client later is a one-line wiring change.
 
 ```python
-# auto_inform/infrastructure/http_stub.py
+# auto_html_report/infrastructure/http_stub.py
 class StubHttpClient:
     """Deterministic stand-in for the real API client.
 
@@ -134,7 +134,7 @@ def new_discovery_context(settings: Settings) -> DiscoveryContext:
     """As above, for the discovery phase."""
 
 def build_output_writer(settings: Settings) -> OutputWriter:
-    """Return the writer selected by AUTO_INFORM_OUTPUT_KIND."""
+    """Return the writer selected by AUTO_HTML_REPORT_OUTPUT_KIND."""
 ```
 
 Each returns a value rather than registering a global, so a long-lived process — a notebook, a test
@@ -153,9 +153,9 @@ unchanged; the overrides exist so a test or a demo job can supply canned fixture
 and a stub S3 client without building the object by hand or touching the network.
 
 **Both output backends are real.** `build_output_writer` selects `LocalDirectoryWriter` or `S3Writer`
-from `AUTO_INFORM_OUTPUT_KIND`; there is no fallback, and a missing bucket or a missing `s3` extra raises
+from `AUTO_HTML_REPORT_OUTPUT_KIND`; there is no fallback, and a missing bucket or a missing `s3` extra raises
 at start-up rather than at the first report. The optional dependencies are imported when an adapter is
-constructed, so `import auto_inform` works without either extra (ADR-0031).
+constructed, so `import auto_html_report` works without either extra (ADR-0031).
 
 ## 4. Logging contract
 
@@ -178,7 +178,7 @@ one line per notable event. Every line carries `run_id`; every block line carrie
 | `discovery.finish` | `run_id`, `discoverer`, `event_type`, `new`, `duplicates`, `duration_ms` — emitted after the events are persisted, and only on the success path |
 | `discovery.failed` | `run_id`, `discoverer`, `attempts`, `error_type`, `error_message`, and the traceback — the discoverer itself failed, so nothing from it was persisted |
 | `discovery.abandoned` | `run_id`, `discoverer`, `overrun_s` — a timed-out discoverer thread that outlived its budget |
-| `processing.capped` | `run_id`, `requested`, `limit` — a caller asked for more events than `AUTO_INFORM_PROCESSING_LIMIT` allows, and the configured ceiling won |
+| `processing.capped` | `run_id`, `requested`, `limit` — a caller asked for more events than `AUTO_HTML_REPORT_PROCESSING_LIMIT` allows, and the configured ceiling won |
 | `event.processed` | `run_id`, `event_type`, `event_id`, `output_uri` |
 | `event.failed` | `run_id`, `event_type`, `event_id`, `attempts`, `reason` |
 | `event.retired` | `run_id`, `event_type`, `event_id`, `attempts` — attempts exhausted, no longer retried |
@@ -190,7 +190,7 @@ the log says which block got slower, without a profiler or a reproduction. `bloc
 because a timed-out thread is not stoppable ([02 §6.2](02-block-authoring.md#62-timeout-accounting))
 and silently abandoning it would hide a real, growing problem.
 
-`AUTO_INFORM_LOG_FORMAT=console` renders a human-readable single line instead, for local debugging.
+`AUTO_HTML_REPORT_LOG_FORMAT=console` renders a human-readable single line instead, for local debugging.
 It is not the CI default because nobody wants to parse a coloured traceback out of a build log.
 
 ## Testing
@@ -204,14 +204,14 @@ It is not the CI default because nobody wants to parse a coloured traceback out 
 - Logging: capture records and assert the JSON body of a `block.finish` line contains `run_id`,
   `block`, `status` and `duration_ms`. `configure_logging` is idempotent under repeated calls.
 - The stub: fixtures by path, an unknown path raising `StubNotConfiguredError` (a `ConfigurationError`, so
-  it is catchable as an `AutoInformError`), `get_bytes` refusing a non-bytes fixture, `raising_for`, and
+  it is catchable as an `AutoHtmlReportError`), `get_bytes` refusing a non-bytes fixture, `raising_for`, and
   eight threads sharing one instance with no exception and no fixture corruption.
 
 ## Open questions
 
 | # | Question | v1 default |
 | --- | --- | --- |
-| 1 | Should S3 server-side encryption default to on rather than opt-in, given that reports can contain yield and maintenance data? | Keep opt-in in v1 (`AUTO_INFORM_OUTPUT_S3_SSE` unset means no SSE header), but flag it for the security review before the first production bucket is created. The bucket policy is usually the right place for this, not the client. |
+| 1 | Should S3 server-side encryption default to on rather than opt-in, given that reports can contain yield and maintenance data? | Keep opt-in in v1 (`AUTO_HTML_REPORT_OUTPUT_S3_SSE` unset means no SSE header), but flag it for the security review before the first production bucket is created. The bucket policy is usually the right place for this, not the client. |
 
 **Status:** accepted and deferred for v1. The default above is what the code implements; revisit
 in v0.2 (the conventions require an `active` document to name its default, not to have none).

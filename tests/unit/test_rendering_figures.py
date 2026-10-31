@@ -17,7 +17,7 @@ import threading
 import pytest
 from matplotlib.figure import Figure
 
-from auto_inform.rendering.figures import figure_lock, figure_to_data_uri
+from auto_html_report.rendering.figures import figure_lock, figure_to_data_uri
 
 PREFIX = "data:image/png;base64,"
 
@@ -232,10 +232,10 @@ def test_importing_the_figures_module_should_not_import_pyplot_until_a_figure_is
     # given a fresh interpreter, so the answer cannot depend on which test ran first
     probe = (
         "import sys;"
-        "import auto_inform.rendering.figures;"  # importing the module must be cheap
+        "import auto_html_report.rendering.figures;"  # importing the module must be cheap
         "before = 'matplotlib.pyplot' in sys.modules;"
         "from matplotlib.figure import Figure;"  # a figure that does not come from pyplot
-        "from auto_inform.rendering.figures import figure_to_data_uri;"
+        "from auto_html_report.rendering.figures import figure_to_data_uri;"
         "uri = figure_to_data_uri(Figure());"
         "after = 'matplotlib.pyplot' in sys.modules;"
         "print(before, after, uri.startswith('data:image/png;base64,'))"

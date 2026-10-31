@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import pytest
 
-from auto_inform.domain.event import Event
-from auto_inform.registry import get_report_factory
-from auto_inform.reports.manufacturing import WAFER_FAILURE_EVENT, wafer_failure_report
+from auto_html_report.domain.event import Event
+from auto_html_report.registry import get_report_factory
+from auto_html_report.reports.manufacturing import WAFER_FAILURE_EVENT, wafer_failure_report
 from tests.support.clocks import DEFAULT_START
 from tests.support.contexts import make_report_context
 

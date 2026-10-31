@@ -20,9 +20,9 @@ uv pip install --python "$python" "$scratch"/dist/*.whl >/dev/null
 # Every top-level subpackage, because a wheel missing one is exactly what this script exists to catch
 # -- and the report family was once missing from a commit while every source-tree test stayed green.
 PYTHONPATH= "$python" -c "
-import auto_inform
-import auto_inform.reports.manufacturing as manufacturing
-print(f'imported {auto_inform.__version__} and {manufacturing.WAFER_FAILURE_EVENT}')
+import auto_html_report
+import auto_html_report.reports.manufacturing as manufacturing
+print(f'imported {auto_html_report.__version__} and {manufacturing.WAFER_FAILURE_EVENT}')
 "
 
 # The quick start is copied out of the repository and run in an empty directory: if it still works, the

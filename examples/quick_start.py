@@ -11,7 +11,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from auto_inform import (
+from auto_html_report import (
     Block,
     ExitCode,
     LocalDirectoryWriter,

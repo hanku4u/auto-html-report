@@ -19,7 +19,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Iterable
 
-from auto_inform import (
+from auto_html_report import (
     Discoverer,
     DiscoveryContext,
     Event,
@@ -31,7 +31,7 @@ from auto_inform import (
     new_discovery_context,
     run_discovery,
 )
-from auto_inform.domain.errors import ConfigurationError, StoreError
+from auto_html_report.domain.errors import ConfigurationError, StoreError
 from examples.demo_api import TOOL_ID, demo_http
 from examples.store import open_store
 

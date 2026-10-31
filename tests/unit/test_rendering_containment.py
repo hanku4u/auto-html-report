@@ -19,9 +19,9 @@ from __future__ import annotations
 
 import pytest
 
-from auto_inform.domain.block import BlockStatus
-from auto_inform.rendering.escaping import html_table
-from auto_inform.rendering.shell import render_report
+from auto_html_report.domain.block import BlockStatus
+from auto_html_report.rendering.escaping import html_table
+from auto_html_report.rendering.shell import render_report
 from tests.support.builders import make_report, make_row
 from tests.support.html_audit import audit
 

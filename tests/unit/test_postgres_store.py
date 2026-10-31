@@ -1,7 +1,7 @@
 """PostgreSQL-specific behaviour: raw-column properties and configuration refusals.
 
 The shared suite (``test_store_behaviour.py``) runs the same cases against this backend when
-``AUTO_INFORM_TEST_POSTGRES_DSN`` is set. What is left here is what the port cannot observe: the two
+``AUTO_HTML_REPORT_TEST_POSTGRES_DSN`` is set. What is left here is what the port cannot observe: the two
 properties docs/04 names but exposes no read-by-id method for, plus the ways a store can be misconfigured.
 """
 
@@ -12,8 +12,8 @@ from typing import Any, cast
 
 import pytest
 
-from auto_inform.domain.errors import StoreError
-from auto_inform.infrastructure.stores.postgres_store import PostgresEventStore
+from auto_html_report.domain.errors import StoreError
+from auto_html_report.infrastructure.stores.postgres_store import PostgresEventStore
 from tests.support.builders import make_event
 from tests.support.postgres import postgres_test_dsn
 

@@ -7,17 +7,17 @@ from datetime import UTC, datetime
 
 import pytest
 
-from auto_inform.domain.errors import ConfigurationError
-from auto_inform.infrastructure.clock import SystemClock
-from auto_inform.infrastructure.factories import (
+from auto_html_report.domain.errors import ConfigurationError
+from auto_html_report.infrastructure.clock import SystemClock
+from auto_html_report.infrastructure.factories import (
     build_output_writer,
     new_discovery_context,
     new_report_context,
 )
-from auto_inform.infrastructure.http_stub import StubHttpClient
-from auto_inform.infrastructure.settings import Settings, load_settings
-from auto_inform.infrastructure.writers.local_writer import LocalDirectoryWriter
-from auto_inform.infrastructure.writers.s3_writer import S3Writer
+from auto_html_report.infrastructure.http_stub import StubHttpClient
+from auto_html_report.infrastructure.settings import Settings, load_settings
+from auto_html_report.infrastructure.writers.local_writer import LocalDirectoryWriter
+from auto_html_report.infrastructure.writers.s3_writer import S3Writer
 from tests.support.clocks import FakeClock
 
 
@@ -35,7 +35,7 @@ def test_new_report_context_should_wire_the_settings_and_a_fresh_run_id() -> Non
     assert first.run.run_id != second.run.run_id
     assert isinstance(first.clock, SystemClock)
     assert isinstance(first.http, StubHttpClient)
-    assert first.logger.name == "auto_inform"
+    assert first.logger.name == "auto_html_report"
 
 
 def test_factories_should_accept_injected_dependencies() -> None:
@@ -83,10 +83,10 @@ def test_build_output_writer_with_s3_should_configure_the_s3_writer_from_setting
     client = _Client()
     settings = load_settings(
         {
-            "AUTO_INFORM_OUTPUT_KIND": "s3",
-            "AUTO_INFORM_OUTPUT_S3_BUCKET": "reports-bucket",
-            "AUTO_INFORM_OUTPUT_S3_PREFIX": "reports",
-            "AUTO_INFORM_OUTPUT_S3_SSE": "AES256",
+            "AUTO_HTML_REPORT_OUTPUT_KIND": "s3",
+            "AUTO_HTML_REPORT_OUTPUT_S3_BUCKET": "reports-bucket",
+            "AUTO_HTML_REPORT_OUTPUT_S3_PREFIX": "reports",
+            "AUTO_HTML_REPORT_OUTPUT_S3_SSE": "AES256",
         }
     )
 

@@ -13,9 +13,9 @@ from importlib.resources import files
 
 import pytest
 
-from auto_inform.domain.block import BlockStatus
-from auto_inform.rendering.escaping import html_table
-from auto_inform.rendering.shell import render_report
+from auto_html_report.domain.block import BlockStatus
+from auto_html_report.rendering.escaping import html_table
+from auto_html_report.rendering.shell import render_report
 from tests.support.builders import make_report, make_row
 from tests.support.html_audit import strip_css_comments
 
@@ -157,7 +157,7 @@ def test_render_report_should_name_the_tool_and_its_version_in_the_footer() -> N
     # when it is rendered
     # then the footer identifies the generator, so a reader can tell which build produced the file
     # -- the version itself is resolved at runtime and normalised away in the golden comparison
-    assert re.search(r"<footer class=\"ai-footer\">auto_inform \S+</footer>", document)
+    assert re.search(r"<footer class=\"ai-footer\">auto_html_report \S+</footer>", document)
 
 
 def test_render_report_with_a_naive_generated_at_should_raise_value_error() -> None:
@@ -200,7 +200,9 @@ def test_render_report_should_convert_an_offset_timestamp_to_utc() -> None:
 
 def test_the_report_template_should_contain_exactly_one_unescaped_interpolation() -> None:
     # given the page template
-    template = files("auto_inform.rendering").joinpath("templates", "report.html.j2").read_text()
+    template = (
+        files("auto_html_report.rendering").joinpath("templates", "report.html.j2").read_text()
+    )
 
     # when every `|safe` filter in it is counted
     # then there is exactly one, and it is the row HTML: the whole trust boundary of ADR-0012 rests
@@ -210,7 +212,7 @@ def test_the_report_template_should_contain_exactly_one_unescaped_interpolation(
 
 def test_packaged_rendering_assets_should_be_readable_through_importlib_resources() -> None:
     # given the assets are package data
-    base = files("auto_inform.rendering").joinpath("templates")
+    base = files("auto_html_report.rendering").joinpath("templates")
 
     # when they are read the way the renderer reads them
     template = base.joinpath("report.html.j2").read_text(encoding="utf-8")
@@ -224,7 +226,7 @@ def test_packaged_rendering_assets_should_be_readable_through_importlib_resource
 
 def test_the_packaged_stylesheet_should_not_reference_anything_external() -> None:
     # given the stylesheet that gets inlined into every document
-    stylesheet = files("auto_inform.rendering").joinpath("templates", "report.css").read_text()
+    stylesheet = files("auto_html_report.rendering").joinpath("templates", "report.css").read_text()
 
     # when it is inspected for the two constructs that make a browser fetch something, ignoring the
     # comment that documents the rule

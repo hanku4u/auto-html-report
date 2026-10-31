@@ -1,4 +1,4 @@
-"""Every name the documents import from ``auto_inform`` must actually be exported.
+"""Every name the documents import from ``auto_html_report`` must actually be exported.
 
 This guards a defect class that has now recurred three times: ``06 §4`` advertised rendering helpers the
 package exported nothing of, ``05 §6`` imported five configuration factories that existed but were not on
@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pytest
 
-import auto_inform
+import auto_html_report
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOCS = REPO_ROOT / "docs"
@@ -57,7 +57,7 @@ def _imported_names(text: str, document: str) -> dict[str, set[str]]:
         except SyntaxError:
             continue
         for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom) and node.module == "auto_inform":
+            if isinstance(node, ast.ImportFrom) and node.module == "auto_html_report":
                 for alias in node.names:
                     found.setdefault(alias.name, set()).add(document)
     return found
@@ -78,14 +78,14 @@ def _documents() -> list[Path]:
 
 
 def test_every_name_the_documents_import_should_be_exported() -> None:
-    # given every `from auto_inform import ...` in the documentation set
+    # given every `from auto_html_report import ...` in the documentation set
     imported = _scan_documents(_documents())
 
     # when the scan is judged against the public surface
     missing = {
         name: sorted(documents)
         for name, documents in imported.items()
-        if not hasattr(auto_inform, name) and name not in PENDING
+        if not hasattr(auto_html_report, name) and name not in PENDING
     }
 
     # then nothing is promised that a reader cannot import, and a failure names the document
@@ -106,8 +106,8 @@ def test_the_scan_should_actually_find_imports() -> None:
 def test_the_extractor_should_find_names_in_a_synthetic_fence() -> None:
     # given a fenced block in the exact shape the documents use, plus a fence in another language
     text = (
-        "Prose.\n\n```python\nfrom auto_inform import Block, DiscoveryContext\n```\n\n"
-        "```text\nfrom auto_inform import NotPython\n```\n"
+        "Prose.\n\n```python\nfrom auto_html_report import Block, DiscoveryContext\n```\n\n"
+        "```text\nfrom auto_html_report import NotPython\n```\n"
     )
 
     # when the real helpers scan it -- not a re-implementation of the walk, which would pass even if the
@@ -125,7 +125,7 @@ def test_the_extractor_should_find_names_in_a_synthetic_fence() -> None:
 def _assert_pending_missing(pending: dict[str, str]) -> None:
     """Fail for any entry that has started resolving."""
     for name, stage in pending.items():
-        assert not hasattr(auto_inform, name), (
+        assert not hasattr(auto_html_report, name), (
             f"{name} now resolves; remove it from PENDING ({stage} has landed)"
         )
 
@@ -150,7 +150,7 @@ def test_the_scan_should_object_to_an_unknown_import_in_a_readme_shaped_file(
     # given a README-shaped file importing a name the package does not export
     readme = tmp_path / "README.md"
     readme.write_text(
-        "```python\nfrom auto_inform import DefinitelyNotExported\n```\n", encoding="utf-8"
+        "```python\nfrom auto_html_report import DefinitelyNotExported\n```\n", encoding="utf-8"
     )
 
     # when it is scanned by the same code that scans the real README
@@ -158,5 +158,5 @@ def test_the_scan_should_object_to_an_unknown_import_in_a_readme_shaped_file(
 
     # then the missing name is found: the control that proves the README is really audited
     # (docs/09 §2 rule 7)
-    missing = {name for name in imported if not hasattr(auto_inform, name)}
+    missing = {name for name in imported if not hasattr(auto_html_report, name)}
     assert missing == {"DefinitelyNotExported"}

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from auto_inform.application.execution import (
+from auto_html_report.application.execution import (
     _BACKSTOP_GRACE_SECONDS,
     BLOCK_EXECUTION,
     ExecutionStatus,
@@ -21,8 +21,8 @@ from auto_inform.application.execution import (
     _hang_guard_seconds,
     execute_tasks,
 )
-from auto_inform.domain.errors import ConfigurationError
-from auto_inform.infrastructure.settings import MAX_BLOCK_RETRIES, Settings
+from auto_html_report.domain.errors import ConfigurationError
+from auto_html_report.infrastructure.settings import MAX_BLOCK_RETRIES, Settings
 from tests.support.clocks import FakeClock
 from tests.support.contexts import make_report_context
 
