@@ -154,6 +154,10 @@ One service: the checks job starts PostgreSQL 17 for the optional store suite, w
 from the CI environment and criterion 22 — which exercises both code paths against stubs and a
 self-skipping database suite — could never pass.
 
+The checks job then runs `examples/plumbing_check.py`, which sends the whole pipeline through a real adapter
+to a local HTTP server. It is a CI step rather than a test because it opens sockets, which rule 1 of
+[§2](#2-test-rules) forbids in the suite.
+
 Three more jobs run alongside the checks:
 
 - **Dependency floors.** The suite runs on Python 3.11 at `--resolution lowest-direct`, with PostgreSQL, so

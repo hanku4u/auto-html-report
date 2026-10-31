@@ -256,6 +256,17 @@ skipped and the run exits `2` — loudly, which is the point.
 Running both writes two reports, each with a wafer-map chart and a maintenance-history table, into
 `./reports` by default.
 
+To exercise the same pipeline over real HTTP, without a real service:
+
+```bash
+uv run python -m examples.plumbing_check    # checks retries, error cells and a timeout, and writes reports
+```
+
+It starts [`examples/local_api.py`](https://github.com/hanku4u/auto-html-report/blob/main/examples/local_api.py),
+a small server on localhost that serves the demo data plus routes that fail on purpose, and calls it through
+the adapter in [`examples/http_client.py`](https://github.com/hanku4u/auto-html-report/blob/main/examples/http_client.py).
+It exits non-zero if anything misbehaves, and the reports land in `./reports/plumbing-check`.
+
 `-m` rather than the script path: running the file directly puts `examples/` on `sys.path` instead of
 the repository root, and the shared fixtures in `examples.demo_api` would not import.
 
@@ -314,7 +325,8 @@ uv run pytest                   # tests
 `.github/workflows/ci.yml` runs exactly these commands in this order on Python 3.11 to 3.14, so a green
 local run on your interpreter is a good predictor of green CI — no service to start, and no network beyond
 fetching the pinned packages. CI also runs the suite at the oldest dependency versions the package allows,
-exercises the PostgreSQL store against a real server, and scans the git history for secrets.
+exercises the PostgreSQL store against a real server, sends the pipeline through real HTTP to a local test
+API, and scans the git history for secrets.
 
 One more check catches what a source-tree test cannot:
 

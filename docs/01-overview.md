@@ -176,7 +176,7 @@ auto-html-report/
 ├── LICENSE                         # Apache-2.0
 ├── CHANGELOG.md                    # release notes, one section per version
 ├── docs/                           # this specification set
-├── examples/                       # runnable: quick_start.py and the two job scripts
+├── examples/                       # runnable: the quick start, the two job scripts, a local test API
 ├── scripts/check_install.sh        # wheel install + quick start; also CI's packaging job
 ├── .github/workflows/ci.yml        # the checks of docs/09 §5, the floors, packaging and secret scan
 ├── .github/workflows/release.yml   # tag-triggered publishing to TestPyPI and PyPI (docs/12 §6)

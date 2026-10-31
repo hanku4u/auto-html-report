@@ -20,7 +20,7 @@ uv sync --frozen --all-extras   # --all-extras is required: tests exercise psyco
 uv lock --check
 uv run ruff check
 uv run ruff format --check
-uv run mypy                     # strict; covers src and tests
+uv run mypy                     # strict; covers src, tests and examples
 uv run pytest
 ```
 
@@ -41,6 +41,9 @@ uv run python -c "from tests.support.golden import write_golden; write_golden()"
 uv run python examples/quick_start.py /tmp/report-demo
 uv run python -m examples.discover_wafers
 uv run python -m examples.process_events
+
+# Run everything over real HTTP against a local test API (examples/local_api.py); also a CI step
+uv run python -m examples.plumbing_check
 ```
 
 Releases are tag-driven; `docs/12-publishing.md` §6.1 has the steps. Don't rename `release.yml` or the `PyPI` and

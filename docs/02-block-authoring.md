@@ -218,7 +218,8 @@ class UrllibHttpClient:
         request = urllib.request.Request(url, headers={**self._auth, **(headers or {})})
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
-                return response.read()
+                body: bytes = response.read()
+                return body
         except urllib.error.HTTPError as error:
             kind = TransientBlockError if error.code in _RETRYABLE_STATUSES else PermanentBlockError
             raise kind(f"{error.code} from {path}") from error
@@ -254,6 +255,10 @@ Without `http=`, a block that calls the client fails with a `ConfigurationError`
 that do no HTTP are unaffected. `urllib` follows up to 10 redirects rather than the table's 5, and opens a new
 connection per request, so a high-volume API is better served by adapting a pooling library the same way.
 `auto_html_report.testing.StubHttpClient` is the equivalent for tests: pass fixtures instead of a server.
+
+This adapter is `examples/http_client.py` in the repository, and a test keeps the two identical. CI runs it
+against a local server through `examples/plumbing_check.py`, which covers a retried 503, a 500, a 401, a 404, an
+unparsable body, a timeout and a refused connection. It does not cover TLS failures or redirects.
 
 ## 6. Execution semantics for one report
 

@@ -20,7 +20,10 @@ from pathlib import Path
 import pytest
 
 from auto_html_report import ExitCode, Settings
+from auto_html_report.testing import StubHttpClient
 from examples import discover_wafers, process_events, quick_start
+from examples.demo_api import ROUTES, demo_http
+from examples.plumbing_check import _check_pipeline
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -132,3 +135,63 @@ def test_the_documented_job_commands_should_run_as_written(tmp_path: Path) -> No
 
     # and the pair produced one report per failed lot
     assert len(list(tmp_path.glob("*.html"))) == 2
+
+
+def test_the_adapter_in_the_examples_should_be_the_one_the_documentation_prints() -> None:
+    # given the recipe in docs/02 §5.2, which readers copy, and the file CI actually runs
+    document = (REPO_ROOT / "docs" / "02-block-authoring.md").read_text(encoding="utf-8")
+    section = document[document.index("### 5.2 Writing an adapter") :]
+    recipe = section[
+        section.index("```python\n") + len("```python\n") : section.index("```\n\nPass it")
+    ]
+
+    # when they are compared
+    source = (REPO_ROOT / "examples" / "http_client.py").read_text(encoding="utf-8")
+
+    # then the code is identical, so what CI exercises is what the documentation promises
+    assert recipe in source
+
+
+def test_the_plumbing_check_should_pass_with_every_route_answered(tmp_path: Path) -> None:
+    # given the pipeline half of the check, on the stub rather than sockets (docs/09 §2 rule 1)
+    settings = Settings(output_dir=tmp_path, sqlite_path=tmp_path / "events.sqlite3")
+
+    # when it runs against a client that answers every route the jobs use
+    problems = _check_pipeline(settings, demo_http())
+
+    # then it has nothing to report
+    assert problems == []
+
+
+def test_the_plumbing_check_should_report_a_block_that_failed(tmp_path: Path) -> None:
+    # given a client missing the route one block of each report needs
+    routes = {path: body for path, body in ROUTES.items() if not path.startswith("/maintenance/")}
+    settings = Settings(
+        output_dir=tmp_path,
+        sqlite_path=tmp_path / "events.sqlite3",
+        block_retries=0,
+        retry_base_delay_seconds=0.0,
+    )
+
+    # when the check runs
+    problems = _check_pipeline(settings, StubHttpClient(routes))
+
+    # then it objects, naming the block: a check that cannot fail would prove nothing (docs/09 §2 rule 7)
+    assert any("Maintenance history" in problem and "FAILED" in problem for problem in problems)
+
+
+def test_the_plumbing_check_should_report_a_discovery_that_failed(tmp_path: Path) -> None:
+    # given a client with no routes at all
+    settings = Settings(
+        output_dir=tmp_path,
+        sqlite_path=tmp_path / "events.sqlite3",
+        block_retries=0,
+        retry_base_delay_seconds=0.0,
+    )
+
+    # when the check runs
+    problems = _check_pipeline(settings, StubHttpClient())
+
+    # then it reports both the failed discovery and the reports that never appeared
+    assert any(problem.startswith("discovery exited") for problem in problems)
+    assert any(problem.startswith("expected 2 reports") for problem in problems)
