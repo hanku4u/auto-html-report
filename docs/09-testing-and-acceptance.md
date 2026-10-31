@@ -135,7 +135,8 @@ name is the only documentation anyone reads.
 
 ## 5. CI
 
-A single GitHub Actions workflow, using uv for everything:
+A single GitHub Actions workflow, using uv for everything. The checks job runs these on Python 3.11, 3.12,
+3.13 and 3.14:
 
 ```bash
 uv sync --frozen --all-extras   # install the pinned environment, including both extras
@@ -153,10 +154,20 @@ One service: the checks job starts PostgreSQL 17 for the optional store suite, w
 from the CI environment and criterion 22 — which exercises both code paths against stubs and a
 self-skipping database suite — could never pass.
 
+Three more jobs run alongside the checks:
+
+- **Dependency floors.** The suite runs on Python 3.11 at `--resolution lowest-direct`, with PostgreSQL, so
+  the floors in `pyproject.toml` stay true (ADR-0033).
+- **Packaging.** `scripts/check_install.sh`, then an install from a git URL pinned to the commit.
+- **Secret scan.** `gitleaks`, at a pinned version and verified checksum, over the full git history, because
+  the repository is public.
+
+Third-party actions are pinned by commit SHA. Dependabot proposes updates to those pins and to `uv.lock`
+weekly, and leaves `pyproject.toml` alone, so development tool pins are bumped by hand.
+
 > **Scope caveat, carried from the original specification:** CI setup was **recommended, not
 > mandated** as a v1 requirement by the product owner. A workflow now ships at
-> `.github/workflows/ci.yml` — the checks above, plus a packaging job that runs
-> `scripts/check_install.sh` — but it is convenience, not a prerequisite: every acceptance criterion in
+> `.github/workflows/ci.yml`, but it is convenience, not a prerequisite: every acceptance criterion in
 > §3 remains verifiable without it, and a reviewer can run the same commands locally.
 
 Test count is not a goal and coverage percentage is not enforced in v1. The acceptance criteria above

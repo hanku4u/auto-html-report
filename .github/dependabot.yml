@@ -1,0 +1,21 @@
+version: 2
+updates:
+  # Keeps the SHA pins in the workflows from going stale.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # lockfile-only: the ranges in pyproject.toml are a compatibility statement and move by decision, not
+  # by bot, and docs/08 quotes that file byte for byte. Dev tool pins are therefore bumped by hand.
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    versioning-strategy: lockfile-only
+    groups:
+      python:
+        patterns: ["*"]

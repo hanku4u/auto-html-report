@@ -1,7 +1,9 @@
 name: CI
 
+# Pushes to other branches are covered by their pull request, so each change runs the matrix once.
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
@@ -9,8 +11,13 @@ permissions:
 
 jobs:
   checks:
-    name: Lint, types, tests
+    name: Lint, types, tests (${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    strategy:
+      # One failing version should not hide whether the others pass.
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
     # The optional store suite self-skips without a DSN; CI supplies one so the PostgreSQL backend is
     # exercised on every push, not only by hand (docs/09 §5).
     services:
@@ -30,8 +37,10 @@ jobs:
     env:
       AUTO_HTML_REPORT_TEST_POSTGRES_DSN: postgresql://test:test@localhost:5432/auto_html_report
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          python-version: ${{ matrix.python-version }}
       # The same commands the README's Development section quotes, in the same order.
       - run: uv sync --frozen --all-extras
       - run: uv lock --check
@@ -40,12 +49,45 @@ jobs:
       - run: uv run mypy
       - run: uv run pytest
 
+  lowest-direct:
+    name: Tests at the dependency floors
+    runs-on: ubuntu-latest
+    # The floors in pyproject.toml are only true while something runs them (ADR-0033). PostgreSQL is
+    # here for the same reason as above: without it the psycopg floor would go untested.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: auto_html_report
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d auto_html_report"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      AUTO_HTML_REPORT_TEST_POSTGRES_DSN: postgresql://test:test@localhost:5432/auto_html_report
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          python-version: "3.11"
+      # `uv pip` rather than `uv sync`: the lockfile holds the newest versions, which is not the point.
+      # --clear: setup-uv has already created .venv, because it was given a Python version.
+      - run: uv venv --clear
+      - run: uv pip install --resolution lowest-direct -e ".[postgres,s3]" --group dev
+      # Not `uv run`, which would sync the environment back to the lockfile first.
+      - run: .venv/bin/python -m pytest
+
   package:
     name: Install the wheel, run the quick start
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
       # Builds the wheel, installs it into a scratch environment, and runs the README's quick start from
       # it -- the one check a source-tree test cannot make.
       - run: ./scripts/check_install.sh
@@ -59,3 +101,24 @@ jobs:
           uv init --bare --name install-check >/dev/null
           uv add "auto_html_report @ git+file://${GITHUB_WORKSPACE}@${GITHUB_SHA}"
           uv run python -c "import auto_html_report; print(auto_html_report.__version__)"
+
+  secrets:
+    name: Scan the history for secrets
+    runs-on: ubuntu-latest
+    env:
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # The repository is public, so a secret anywhere in its history is exposed, not only at HEAD.
+          fetch-depth: 0
+      # The binary rather than the gitleaks action, whose pull-request mode scans only the new commits.
+      - name: Install gitleaks at a verified checksum
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL -o "$RUNNER_TEMP/$archive" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/$archive" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" gitleaks
+      - run: '"$RUNNER_TEMP/gitleaks" git --redact --no-banner .'
