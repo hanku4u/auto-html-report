@@ -1,6 +1,6 @@
 """Builders for hand-made domain objects.
 
-Rendering, collection and the job runners all need a :class:`~auto_inform.domain.report.Report`
+Rendering, collection and the job runners all need a :class:`~auto_html_report.domain.report.Report`
 without touching the network, the clock or the filesystem. Those builders live here rather than being
 re-declared in every test module.
 
@@ -13,10 +13,10 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
-from auto_inform.application.context import RenderContext, ReportContext
-from auto_inform.domain.block import Block, BlockOutcome, BlockStatus
-from auto_inform.domain.event import Event
-from auto_inform.domain.report import Report, ReportDefinition, ReportRow
+from auto_html_report.application.context import RenderContext, ReportContext
+from auto_html_report.domain.block import Block, BlockOutcome, BlockStatus
+from auto_html_report.domain.event import Event
+from auto_html_report.domain.report import Report, ReportDefinition, ReportRow
 
 #: Fixed so that golden files are worth committing: a run id and a timestamp that never move.
 FIXED_RUN_ID = "9f2c1ab34de5"

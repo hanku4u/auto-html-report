@@ -11,8 +11,8 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from auto_inform.application.context import RenderContext, ReportContext
-from auto_inform.domain.block import Block, BlockOutcome, BlockStatus
+from auto_html_report.application.context import RenderContext, ReportContext
+from auto_html_report.domain.block import Block, BlockOutcome, BlockStatus
 
 
 class _NamedByDisplayName(Block[int]):

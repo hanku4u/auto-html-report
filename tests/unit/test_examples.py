@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from auto_inform import ExitCode, Settings
+from auto_html_report import ExitCode, Settings
 from examples import discover_wafers, process_events, quick_start
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -97,9 +97,9 @@ def _run_documented(arguments: Sequence[str], output_dir: Path) -> subprocess.Co
     env = {
         "PATH": os.environ.get("PATH", ""),
         "HOME": os.environ.get("HOME", ""),
-        "AUTO_INFORM_OUTPUT_DIR": str(output_dir),
-        "AUTO_INFORM_SQLITE_PATH": str(output_dir / "events.sqlite3"),
-        "AUTO_INFORM_LOG_FORMAT": "console",
+        "AUTO_HTML_REPORT_OUTPUT_DIR": str(output_dir),
+        "AUTO_HTML_REPORT_SQLITE_PATH": str(output_dir / "events.sqlite3"),
+        "AUTO_HTML_REPORT_LOG_FORMAT": "console",
     }
     return subprocess.run(
         [sys.executable, *arguments],

@@ -12,7 +12,7 @@ does *to* a block: timeout, retry, failure isolation and ordering.
 ## 1. The Block contract
 
 ```python
-# auto_inform/domain/block.py
+# auto_html_report/domain/block.py
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -106,14 +106,14 @@ worker. Per-instance mutable state is therefore fine; cross-instance state is no
 ## 4. The exception hierarchy
 
 ```python
-# auto_inform/domain/errors.py
-class AutoInformError(Exception): ...
-class BlockError(AutoInformError): ...
+# auto_html_report/domain/errors.py
+class AutoHtmlReportError(Exception): ...
+class BlockError(AutoHtmlReportError): ...
 class TransientBlockError(BlockError): ...      # retryable: 5xx, 429, connection reset
 class PermanentBlockError(BlockError): ...      # not retryable: 404, bad schema, auth failure
-class ConfigurationError(AutoInformError): ...  # bad env, missing factory, duplicate block name
-class StoreError(AutoInformError): ...          # event store unreachable or corrupt
-class OutputError(AutoInformError): ...         # report could not be written
+class ConfigurationError(AutoHtmlReportError): ...  # bad env, missing factory, duplicate block name
+class StoreError(AutoHtmlReportError): ...          # event store unreachable or corrupt
+class OutputError(AutoHtmlReportError): ...         # report could not be written
 ```
 
 Blocks may raise these directly. More commonly, the injected HTTP client raises them on the
@@ -125,7 +125,7 @@ Blocks never build their own HTTP client and never read the environment. They re
 the context:
 
 ```python
-# auto_inform/application/ports.py
+# auto_html_report/application/ports.py
 class HttpClient(Protocol):
     """Injected HTTP access. Implementations MUST be thread-safe: one instance is
     shared by every block in a report, and blocks run concurrently."""
@@ -149,7 +149,7 @@ class HttpClient(Protocol):
     ) -> bytes: ...
 ```
 
-`path` may be absolute or relative to `AUTO_INFORM_HTTP_BASE_URL`. Authentication is the client's
+`path` may be absolute or relative to `AUTO_HTML_REPORT_HTTP_BASE_URL`. Authentication is the client's
 concern: the injected implementation attaches the bearer token from settings. Blocks must never see
 or log credentials.
 
@@ -222,14 +222,14 @@ payload to be picklable and drag matplotlib into subprocess lifecycle management
 
 | Setting | Meaning | Default |
 | --- | --- | --- |
-| `AUTO_INFORM_MAX_WORKERS` | Ceiling on in-flight blocks per report | `8` |
-| `AUTO_INFORM_BLOCK_TIMEOUT_SECONDS` | Per-block wall-clock budget for **one attempt** | `60` |
-| `AUTO_INFORM_BLOCK_RETRIES` | Retries **after** the first attempt (capped at 10; see [07 §1.1](07-configuration-and-logging.md#11-environment-variable-to-settings-attribute-map)) | `2` |
-| `AUTO_INFORM_RETRY_BASE_DELAY_SECONDS` | Backoff base: `base * 2**attempt + jitter(0..base)` | `1.0` |
-| `AUTO_INFORM_RETRYABLE_EXCEPTIONS` | Extra retryable exception class names, comma-separated | `""` |
+| `AUTO_HTML_REPORT_MAX_WORKERS` | Ceiling on in-flight blocks per report | `8` |
+| `AUTO_HTML_REPORT_BLOCK_TIMEOUT_SECONDS` | Per-block wall-clock budget for **one attempt** | `60` |
+| `AUTO_HTML_REPORT_BLOCK_RETRIES` | Retries **after** the first attempt (capped at 10; see [07 §1.1](07-configuration-and-logging.md#11-environment-variable-to-settings-attribute-map)) | `2` |
+| `AUTO_HTML_REPORT_RETRY_BASE_DELAY_SECONDS` | Backoff base: `base * 2**attempt + jitter(0..base)` | `1.0` |
+| `AUTO_HTML_REPORT_RETRYABLE_EXCEPTIONS` | Extra retryable exception class names, comma-separated | `""` |
 
 The default retryable set is `TransientBlockError`, `TimeoutError`, `ConnectionError`, plus any
-types named in `AUTO_INFORM_RETRYABLE_EXCEPTIONS`. **Every other exception is treated as
+types named in `AUTO_HTML_REPORT_RETRYABLE_EXCEPTIONS`. **Every other exception is treated as
 permanent**, including `KeyError` from a malformed API payload — it will not improve on the second
 attempt. Retrying a `404` three times is just a slower way to fail.
 
@@ -259,12 +259,12 @@ regardless of completion order, and that is an acceptance criterion in
 ## 7. Worked example
 
 ```python
-# auto_inform/blocks/maintenance_history.py
+# auto_html_report/blocks/maintenance_history.py
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from auto_inform import Block, ReportContext, RenderContext, TransientBlockError, html_table
+from auto_html_report import Block, ReportContext, RenderContext, TransientBlockError, html_table
 
 
 @dataclass(frozen=True, slots=True)

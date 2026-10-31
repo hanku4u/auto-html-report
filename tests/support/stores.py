@@ -20,10 +20,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Self
 
-from auto_inform.application.ports import Clock, FailureRecord, SaveResult
-from auto_inform.domain.errors import ConfigurationError, StoreError
-from auto_inform.domain.event import Event, EventStatus
-from auto_inform.infrastructure.clock import SystemClock
+from auto_html_report.application.ports import Clock, FailureRecord, SaveResult
+from auto_html_report.domain.errors import ConfigurationError, StoreError
+from auto_html_report.domain.event import Event, EventStatus
+from auto_html_report.infrastructure.clock import SystemClock
 
 
 @dataclass(slots=True)

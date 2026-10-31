@@ -1,6 +1,6 @@
 ---
 status: active
-description: What auto_inform is, the scope and non-goals of v1, the vocabulary shared across the spec set, and the architectural shape of the framework.
+description: What auto_html_report is, the scope and non-goals of v1, the vocabulary shared across the spec set, and the architectural shape of the framework.
 replaces: docs/SPEC.md §1-3
 ---
 
@@ -8,7 +8,7 @@ replaces: docs/SPEC.md §1-3
 
 ## 1. Purpose and scope
 
-`auto_inform` is a Python library that assembles **reports** — single, self-contained HTML files
+`auto_html_report` is a Python library that assembles **reports** — single, self-contained HTML files
 containing one table with three columns: **Item**, **Data**, **Check**.
 
 Each row of that table is contributed by a **Block**: a small, self-contained class that knows how
@@ -73,9 +73,9 @@ those live behind ports and are wired at the edge. This is what makes blocks tes
 network and the framework testable without a bucket.
 
 ```
-                            ┌──────────────────────────────────────┐
-   client code (CI jobs) →  │  public API:  auto_inform/__init__.py │
-                            └──────────────────────────────────────┘
+                            ┌────────────────────────────────────────────┐
+   client code (CI jobs) →  │  public API:  auto_html_report/__init__.py │
+                            └────────────────────────────────────────────┘
                                             │
         ┌───────────────────────────────────┼─────────────────────────────────┐
         ▼                                   ▼                                 ▼
@@ -106,8 +106,8 @@ and nothing would have noticed.
    stays bounded and visible rather than accumulating.
 2. `application/` may import its own layer, `domain/`, the `Settings` *value* type
    (`infrastructure.settings`), and the shared private helpers at the package root (`_naming`,
-   `_version`) — in either the `from auto_inform._naming import slug` or the
-   `from auto_inform import _naming` form. Nothing else under `auto_inform` — in particular no concrete
+   `_version`) — in either the `from auto_html_report._naming import slug` or the
+   `from auto_html_report import _naming` form. Nothing else under `auto_html_report` — in particular no concrete
    adapter (`infrastructure.stores`, `infrastructure.writers`, `infrastructure.http_stub`, a real clock)
    and no `rendering`. Those arrive by injection, per rule 3. The audit enforces this as an **allowlist**,
    so a newly added adapter is forbidden by default rather than permitted until somebody remembers to
@@ -131,16 +131,16 @@ creates no dependency, which is the principle behind rule 1's exception. That ex
 — so it stays visible instead of accumulating. Everywhere else a type-only import is simply not a runtime
 dependency, and is not reported.
 
-**The composition root is exempt.** `auto_inform/__init__.py` exists to wire the layers together so that
-`from auto_inform import Block` works, and it legitimately imports all of them. One consequence is worth
+**The composition root is exempt.** `auto_html_report/__init__.py` exists to wire the layers together so that
+`from auto_html_report import Block` works, and it legitimately imports all of them. One consequence is worth
 stating plainly, because an earlier version of rule 1 claimed otherwise: importing *any* module under
-this package runs that root first, so `auto_inform.domain.block` cannot be imported "with no application
+this package runs that root first, so `auto_html_report.domain.block` cannot be imported "with no application
 or infrastructure layer present". What the rule actually guarantees is a fact about the source — the
 domain modules do not depend upward — which is what keeps them testable and the dependency arrows
 pointing inward.
 
 **And no layer may import that root back.** It imports the layers, so a layer importing it is a cycle.
-The audit reports a bare `import auto_inform` in *every* layer, whatever that layer's rule style — under
+The audit reports a bare `import auto_html_report` in *every* layer, whatever that layer's rule style — under
 the denylist rules the bare name matches no forbidden prefix and would otherwise pass silently.
 
 ## 5. The two pipelines
@@ -169,7 +169,7 @@ PROCESSING JOB  (e.g. every hour via CI scheduler)
 ## 6. Project layout
 
 ```
-auto-inform/
+auto-html-report/
 ├── pyproject.toml                  # uv_build; exact pins, extras, dependency groups
 ├── uv.lock                         # resolved dependency closure (committed)
 ├── .python-version                 # 3.11 — the supported floor
@@ -179,7 +179,7 @@ auto-inform/
 ├── scripts/check_install.sh        # wheel install + quick start; also CI's packaging job
 ├── .github/workflows/ci.yml        # the checks of docs/09 §5 and the packaging job
 ├── src/
-│   └── auto_inform/
+│   └── auto_html_report/
 │       ├── __init__.py             # THE public surface — re-exports only
 │       ├── domain/
 │       │   ├── block.py            # Block, BlockOutcome, BlockStatus

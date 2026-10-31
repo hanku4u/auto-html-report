@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import pytest
 
-from auto_inform.domain.errors import (
-    AutoInformError,
+from auto_html_report.domain.errors import (
+    AutoHtmlReportError,
     BlockError,
     ConfigurationError,
     OutputError,
@@ -29,13 +29,13 @@ from auto_inform.domain.errors import (
         OutputError,
     ],
 )
-def test_every_documented_error_should_derive_from_auto_inform_error(
+def test_every_documented_error_should_derive_from_auto_html_report_error(
     error_type: type[Exception],
 ) -> None:
     # given the documented error hierarchy
     # when a caller catches the base class
     # then every concrete error is caught, so a single except clause is always sufficient
-    assert issubclass(error_type, AutoInformError)
+    assert issubclass(error_type, AutoHtmlReportError)
 
 
 @pytest.mark.parametrize("error_type", [TransientBlockError, PermanentBlockError])

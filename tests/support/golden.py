@@ -6,7 +6,7 @@ breaking the comparison, which is how golden files rot -- somebody loosens the m
 nothing.
 
 The regex targets the footer rather than every occurrence of the tool name, because the inlined
-stylesheet mentions ``auto_inform`` in a comment, and masking that would quietly corrupt the CSS in the
+stylesheet mentions ``auto_html_report`` in a comment, and masking that would quietly corrupt the CSS in the
 snapshot.
 """
 
@@ -15,15 +15,15 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from auto_inform.domain.block import BlockStatus
-from auto_inform.domain.report import Report
-from auto_inform.rendering.escaping import html_table
-from auto_inform.rendering.shell import render_report
+from auto_html_report.domain.block import BlockStatus
+from auto_html_report.domain.report import Report
+from auto_html_report.rendering.escaping import html_table
+from auto_html_report.rendering.shell import render_report
 from tests.support.builders import make_report, make_row
 
 GOLDEN_PATH = Path(__file__).resolve().parents[1] / "golden" / "report.html"
 
-_FOOTER_VERSION = re.compile(r'(<footer class="ai-footer">auto_inform )\S+(</footer>)')
+_FOOTER_VERSION = re.compile(r'(<footer class="ai-footer">auto_html_report )\S+(</footer>)')
 _WHITESPACE = re.compile(r"\s+")
 _BETWEEN_TAGS = re.compile(r">\s+<")
 

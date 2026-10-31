@@ -55,7 +55,7 @@ the containment test passes with and without an anchor, and the figure smoke tes
 
 **Amended during implementation:** three things this description did not foresee. The stylesheet ships
 as a template that the document `include`s rather than an interpolated variable, because autoescaping
-sends entities into `<style>`, where they are not decoded (ADR-0024). `auto_inform/_naming.py` was
+sends entities into `<style>`, where they are not decoded (ADR-0024). `auto_html_report/_naming.py` was
 added, because the row identifier and the stage-6 filename both need the same slug rules and one
 implementation stops them disagreeing. And the golden fixture uses three blocks rather than two,
 because §6's error cell is part of the contract the snapshot exists to make executable.
@@ -84,7 +84,7 @@ suite passed — precisely the failure hermeticity rule 4 predicts, and invisibl
 which reaches the same place as passing no timeout at all — the anti-pattern [02 §2](02-block-authoring.md#2-collect--the-io-phase)
 warns about, with a documentation half that is fixed too. **Root-level modules were outside the layering
 audit entirely**, so `registry.py` could have acquired an adapter undisturbed; they have a rule now. A
-comment claiming a bare `import auto_inform` was flagged in every rule style was false under the denylist
+comment claiming a bare `import auto_html_report` was flagged in every rule style was false under the denylist
 rules — it is true now. And the registry's scan and tables are locked, so its thread-safety is a property
 rather than an assumption. `numpy` is now a declared
 direct dependency rather than a transitive one, because the wafer-map block imports it
@@ -130,14 +130,14 @@ a correct file end to end, and `collect_blocks` / `render_report` are usable ind
 
 **Note for this stage:** `Settings.error_detail` must be passed through to
 `render_report(..., error_detail=...)` here. It is wired but has no supplier yet, so
-`AUTO_INFORM_ERROR_DETAIL` is silently dead until this stage connects it — and a test should prove the
+`AUTO_HTML_REPORT_ERROR_DETAIL` is silently dead until this stage connects it — and a test should prove the
 setting reaches the rendered cell, not merely that the parameter exists.
 
 **Review boundary:** at this point the library is genuinely usable for someone willing to pass
 explicit blocks. Everything after this stage is the scheduled-job story. **Completed 2026-10-18**
 
 **Amended during implementation:** three things. `generate_report` and `report_filename` live in
-`auto_inform/generate.py` at the **package root**, not in `application/`, because they compose collection,
+`auto_html_report/generate.py` at the **package root**, not in `application/`, because they compose collection,
 rendering and writing while `application/` may not import `rendering/` — ADR-0028; the layering audit
 refused the documented placement on the first run. `ReportDefinition` gained an **`event_id`**, because
 the filename's middle segment needs an event identity the definition did not carry. And wiring
@@ -179,7 +179,7 @@ errors rather than leaving the hierarchy's promise overstated.
 them; `generate_report` logs both now. `discovery.finish` and the `event.*` events belong to stages 8–9.
 
 **Second review (2026-10-18, after the fix commit):** the five configuration factories are now **exported
-from `auto_inform`** — the module docstring already promised them and `05 §6`'s job scripts import them, so
+from `auto_html_report`** — the module docstring already promised them and `05 §6`'s job scripts import them, so
 the public surface and the documents now agree, with a test that the documented import resolves. The
 injected-clock fix has its **control**: both context factories assert `started_at` equals the fake clock's
 instant. `load_settings` and `configure_logging` now share **one** definition of a valid log level, having
@@ -191,7 +191,7 @@ written.
 `infrastructure/factories.py` — the one module allowed to name concrete adapters — and accept optional
 keyword overrides for `http`, `clock` and `logger`. The documented `new_report_context(settings)` call is
 unchanged; the overrides make the factories testable and usable by a demo job with canned fixtures.
-`build_output_writer` **raises for `AUTO_INFORM_OUTPUT_KIND=s3`** instead of falling back to the local
+`build_output_writer` **raises for `AUTO_HTML_REPORT_OUTPUT_KIND=s3`** instead of falling back to the local
 filesystem, because the S3 writer is stage 11's; a job that believes it is uploading and is not is worse
 than one that fails at start-up. Stage 11 replaces that error with the real branch.
 
@@ -244,7 +244,7 @@ have tests: the same-batch rollback when two feeds claim one key, and the `pendi
 `retry`, `failed` and `abandoned` — mirror the block vocabulary the shared executor emits, and
 `discovery.finish` gained the `discoverer` field, without which two sources producing the same event
 type were indistinguishable in the log. A documented-import test now resolves every
-`from auto_inform import ...` in the documentation set, with a shrinking allowlist for the two names
+`from auto_html_report import ...` in the documentation set, with a shrinking allowlist for the two names
 stage 9 lands; it found a real defect immediately (`register_report` was documented and unexported).
 
 ## Stage 9 — The processing job and exit codes
@@ -262,7 +262,7 @@ thread at any concurrency setting.
 `processing.py` and `exit_codes.py` live at the package **root**, not `application/`: the job must call the
 registry and `generate_report`, and the application allowlist excludes the root because the root reaches the
 renderer — the same reasoning as ADR-0028. `fail_events_with_failed_blocks` defaults to **`None`** ("use
-`AUTO_INFORM_FAIL_ON_BLOCK_ERROR`"), not `False`; the documented default would have silently ignored the
+`AUTO_HTML_REPORT_FAIL_ON_BLOCK_ERROR`"), not `False`; the documented default would have silently ignored the
 setting, so `05 §6`'s script would deliver red reports and exit `0` against a setting that says otherwise.
 And a store or writer failure is **recorded and stops the run** rather than escaping: escaping made
 `OUTPUT_ERROR` unreachable from `exit_code_for`, while continuing through a writer outage would consume
@@ -278,7 +278,7 @@ has both, the finish carrying `output_uri: null`. The runner owns the event-leve
 held to the port rather than to the runner's assumptions.
 
 **Stage-8 obligations settled here:** `run_processing` always passes a concrete limit —
-`AUTO_INFORM_PROCESSING_LIMIT` (default 500); an explicit `limit` can lower it, never raise it, and a larger
+`AUTO_HTML_REPORT_PROCESSING_LIMIT` (default 500); an explicit `limit` can lower it, never raise it, and a larger
 request is clamped and logged as `processing.capped`. `max_workers` and `max_concurrent_reports` now have
 maxima (64 and 32), because each report starts its own block pool and the two multiply. The report-deadline
 question is answered with a documented **no**: blocks are bounded by their budget and the hang guard,
@@ -327,11 +327,11 @@ check runs.
 
 **Second review (2026-10-18):** the branch as committed was missing the report package. `.gitignore`'s
 unanchored `reports/` — meant for the generated output directory — also matched
-`src/auto_inform/reports/`, so the files were ignored, never entered the commit, and a clean checkout died
+`src/auto_html_report/reports/`, so the files were ignored, never entered the commit, and a clean checkout died
 at collection while the working tree stayed green. The patterns are anchored now (`/reports/`, `/dist/`,
-`/build/`) with the reason written beside them, the packaging check imports `auto_inform.reports.manufacturing`
+`/build/`) with the reason written beside them, the packaging check imports `auto_html_report.reports.manufacturing`
 from the installed wheel so a missing subpackage fails there, and the accidentally committed `FIXME.md` is
-untracked and ignored. CI's install check now prints the new `auto_inform.__version__`, computed from
+untracked and ignored. CI's install check now prints the new `auto_html_report.__version__`, computed from
 `get_version()` rather than a second copy. The README's Check-column sentence and its configuration table
 were corrected, and `03 §3` regained the ad-hoc example that had illustrated the "dynamic lists" half of
 its title.
@@ -358,7 +358,7 @@ stays true.
 `infrastructure/stores/postgres_store.py`, `infrastructure/writers/s3_writer.py`, and the shared
 behaviour suite extended to both. Both remain self-skipping in CI without their services.
 
-**Note for this stage:** `AUTO_INFORM_OUTPUT_KIND=s3` currently raises in `build_output_writer`; replace
+**Note for this stage:** `AUTO_HTML_REPORT_OUTPUT_KIND=s3` currently raises in `build_output_writer`; replace
 that with the real `S3Writer` branch here, and keep the failure mode loud — refusing to start beats
 silently writing locally. **The S3 client must set transport timeouts**: writers are called from
 concurrent report workers and the runner has no per-report deadline ([06 §1](06-output-html.md#1-writers),
@@ -377,7 +377,7 @@ duplicated. Both classes are exported from the package root; importing the root 
 or boto3.
 
 **Verified against a real server, not only the fake.** The shared store suite ran against SQLite, the
-in-memory double and PostgreSQL 17 in a container: `AUTO_INFORM_TEST_POSTGRES_DSN=… uv run pytest -m
+in-memory double and PostgreSQL 17 in a container: `AUTO_HTML_REPORT_TEST_POSTGRES_DSN=… uv run pytest -m
 postgres`. That run caught a real bug — psycopg3's `with connection:` **closes** the connection on exit,
 so the store's schema setup left it holding a closed handle. Setup now commits explicitly. The S3 path is
 exercised end to end through `run_processing` with a stub client, and a recorder proves the upload
@@ -389,12 +389,12 @@ transaction, so a read left a session idle-in-transaction (holding a snapshot an
 read left it aborted for the next call; it now commits like every other call. `discovered_at` decoded in
 the **session** timezone, not UTC — invisible in the UTC test container, caught by a test that sets
 `timezone=Europe/Berlin` and asserts the round-trip is still UTC. And the suite dropped `events` in
-whatever database the DSN named; it now owns a dedicated `auto_inform_test` schema, so a developer
+whatever database the DSN named; it now owns a dedicated `auto_html_report_test` schema, so a developer
 pointing at their real queue cannot lose it.
 
 Two P2s: the SQLite store still refused PostgreSQL with "arrives with stage 11" (and both examples
 hardcoded SQLite), and the refusal tests were marked `postgres`, so they never ran; both fixed, the
-examples choose their store from `AUTO_INFORM_EVENT_STORE`. A P3 on each side was worth taking too: the
+examples choose their store from `AUTO_HTML_REPORT_EVENT_STORE`. A P3 on each side was worth taking too: the
 report filename gained an eight-character digest over the *raw* title and event id, so two distinct
 events whose slugs collide can no longer overwrite each other in a shared bucket; and a malformed
 PostgreSQL DSN can no longer put a fragment of the password into a logged `StoreError` (libpq quotes the
@@ -411,7 +411,7 @@ service so the optional suite runs on every push instead of only by hand; an unk
 refused rather than reinterpreted as S3; bucket validation rejects IP-like names and the invalid bucket and
 encryption cases now have tests; the filename digest is 64 bits with the collision caveat stated; the
 wrong-password test edits the DSN structurally instead of assuming the password is `test`; and
-`AUTO_INFORM_OUTPUT_S3_TIMEOUT_SECONDS` makes the transport timeout reachable from the documented factory
+`AUTO_HTML_REPORT_OUTPUT_S3_TIMEOUT_SECONDS` makes the transport timeout reachable from the documented factory
 instead of only from a hand-built writer.
 
 **638 tests with PostgreSQL (which CI now starts); 606 passing and 32 skipped without a DSN.**

@@ -8,10 +8,10 @@ from datetime import UTC, datetime
 
 import pytest
 
-from auto_inform.application.context import RenderContext, ReportContext
-from auto_inform.domain.block import Block, BlockOutcome, BlockStatus
-from auto_inform.domain.errors import ConfigurationError
-from auto_inform.domain.report import (
+from auto_html_report.application.context import RenderContext, ReportContext
+from auto_html_report.domain.block import Block, BlockOutcome, BlockStatus
+from auto_html_report.domain.errors import ConfigurationError
+from auto_html_report.domain.report import (
     OutputLocation,
     Report,
     ReportDefinition,

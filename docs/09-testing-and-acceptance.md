@@ -15,7 +15,7 @@ replaces: docs/SPEC.md §9, §13
 | `collect_blocks` | Fake clock and fake callables. Assert: ordering preserved when the first block is slowest; one failure does not prevent others running; retry count and backoff respected; timeout yields `TIMED_OUT` without aborting the run. |
 | HTTP error mapping | The normative table in [02 §5.1](02-block-authoring.md#51-normative-error-mapping) is tested status by status against the client: a 503 raises a retryable error, a 404 does not, a 429 is retried, a malformed body is permanent. |
 | Runners | `FakeEventStore` (in-memory dict, same semantics as the SQL schema). Assert re-discovery does not reset `PROCESSED`; a failed write leaves the event `NEW`; a missing factory skips rather than consumes; report concurrency above 1 never writes to the store off the main thread. |
-| Stores | Integration tests against a temporary SQLite file, and the same shared behaviour suite against the in-memory double and PostgreSQL. PostgreSQL tests are marked `@pytest.mark.postgres` and skipped unless `AUTO_INFORM_TEST_POSTGRES_DSN` is set. |
+| Stores | Integration tests against a temporary SQLite file, and the same shared behaviour suite against the in-memory double and PostgreSQL. PostgreSQL tests are marked `@pytest.mark.postgres` and skipped unless `AUTO_HTML_REPORT_TEST_POSTGRES_DSN` is set. |
 | Writers | Local writer: temp dir, atomic rename, directory creation. S3 writer: injected stub client, key composition, content type, encryption header. No live AWS. |
 | Rendering | Golden-file tests for the full document with a two-block fixture report. Normalise insignificant whitespace before comparing, **and normalise the footer's version token**, so that cutting a release does not break the golden files. A comparison that gets loosened every release ends up asserting nothing. This is the output contract in [06](06-output-html.md) made executable. |
 | Figures | Smoke test only: build a figure, assert the URI starts `data:image/png;base64,`, and assert no figures remain open afterwards. Never assert on pixels. |
@@ -62,7 +62,7 @@ audit that has quietly stopped objecting looks exactly like a suite that is pass
    and a fake sleep. Asserting that something took at least 30 seconds is not a test, it is a
    delay.
 3. **No live external services.** PostgreSQL is the one exception, and it self-skips without
-   `AUTO_INFORM_TEST_POSTGRES_DSN`.
+   `AUTO_HTML_REPORT_TEST_POSTGRES_DSN`.
 4. **No dependence on test order.** In particular, registry tests must not depend on whether
    `import_builtin_blocks()` has already run in the same process. A sharper form of the same rule, learned
    the hard way: **a test that snapshots process-global state must snapshot it in its fully-populated
@@ -95,7 +95,7 @@ code.
 
 | # | Criterion | Verified by |
 | --- | --- | --- |
-| 1 | `uv add "auto_inform @ git+…"` succeeds in a clean environment and `import auto_inform` works | CI packaging job |
+| 1 | `uv add "auto_html_report @ git+…"` succeeds in a clean environment and `import auto_html_report` works | CI packaging job |
 | 2 | A tag or commit SHA install is documented and works | CI packaging job, second variant |
 | 3 | `generate_report()` returns HTML containing exactly one row per block, in definition order | Golden-file test (three-block fixture) |
 | 4 | Row order is identical whether the first block or the last block finishes first | Ordering test with inverted completion order |
@@ -111,9 +111,9 @@ code.
 | 14 | Re-running processing performs no work for already-processed events | Same test, second call returns zero outcomes |
 | 15 | A missing `ReportFactory` leaves the event `NEW` and records a `ConfigurationError` | Unregistered event type |
 | 16 | A report that fails to upload is not marked `PROCESSED` | Writer raising `OutputError` |
-| 17 | An event that fails `AUTO_INFORM_EVENT_MAX_ATTEMPTS` times is retired and never returned by `pending()` again | Store behaviour suite, boundary at exactly `max_attempts` |
+| 17 | An event that fails `AUTO_HTML_REPORT_EVENT_MAX_ATTEMPTS` times is retired and never returned by `pending()` again | Store behaviour suite, boundary at exactly `max_attempts` |
 | 18 | A permanently failing event does not starve later events behind it in the queue | Two events, the older permanently failing, `limit=1` |
-| 19 | With `AUTO_INFORM_MAX_CONCURRENT_REPORTS > 1`, store methods are only ever called from the main thread | Store spy recording calling thread |
+| 19 | With `AUTO_HTML_REPORT_MAX_CONCURRENT_REPORTS > 1`, store methods are only ever called from the main thread | Store spy recording calling thread |
 | 20 | `Settings` attribute names match the documented env-var mapping, and secrets never appear in `repr()` | Mapping test plus redaction test |
 | 21 | `mypy` (strict via config) and `ruff` pass, and `uv lock --check` confirms the lockfile is in sync | CI |
 | 22 | Postgres and S3 paths are exercised without live services | Injected stub clients; Postgres suite self-skips without a DSN |

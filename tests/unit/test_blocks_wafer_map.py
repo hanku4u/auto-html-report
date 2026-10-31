@@ -14,9 +14,9 @@ import sys
 import numpy as np
 import pytest
 
-from auto_inform.blocks.wafer_map import WaferMapBlock
-from auto_inform.infrastructure.settings import Settings
-from auto_inform.registry import get_block
+from auto_html_report.blocks.wafer_map import WaferMapBlock
+from auto_html_report.infrastructure.settings import Settings
+from auto_html_report.registry import get_block
 from tests.support.contexts import make_render_context, make_report_context
 from tests.support.http import FakeHttpClient
 
@@ -155,8 +155,8 @@ def test_scanning_the_built_in_blocks_should_not_import_matplotlib() -> None:
     # given a fresh interpreter, so the answer cannot depend on which test ran first
     probe = (
         "import sys;"
-        "import auto_inform;"
-        "from auto_inform.registry import available_blocks;"
+        "import auto_html_report;"
+        "from auto_html_report.registry import available_blocks;"
         "available_blocks();"
         "print('matplotlib' in sys.modules, 'matplotlib.pyplot' in sys.modules)"
     )

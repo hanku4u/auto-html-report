@@ -13,7 +13,7 @@ cadence without affecting the other. See ADR-0008.
 ## 1. Discovery
 
 ```python
-# auto_inform/application/discovery.py
+# auto_html_report/application/discovery.py
 class Discoverer(ABC):
     """Produces events of exactly one type from one external source."""
 
@@ -122,11 +122,11 @@ def run_processing(
     """Fetch pending events, build each event's report, write it, and update the store."""
 ```
 
-A run takes a **bounded batch**: `AUTO_INFORM_PROCESSING_LIMIT` (default 500) is the ceiling, and
+A run takes a **bounded batch**: `AUTO_HTML_REPORT_PROCESSING_LIMIT` (default 500) is the ceiling, and
 `limit` may lower it but never raise it — `None` means the ceiling. A caller that asks for more is
 clamped and logged as `processing.capped`, because silently processing fewer events than requested is
 indistinguishable from a shorter queue. Workers are submitted as a sliding window of at most
-`AUTO_INFORM_MAX_CONCURRENT_REPORTS`, not one future per event, so a full batch does not become a full
+`AUTO_HTML_REPORT_MAX_CONCURRENT_REPORTS`, not one future per event, so a full batch does not become a full
 batch of in-flight reports.
 
 Behavioural rules, each of which has a test in [09](09-testing-and-acceptance.md):
@@ -141,7 +141,7 @@ Behavioural rules, each of which has a test in [09](09-testing-and-acceptance.md
    **Consequence, stated plainly:** because no attempt is counted, ADR-0019's retirement never applies
    to such an event, and `pending()` is oldest-first — so an event type that is *permanently*
    unregistered (a factory that was removed, or a type nobody intends to handle) is returned at the head
-   of every run. With more of them than `AUTO_INFORM_PROCESSING_LIMIT`, they fill each batch and starve
+   of every run. With more of them than `AUTO_HTML_REPORT_PROCESSING_LIMIT`, they fill each batch and starve
    the types behind them, while the run exits `2` on every schedule. The remedies are operational:
    register the factory, run the job filtered to a handled type (`run_processing(event_type=...)`), or
    retire the offending events with SQL.
@@ -149,7 +149,7 @@ Behavioural rules, each of which has a test in [09](09-testing-and-acceptance.md
    not be recorded as delivered, or it is lost with nobody the wiser.
 4. **A report whose blocks failed is still a report.** It was written successfully, and the error
    cells *are* the deliverable. Whether that counts as a failed event is decided by
-   `AUTO_INFORM_FAIL_ON_BLOCK_ERROR` (default `true`): when true the event is marked `FAILED` for
+   `AUTO_HTML_REPORT_FAIL_ON_BLOCK_ERROR` (default `true`): when true the event is marked `FAILED` for
    operator follow-up and the run exits `1`; when false it is `PROCESSED` and the run exits `0`.
    `fail_events_with_failed_blocks` overrides the setting for one run, and `None` — the default —
    means "use the setting", which is what a job script that does not mention it expects.
@@ -185,8 +185,8 @@ Event ──► factory ──► ReportDefinition ──► generate_report ─
 
 | Setting | Meaning | Default |
 | --- | --- | --- |
-| `AUTO_INFORM_MAX_CONCURRENT_REPORTS` | Reports processed simultaneously per run | `1` |
-| `AUTO_INFORM_PROCESSING_LIMIT` | Events one run takes from the queue (a ceiling for `limit`) | `500` |
+| `AUTO_HTML_REPORT_MAX_CONCURRENT_REPORTS` | Reports processed simultaneously per run | `1` |
+| `AUTO_HTML_REPORT_PROCESSING_LIMIT` | Events one run takes from the queue (a ceiling for `limit`) | `500` |
 
 **The default is 1, deliberately.** With sequential events, every store call happens on the main
 thread, which is what makes the single-writer assumption in [04](04-events-and-stores.md) safe and
@@ -195,7 +195,7 @@ in worker threads and **all store writes are marshalled back onto the main threa
 never touched concurrently regardless of the setting.
 
 Set it higher when a run's event count makes wall-clock time a problem. The per-report block pool
-is sized `min(AUTO_INFORM_MAX_WORKERS, len(blocks))`, so raising report concurrency multiplies the
+is sized `min(AUTO_HTML_REPORT_MAX_WORKERS, len(blocks))`, so raising report concurrency multiplies the
 number of in-flight HTTP calls — size it against the API's rate limits, not against CPU. See
 ADR-0020, and note that if a single run ever needs to process hundreds of events, sharding by
 event type across several jobs is usually a better answer than one very wide job.
@@ -238,7 +238,7 @@ wins, in this order:
 | 1 | `CONFIGURATION_ERROR` (2) | An outcome recorded a `ConfigurationError`: no factory for that event's type, or a discoverer that broke its contract. |
 | 2 | `STORE_ERROR` (3) | An outcome recorded a `StoreError`: a store call failed mid-run. |
 | 3 | `OUTPUT_ERROR` (4) | An outcome recorded an `OutputError`: a report was built but could not be written. |
-| 4 | `PARTIAL_FAILURE` (1) | Any other event failed to process — including a definition the renderer refused because of the event's own data (`EventDataError`), which is retried and eventually retired rather than blamed on the deployment — or a block failure was turned into a failed event by `AUTO_INFORM_FAIL_ON_BLOCK_ERROR`. |
+| 4 | `PARTIAL_FAILURE` (1) | Any other event failed to process — including a definition the renderer refused because of the event's own data (`EventDataError`), which is retried and eventually retired rather than blamed on the deployment — or a block failure was turned into a failed event by `AUTO_HTML_REPORT_FAIL_ON_BLOCK_ERROR`. |
 | 5 | `SUCCESS` (0) | None of the above. |
 
 Failures **outside** a run are not ranked by `exit_code_for`, because there is no run to pass it:
@@ -250,7 +250,7 @@ shape.
 
 Consequence: a report containing three failed blocks exits `1`, so the CI job goes amber and
 somebody looks. That is intended. Operators who consider a partly-red report acceptable set
-`AUTO_INFORM_FAIL_ON_BLOCK_ERROR=false` and get `0`.
+`AUTO_HTML_REPORT_FAIL_ON_BLOCK_ERROR=false` and get `0`.
 
 ## 6. Example job scripts
 
@@ -258,7 +258,7 @@ somebody looks. That is intended. Operators who consider a partly-red report acc
 # my_jobs/discover_wafers.py
 import sys
 
-from auto_inform import (
+from auto_html_report import (
     DiscoveryContext, Discoverer, Event, SqliteEventStore, configure_logging,
     exit_code_for, load_settings, new_discovery_context, run_discovery,
 )
@@ -299,7 +299,7 @@ if __name__ == "__main__":
 # my_jobs/process_events.py — the whole scheduled job
 import sys
 
-from auto_inform import (
+from auto_html_report import (
     SqliteEventStore, build_output_writer, configure_logging,
     exit_code_for, load_settings, new_report_context, run_processing,
 )
@@ -322,7 +322,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-Both scripts import `auto_inform.reports.manufacturing` (or whatever modules hold the report
+Both scripts import `auto_html_report.reports.manufacturing` (or whatever modules hold the report
 factories) at the top, because a factory registers itself on import. Forgetting that import is the
 one mistake these scripts make, and the failure mode is loud rather than silent: every event
 records a `ConfigurationError` and exits `2`.
@@ -334,8 +334,8 @@ returning a run, so their exit codes are the script's to choose. The examples ab
 for readability; a production script wraps the setup:
 
 ```python
-from auto_inform import ExitCode
-from auto_inform.domain.errors import ConfigurationError, OutputError, StoreError
+from auto_html_report import ExitCode
+from auto_html_report.domain.errors import ConfigurationError, OutputError, StoreError
 
 
 def main() -> int:

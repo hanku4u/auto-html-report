@@ -20,23 +20,23 @@ from typing import Any, Self
 
 import pytest
 
-from auto_inform import registry
-from auto_inform.application.context import RenderContext, ReportContext
-from auto_inform.application.ports import EventStore, FailureRecord, SaveResult
-from auto_inform.domain.block import Block, BlockStatus
-from auto_inform.domain.errors import (
+from auto_html_report import registry
+from auto_html_report.application.context import RenderContext, ReportContext
+from auto_html_report.application.ports import EventStore, FailureRecord, SaveResult
+from auto_html_report.domain.block import Block, BlockStatus
+from auto_html_report.domain.errors import (
     ConfigurationError,
     OutputError,
     PermanentBlockError,
     StoreError,
 )
-from auto_inform.domain.event import Event
-from auto_inform.domain.report import OutputLocation, ReportDefinition
-from auto_inform.exit_codes import ExitCode, exit_code_for
-from auto_inform.infrastructure.settings import Settings
-from auto_inform.infrastructure.writers.local_writer import LocalDirectoryWriter
-from auto_inform.infrastructure.writers.s3_writer import S3Writer
-from auto_inform.processing import UNCLASSIFIED_FAILURE, _classify_failure, run_processing
+from auto_html_report.domain.event import Event
+from auto_html_report.domain.report import OutputLocation, ReportDefinition
+from auto_html_report.exit_codes import ExitCode, exit_code_for
+from auto_html_report.infrastructure.settings import Settings
+from auto_html_report.infrastructure.writers.local_writer import LocalDirectoryWriter
+from auto_html_report.infrastructure.writers.s3_writer import S3Writer
+from auto_html_report.processing import UNCLASSIFIED_FAILURE, _classify_failure, run_processing
 from tests.support.builders import make_event
 from tests.support.clocks import DEFAULT_START, FakeClock
 from tests.support.contexts import make_report_context

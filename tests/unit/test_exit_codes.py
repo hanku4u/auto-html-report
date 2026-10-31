@@ -11,9 +11,9 @@ from collections.abc import Sequence
 
 import pytest
 
-from auto_inform.application.discovery import DiscoveryOutcome, DiscoveryRun
-from auto_inform.exit_codes import ExitCode, exit_code_for
-from auto_inform.processing import EventProcessingOutcome, ProcessingRun
+from auto_html_report.application.discovery import DiscoveryOutcome, DiscoveryRun
+from auto_html_report.exit_codes import ExitCode, exit_code_for
+from auto_html_report.processing import EventProcessingOutcome, ProcessingRun
 from tests.support.builders import make_event, make_outcome
 from tests.support.clocks import DEFAULT_START
 
@@ -97,7 +97,7 @@ def test_a_configuration_error_should_outrank_everything() -> None:
 
 
 def test_a_block_failure_that_failed_the_event_should_be_a_partial_failure() -> None:
-    # the runner records "BlockError" when AUTO_INFORM_FAIL_ON_BLOCK_ERROR marks the event failed, so the
+    # the runner records "BlockError" when AUTO_HTML_REPORT_FAIL_ON_BLOCK_ERROR marks the event failed, so the
     # exit code follows the event's outcome rather than re-reading the report
     assert exit_code_for(_processing_run("BlockError")) is ExitCode.PARTIAL_FAILURE
 

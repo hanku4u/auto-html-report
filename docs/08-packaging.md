@@ -10,9 +10,9 @@ replaces: docs/SPEC.md §8
 
 | | |
 | --- | --- |
-| Distribution name | `auto-inform` |
-| Import name | `auto_inform` |
-| Repository | `git@github.com:hanku4u/auto-inform.git` |
+| Distribution name | `auto-html-report` |
+| Import name | `auto_html_report` |
+| Repository | `git@github.com:hanku4u/auto-html-report.git` |
 | Requires Python | `>=3.11` (`.python-version` pinned to `3.11`) |
 | Dependency manager | `uv` (ADR-0021) |
 | Published to PyPI | No (ADR-0015) |
@@ -20,7 +20,7 @@ replaces: docs/SPEC.md §8
 
 The import name has an underscore and the distribution name a hyphen. pip is inconsistent about
 which it accepts in the extras position, so **install commands in this project always spell the
-underscore form**: `auto_inform[s3]`.
+underscore form**: `auto_html_report[s3]`.
 
 ## 2. Dependency changes
 
@@ -91,7 +91,7 @@ requires = ["uv_build>=0.13.0,<0.14.0"]
 build-backend = "uv_build"
 
 [project]
-name = "auto-inform"
+name = "auto-html-report"
 version = "0.1.0"
 description = "Dynamic HTML report generator: composable blocks, concurrent collection, one file."
 readme = "README.md"
@@ -116,9 +116,9 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q --strict-markers"
-markers = ["postgres: requires AUTO_INFORM_TEST_POSTGRES_DSN"]
+markers = ["postgres: requires AUTO_HTML_REPORT_TEST_POSTGRES_DSN"]
 # Lets tests import the shared builders as tests.support.*. The repository root holds no package
-# named auto_inform (that lives under src/), so this cannot shadow the installed distribution.
+# named auto_html_report (that lives under src/), so this cannot shadow the installed distribution.
 pythonpath = ["."]
 
 [tool.ruff]
@@ -140,7 +140,7 @@ strict = true
 files = ["src", "tests"]
 ```
 
-There is **no `all` extra**: consumers who want both backends spell `auto_inform[postgres,s3]`
+There is **no `all` extra**: consumers who want both backends spell `auto_html_report[postgres,s3]`
 directly, which avoids a self-referential dependency that resolvers have no reason to accept.
 
 ## 4. `uv.lock`
@@ -158,16 +158,16 @@ byte-identical package sets, and so that this document has a single place to sta
 ## 5. Two packaging details that used to cost an afternoon
 
 1. **Templates are package data, and `uv_build` ships them automatically.** Verified against
-   `uv 0.13.0`: a file at `src/auto_inform/rendering/templates/report.html.j2` appears in the built
+   `uv 0.13.0`: a file at `src/auto_html_report/rendering/templates/report.html.j2` appears in the built
    wheel with no configuration at all — no `force-include`, no `artifacts` key, no
    `include_package_data`. Everything inside the module directory is packaged. The rule that still
    applies is **load it with `importlib.resources`**, never `Path(__file__).parent / "templates"`:
    that path does not exist in a zipped wheel or inside some container layers, and the failure
    appears only after deployment.
 2. **The `src/` layout is mandatory, and `uv_build` infers the module name from the project name.**
-   `name = "auto-inform"` produces `src/auto_inform/`, so the hyphen-to-underscore mapping is
+   `name = "auto-html-report"` produces `src/auto_html_report/`, so the hyphen-to-underscore mapping is
    automatic — do not second-guess it with a manual `module-name` override. The layout also stops
-   `import auto_inform` from resolving to the source tree during tests, which would hide packaging
+   `import auto_html_report` from resolving to the source tree during tests, which would hide packaging
    errors until install time. CI installs the package (`uv sync --frozen`) rather than running pytest
    against the raw directory.
 
@@ -175,13 +175,13 @@ byte-identical package sets, and so that this document has a single place to sta
 
 ```bash
 # into a uv-managed project, pinned to a tag or commit SHA
-uv add "auto_inform[s3] @ git+https://github.com/hanku4u/auto-inform.git@v0.1.0"
+uv add "auto_html_report[s3] @ git+https://github.com/hanku4u/auto-html-report.git@v0.1.0"
 
 # latest from main (unpinned — expect surprises)
-uv add "auto_inform @ git+https://github.com/hanku4u/auto-inform.git"
+uv add "auto_html_report @ git+https://github.com/hanku4u/auto-html-report.git"
 
 # plain pip works too, and still needs the underscore form
-pip install "auto_inform[postgres,s3] @ git+https://github.com/hanku4u/auto-inform.git@v0.1.0"
+pip install "auto_html_report[postgres,s3] @ git+https://github.com/hanku4u/auto-html-report.git@v0.1.0"
 ```
 
 > **Gotcha:** uv and pip both cache git sources, so an unpinned `@main` can serve a stale package at
@@ -197,14 +197,14 @@ SHA.
 The installed distribution's version is read at runtime, never stored:
 
 ```python
-# src/auto_inform/_version.py
+# src/auto_html_report/_version.py
 def get_version() -> str:
     """Return the installed distribution's version, or UNKNOWN_VERSION if not installed."""
 ```
 
 `pyproject.toml` is the single source of truth. Nothing in the package writes down a second copy, for
 the same reason `requirements.txt` was removed: a second copy of the truth drifts (ADR-0021).
-`auto_inform.__version__` is computed once at import from `get_version()`, so the conventional attribute
+`auto_html_report.__version__` is computed once at import from `get_version()`, so the conventional attribute
 a consumer reaches for cannot disagree with the installed metadata. See
 ADR-0023 for the decision and what was rejected.
 
@@ -214,7 +214,7 @@ Two properties are load-bearing, and both were verified rather than assumed:
   installed raises `PackageNotFoundError`, so the fallback is not defensive decoration. It reports
   `0+unknown` — deliberately not a plausible release number, because a report footer should never
   claim a version that was never built.
-- **The lookup is name-normalised.** Both `auto-inform` and `auto_inform` resolve, so the constant in
+- **The lookup is name-normalised.** Both `auto-html-report` and `auto_html_report` resolve, so the constant in
   `_version.py` cannot become a portability trap.
 
 **Deferred, with a trigger.** A VCS-derived version (`uv-dynamic-versioning` or `hatch-vcs`, with
@@ -229,7 +229,7 @@ build-time dependency needing its own entry in §2.
 - A packaging test job in CI installs from a clean environment using the documented command and
   imports the package, so a missing template or a `src/` layout mistake fails at install time rather
   than at first report.
-- A test asserts `importlib.resources.files("auto_inform.rendering")` can read the template. With
+- A test asserts `importlib.resources.files("auto_html_report.rendering")` can read the template. With
   `uv_build` there is no `force-include` to regress, but the resource-loading path itself still can.
 - `requires-python` is asserted against the interpreter running CI, so the floor cannot drift below
   what matplotlib needs.

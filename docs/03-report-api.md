@@ -164,19 +164,19 @@ report" is a function that returns one, and a "dynamic list of blocks" is a `Rep
 caller assembled by hand.
 
 ```python
-# auto_inform/reports/manufacturing.py
+# auto_html_report/reports/manufacturing.py
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from auto_inform.blocks.maintenance_history import MaintenanceHistoryBlock
-from auto_inform.blocks.wafer_map import WaferMapBlock
-from auto_inform.domain.event import Event
-from auto_inform.domain.report import ReportDefinition
-from auto_inform.registry import register_report
+from auto_html_report.blocks.maintenance_history import MaintenanceHistoryBlock
+from auto_html_report.blocks.wafer_map import WaferMapBlock
+from auto_html_report.domain.event import Event
+from auto_html_report.domain.report import ReportDefinition
+from auto_html_report.registry import register_report
 
 if TYPE_CHECKING:
-    from auto_inform.application.context import ReportContext
+    from auto_html_report.application.context import ReportContext
 
 WAFER_FAILURE_EVENT = "WAFER_FAILURE"
 
@@ -238,7 +238,7 @@ deliberately small — no `entry_points`, no import hooks. The *interface* stays
 future decision to load external packages changes only `registry.py` (ADR-0003).
 
 ```python
-# auto_inform/registry.py
+# auto_html_report/registry.py
 def register_block(cls: type[Block[Any]]) -> type[Block[Any]]:
     """Class decorator. Uses cls.display_name as the key.
 
@@ -247,7 +247,7 @@ def register_block(cls: type[Block[Any]]) -> type[Block[Any]]:
     """
 
 def import_builtin_blocks() -> None:
-    """pkgutil.iter_modules over auto_inform.blocks, importing every submodule.
+    """pkgutil.iter_modules over auto_html_report.blocks, importing every submodule.
     Idempotent; called lazily on the first registry lookup."""
 
 def get_block(key: str) -> type[Block[Any]]: ...
@@ -271,7 +271,7 @@ lock, since a lookup can happen on a worker thread once reports are built concur
 re-entrancy is required rather than tidy — the scan imports modules, each module's decorator calls back
 into `register_block`, and a plain lock would deadlock on that same thread.
 
-> **Gotcha:** `import_builtin_blocks()` only walks `auto_inform.blocks`. A `@register_block` class
+> **Gotcha:** `import_builtin_blocks()` only walks `auto_html_report.blocks`. A `@register_block` class
 > defined in a *client's* module registers only if that module is actually imported, so
 > `get_block("my_block")` fails depending on import order. Passing instances explicitly always
 > works and is the recommended path for client-authored blocks.
@@ -282,7 +282,7 @@ consequence worth stating: **a block that sets no `display_name` cannot be regis
 is nothing to key on. Such a block is still perfectly usable — pass instances to a `ReportDefinition`
 explicitly — and the error says so rather than leaving the author guessing.
 
-Nothing scans `auto_inform.reports` by the same mechanism. A report factory registers itself when its
+Nothing scans `auto_html_report.reports` by the same mechanism. A report factory registers itself when its
 module is imported, so a job script imports the modules it needs (see
 [05 §6](05-discovery-and-processing.md#6-example-job-scripts)); `get_report_factory` says as much in its
 error message, because from its point of view "no factory for this type" and "the module was never
@@ -340,7 +340,7 @@ The event being processed is **not** carried on `ReportContext`: a `ReportFactor
 fields into each block's constructor instead, so a block cannot silently depend on ambient state
 (§3).
 
-The four context types are defined in an `auto_inform/application/context.py` module, not in
+The four context types are defined in a `auto_html_report/application/context.py` module, not in
 `domain/`: they bundle injected dependencies, and putting them in the domain would invert the
 layering. `domain/block.py` names two of them under `TYPE_CHECKING` only — see
 [01 §4](01-overview.md#4-architectural-overview) rule 1.

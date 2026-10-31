@@ -7,12 +7,12 @@ extra and a DSN.
 
 from __future__ import annotations
 
-from auto_inform import PostgresEventStore, Settings, SqliteEventStore
-from auto_inform.application.ports import EventStore
+from auto_html_report import PostgresEventStore, Settings, SqliteEventStore
+from auto_html_report.application.ports import EventStore
 
 
 def open_store(settings: Settings) -> EventStore:
-    """The store selected by ``AUTO_INFORM_EVENT_STORE``."""
+    """The store selected by ``AUTO_HTML_REPORT_EVENT_STORE``."""
     if settings.event_store == "postgres":
         return PostgresEventStore.from_settings(settings)
     return SqliteEventStore.from_settings(settings)

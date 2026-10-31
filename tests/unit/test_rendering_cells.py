@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import pytest
 
-from auto_inform._naming import DEFAULT_MAX_LENGTH
-from auto_inform.domain.block import BlockStatus
-from auto_inform.rendering.cells import build_row_views, error_cell_html
+from auto_html_report._naming import DEFAULT_MAX_LENGTH
+from auto_html_report.domain.block import BlockStatus
+from auto_html_report.rendering.cells import build_row_views, error_cell_html
 from tests.support.builders import make_outcome, make_report, make_row
 
 # --- row views ----------------------------------------------------------------

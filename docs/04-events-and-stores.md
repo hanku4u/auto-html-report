@@ -9,7 +9,7 @@ replaces: docs/SPEC.md §4.7
 ## 1. The Event value object
 
 ```python
-# auto_inform/domain/event.py
+# auto_html_report/domain/event.py
 @dataclass(frozen=True, slots=True)
 class Event:
     event_type: str                 # e.g. "WAFER_FAILURE"
@@ -30,8 +30,8 @@ responsibility, because only the factory knows what a given event type means. Se
 
 ```python
 # Shown together for readability, but these two live in different layers:
-#   EventStatus -> auto_inform/domain/event.py   (a pure domain state)
-#   SaveResult and EventStore -> auto_inform/application/ports.py   (a port and its result type)
+#   EventStatus -> auto_html_report/domain/event.py   (a pure domain state)
+#   SaveResult and EventStore -> auto_html_report/application/ports.py   (a port and its result type)
 class EventStatus(StrEnum):
     NEW = "NEW"
     PROCESSED = "PROCESSED"
@@ -112,7 +112,7 @@ event means a SQL query — deliberate, since retention policy belongs to whoeve
 **Retirement is what stops a permanently broken event from starving the queue.** `pending()` is
 oldest-first, so before retirement existed, one permanently failing event would be returned at the
 head of every single run, consuming the budget of everything behind it, forever. The `attempts`
-column and `AUTO_INFORM_EVENT_MAX_ATTEMPTS` (default `3`) exist to give a failing event a bounded
+column and `AUTO_HTML_REPORT_EVENT_MAX_ATTEMPTS` (default `3`) exist to give a failing event a bounded
 number of tries and then take it out of the way. See ADR-0019.
 
 `mark_processed` is called **only after** the output writer has returned successfully — see
@@ -164,14 +164,14 @@ deliberate, reviewed operation, not something that happens implicitly on open.
 
 | Class | Backend | Notes |
 | --- | --- | --- |
-| `SqliteEventStore(path)` | stdlib `sqlite3` | **Default.** WAL journal mode is enabled for the whole connection lifetime: it lets a reader proceed while the store holds a write, which matters because the discovery and processing jobs may overlap. `AUTO_INFORM_SQLITE_PATH` defaults to `<output_dir>/events.sqlite3`. A new file is created **owner-only (0600)** and a new directory 0700, matching the report writer's policy ([06 §4](06-output-html.md#4-the-trust-boundary)); SQLite's own default is 0644 modified by the umask, and the `-wal`/`-shm` siblings inherit the database's mode. An existing file keeps the mode its operator chose. File modes are POSIX semantics, as for the local report writer ([06 §1](06-output-html.md#1-writers)): `O_NOFOLLOW` is applied where the platform provides it, and Windows is not a supported target for this store either. |
+| `SqliteEventStore(path)` | stdlib `sqlite3` | **Default.** WAL journal mode is enabled for the whole connection lifetime: it lets a reader proceed while the store holds a write, which matters because the discovery and processing jobs may overlap. `AUTO_HTML_REPORT_SQLITE_PATH` defaults to `<output_dir>/events.sqlite3`. A new file is created **owner-only (0600)** and a new directory 0700, matching the report writer's policy ([06 §4](06-output-html.md#4-the-trust-boundary)); SQLite's own default is 0644 modified by the umask, and the `-wal`/`-shm` siblings inherit the database's mode. An existing file keeps the mode its operator chose. File modes are POSIX semantics, as for the local report writer ([06 §1](06-output-html.md#1-writers)): `O_NOFOLLOW` is applied where the platform provides it, and Windows is not a supported target for this store either. |
 | `PostgresEventStore(dsn, *, max_attempts)` | `psycopg[binary]` — extra `postgres` | Client supplies the DSN via environment. `save()` uses `ON CONFLICT (event_type, event_id) DO NOTHING`, matching the insert-only rule, and rejects a cross-source key collision exactly as SQLite does. `mark_failed` uses a single `UPDATE … SET attempts = attempts + 1, status = CASE WHEN attempts + 1 >= %s THEN 'FAILED' ELSE 'NEW' END` so that the increment and the retirement test cannot race within a statement, then reads the row back in the same transaction so it can return the committed `FailureRecord`. `payload` is `JSONB`, so a damaged payload cannot be stored at all — the corrupt-row `StoreError` SQLite reports is unreachable here. Thread-affine, like every store. |
 
 Both are constructed explicitly; there is no hidden singleton:
 
 ```python
 store = SqliteEventStore.from_settings(settings)
-store = PostgresEventStore.from_settings(settings)      # reads AUTO_INFORM_POSTGRES_DSN
+store = PostgresEventStore.from_settings(settings)      # reads AUTO_HTML_REPORT_POSTGRES_DSN
 ```
 
 ## 5. Sizing and retention
@@ -193,23 +193,23 @@ with the artefacts it describes.
   `pending(limit=…)` is honoured; `mark_failed` increments and retires exactly at `max_attempts`;
   `mark_processed` clears `last_error`; `close()` is idempotent.
 - SQLite tests run against a temporary file via `tmp_path`. PostgreSQL tests are marked
-  `@pytest.mark.postgres` and skipped unless `AUTO_INFORM_TEST_POSTGRES_DSN` is set, so CI without a
+  `@pytest.mark.postgres` and skipped unless `AUTO_HTML_REPORT_TEST_POSTGRES_DSN` is set, so CI without a
   Postgres service stays green. See [09](09-testing-and-acceptance.md).
 - Two of the cases above are asserted in each **backend's own** module, against its raw storage: that a
   saved payload is never overwritten, and that `last_error` is cleared by a later success. The port
   deliberately exposes no read-by-id method, so those properties are not observable through it. Both
   real backends have those tests (`test_sqlite_store.py`, `test_postgres_store.py`).
-- The PostgreSQL suite runs in a dedicated `auto_inform_test` schema, created by the tests, so the
+- The PostgreSQL suite runs in a dedicated `auto_html_report_test` schema, created by the tests, so the
 table it drops between cases is never a real queue in whatever database the DSN names. CI starts a
 `postgres:17` service and exports the DSN, so the backend is exercised on every push rather than only by
 hand.
 - To run the PostgreSQL suite locally, start a disposable server and point the variable at it:
 
   ```bash
-  docker run --rm -d --name auto-inform-pg \
-      -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=auto_inform \
+  docker run --rm -d --name auto-html-report-pg \
+      -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=auto_html_report \
       -p 55432:5432 postgres:17
-  AUTO_INFORM_TEST_POSTGRES_DSN=postgresql://test:test@localhost:55432/auto_inform \
+  AUTO_HTML_REPORT_TEST_POSTGRES_DSN=postgresql://test:test@localhost:55432/auto_html_report \
       uv run pytest -m postgres
   ```
 

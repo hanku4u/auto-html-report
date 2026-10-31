@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from auto_inform.rendering.escaping import escape, html_table
+from auto_html_report.rendering.escaping import escape, html_table
 
 
 def test_escape_should_escape_markup_and_both_quote_styles() -> None:

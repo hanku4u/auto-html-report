@@ -16,8 +16,8 @@ from __future__ import annotations
 
 import sys
 
-import auto_inform.reports.manufacturing  # noqa: F401 - importing registers the factory
-from auto_inform import (
+import auto_html_report.reports.manufacturing  # noqa: F401 - importing registers the factory
+from auto_html_report import (
     ExitCode,
     Settings,
     build_output_writer,
@@ -27,7 +27,7 @@ from auto_inform import (
     new_report_context,
     run_processing,
 )
-from auto_inform.domain.errors import ConfigurationError, OutputError, StoreError
+from auto_html_report.domain.errors import ConfigurationError, OutputError, StoreError
 from examples.demo_api import demo_http
 from examples.store import open_store
 

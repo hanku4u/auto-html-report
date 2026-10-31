@@ -18,13 +18,17 @@ from typing import cast
 
 import pytest
 
-from auto_inform.application.collect_blocks import collect_blocks
-from auto_inform.application.context import RenderContext, ReportContext
-from auto_inform.domain.block import Block, BlockStatus
-from auto_inform.domain.errors import ConfigurationError, PermanentBlockError, TransientBlockError
-from auto_inform.domain.report import ReportRow
-from auto_inform.infrastructure.settings import Settings
-from auto_inform.rendering.figures import figure_lock, figure_to_data_uri
+from auto_html_report.application.collect_blocks import collect_blocks
+from auto_html_report.application.context import RenderContext, ReportContext
+from auto_html_report.domain.block import Block, BlockStatus
+from auto_html_report.domain.errors import (
+    ConfigurationError,
+    PermanentBlockError,
+    TransientBlockError,
+)
+from auto_html_report.domain.report import ReportRow
+from auto_html_report.infrastructure.settings import Settings
+from auto_html_report.rendering.figures import figure_lock, figure_to_data_uri
 from tests.support.clocks import FakeClock
 from tests.support.contexts import make_report_context
 

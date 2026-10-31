@@ -5,7 +5,7 @@ requires = ["uv_build>=0.13.0,<0.14.0"]
 build-backend = "uv_build"
 
 [project]
-name = "auto-inform"
+name = "auto-html-report"
 version = "0.1.0"
 description = "Dynamic HTML report generator: composable blocks, concurrent collection, one file."
 readme = "README.md"
@@ -30,9 +30,9 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q --strict-markers"
-markers = ["postgres: requires AUTO_INFORM_TEST_POSTGRES_DSN"]
+markers = ["postgres: requires AUTO_HTML_REPORT_TEST_POSTGRES_DSN"]
 # Lets tests import the shared builders as tests.support.*. The repository root holds no package
-# named auto_inform (that lives under src/), so this cannot shadow the installed distribution.
+# named auto_html_report (that lives under src/), so this cannot shadow the installed distribution.
 pythonpath = ["."]
 
 [tool.ruff]

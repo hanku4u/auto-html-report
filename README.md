@@ -1,6 +1,6 @@
-# auto_inform
+# auto_html_report
 
-`auto_inform` turns a set of small Python classes into **one self-contained HTML report** — a single
+`auto_html_report` turns a set of small Python classes into **one self-contained HTML report** — a single
 file you can attach to a ticket, publish from a CI job, or open on a machine with no network.
 
 The report is one table with three columns:
@@ -32,8 +32,8 @@ Python, and the scheduled runner is your existing CI system.
 You need Python 3.11 or newer. In a checkout, [uv](https://docs.astral.sh/uv/) provisions it for you.
 
 ```bash
-git clone https://github.com/hanku4u/auto-inform.git
-cd auto-inform
+git clone https://github.com/hanku4u/auto-html-report.git
+cd auto-html-report
 uv sync --frozen
 uv run python examples/quick_start.py /tmp/report-demo
 ```
@@ -47,7 +47,7 @@ Here is the whole program ([`examples/quick_start.py`](examples/quick_start.py))
 import sys
 from pathlib import Path
 
-from auto_inform import (
+from auto_html_report import (
     Block,
     ExitCode,
     LocalDirectoryWriter,
@@ -100,23 +100,23 @@ That is the entire extension model.
 
 ## Installation
 
-The distribution is named `auto-inform`; the import name is `auto_inform`. It is not published to
+The distribution is named `auto-html-report`; the import name is `auto_html_report`. It is not published to
 PyPI — install it straight from git, pinned to a tag or commit SHA.
 
 ```bash
 # into a uv-managed project
-uv add "auto_inform @ git+https://github.com/hanku4u/auto-inform.git@v0.1.0"
+uv add "auto_html_report @ git+https://github.com/hanku4u/auto-html-report.git@v0.1.0"
 
 # plain pip works too
-pip install "auto_inform @ git+https://github.com/hanku4u/auto-inform.git@v0.1.0"
+pip install "auto_html_report @ git+https://github.com/hanku4u/auto-html-report.git@v0.1.0"
 ```
 
 Install commands always spell the **underscore** form, including in the extras position, because pip is
 inconsistent about the hyphen:
 
 ```bash
-uv add "auto_inform[s3] @ git+https://github.com/hanku4u/auto-inform.git@v0.1.0"
-pip install "auto_inform[postgres,s3] @ git+https://github.com/hanku4u/auto-inform.git@v0.1.0"
+uv add "auto_html_report[s3] @ git+https://github.com/hanku4u/auto-html-report.git@v0.1.0"
+pip install "auto_html_report[postgres,s3] @ git+https://github.com/hanku4u/auto-html-report.git@v0.1.0"
 ```
 
 **Pin a tag or SHA; do not install from a branch.** uv and pip both cache git sources, so an unpinned
@@ -128,12 +128,12 @@ When you genuinely need to chase a moving ref, force a refresh: `uv add --refres
 
 The extras select the optional backends: `s3` for uploading reports instead of writing them locally,
 `postgres` for a shared event store instead of SQLite. Both are optional — the defaults need neither,
-and `import auto_inform` works without them. An S3 writer bounds its upload timeouts itself, because the
+and `import auto_html_report` works without them. An S3 writer bounds its upload timeouts itself, because the
 processing job does not wait for it with a deadline.
 
 ## Writing a block
 
-A block subclasses `auto_inform.Block[DataT]` and implements two methods:
+A block subclasses `auto_html_report.Block[DataT]` and implements two methods:
 
 - **`collect(self, context: ReportContext) -> DataT`** — the I/O phase. It may call an API, read a
   database, or compute something local.
@@ -141,13 +141,13 @@ A block subclasses `auto_inform.Block[DataT]` and implements two methods:
   **inner HTML of the Data cell**, not a `<td>` and not a document.
 
 Here is the built-in maintenance block
-([`src/auto_inform/blocks/maintenance_history.py`](src/auto_inform/blocks/maintenance_history.py)),
+([`src/auto_html_report/blocks/maintenance_history.py`](src/auto_html_report/blocks/maintenance_history.py)),
 trimmed to the essentials:
 
 ```python
 from dataclasses import dataclass
 
-from auto_inform import (
+from auto_html_report import (
     Block,
     RenderContext,
     ReportContext,
@@ -248,7 +248,7 @@ uv run python -m examples.process_events     # writes one report per event
 The second script's first import is load-bearing:
 
 ```python
-import auto_inform.reports.manufacturing  # importing registers the factory
+import auto_html_report.reports.manufacturing  # importing registers the factory
 ```
 
 Importing the module registers the `WAFER_FAILURE` factory. Forget it and every event of that type is
@@ -274,23 +274,23 @@ no config file and no flags. These are the ones a job normally sets:
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `AUTO_INFORM_OUTPUT_KIND` | `local` | `local` or `s3`; `s3` also needs `AUTO_INFORM_OUTPUT_S3_BUCKET`. |
-| `AUTO_INFORM_OUTPUT_DIR` | `./reports` | Directory the local writer writes into. |
-| `AUTO_INFORM_EVENT_STORE` | `sqlite` | `sqlite` or `postgres`; `postgres` also needs `AUTO_INFORM_POSTGRES_DSN`. |
-| `AUTO_INFORM_POSTGRES_DSN` | — | The PostgreSQL DSN, password included; `sslmode=require` (or `verify-full`) for a shared database. |
-| `AUTO_INFORM_OUTPUT_S3_BUCKET` | — | Bucket for `AUTO_INFORM_OUTPUT_KIND=s3`; required for S3. |
-| `AUTO_INFORM_OUTPUT_S3_PREFIX` | `""` | Key prefix under the bucket. |
-| `AUTO_INFORM_OUTPUT_S3_TIMEOUT_SECONDS` | `30` | S3 connect/read timeout (capped at 300). |
-| `AUTO_INFORM_OUTPUT_S3_SSE` | — | `AES256`, `aws:kms` or `aws:kms:dsse`; omitted means the bucket default. |
-| `AUTO_INFORM_SQLITE_PATH` | `<output_dir>/events.sqlite3` | Event store location. |
-| `AUTO_INFORM_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` or `CRITICAL`. |
-| `AUTO_INFORM_LOG_FORMAT` | `json` | `json` for log shippers, `console` for humans. |
-| `AUTO_INFORM_MAX_WORKERS` | `8` | In-flight blocks per report (capped at 64). |
-| `AUTO_INFORM_MAX_CONCURRENT_REPORTS` | `1` | Reports built in parallel per run (capped at 32); raises in-flight HTTP calls, so size it against the API. |
-| `AUTO_INFORM_BLOCK_TIMEOUT_SECONDS` | `60` | Per-attempt budget for one block. |
-| `AUTO_INFORM_BLOCK_RETRIES` | `2` | Retries after the first attempt (capped at 10). |
-| `AUTO_INFORM_PROCESSING_LIMIT` | `500` | Events one processing run takes from the queue (capped at 10,000). |
-| `AUTO_INFORM_FAIL_ON_BLOCK_ERROR` | `true` | Treat a failed block as a failed event, so the run exits non-zero. |
+| `AUTO_HTML_REPORT_OUTPUT_KIND` | `local` | `local` or `s3`; `s3` also needs `AUTO_HTML_REPORT_OUTPUT_S3_BUCKET`. |
+| `AUTO_HTML_REPORT_OUTPUT_DIR` | `./reports` | Directory the local writer writes into. |
+| `AUTO_HTML_REPORT_EVENT_STORE` | `sqlite` | `sqlite` or `postgres`; `postgres` also needs `AUTO_HTML_REPORT_POSTGRES_DSN`. |
+| `AUTO_HTML_REPORT_POSTGRES_DSN` | — | The PostgreSQL DSN, password included; `sslmode=require` (or `verify-full`) for a shared database. |
+| `AUTO_HTML_REPORT_OUTPUT_S3_BUCKET` | — | Bucket for `AUTO_HTML_REPORT_OUTPUT_KIND=s3`; required for S3. |
+| `AUTO_HTML_REPORT_OUTPUT_S3_PREFIX` | `""` | Key prefix under the bucket. |
+| `AUTO_HTML_REPORT_OUTPUT_S3_TIMEOUT_SECONDS` | `30` | S3 connect/read timeout (capped at 300). |
+| `AUTO_HTML_REPORT_OUTPUT_S3_SSE` | — | `AES256`, `aws:kms` or `aws:kms:dsse`; omitted means the bucket default. |
+| `AUTO_HTML_REPORT_SQLITE_PATH` | `<output_dir>/events.sqlite3` | Event store location. |
+| `AUTO_HTML_REPORT_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` or `CRITICAL`. |
+| `AUTO_HTML_REPORT_LOG_FORMAT` | `json` | `json` for log shippers, `console` for humans. |
+| `AUTO_HTML_REPORT_MAX_WORKERS` | `8` | In-flight blocks per report (capped at 64). |
+| `AUTO_HTML_REPORT_MAX_CONCURRENT_REPORTS` | `1` | Reports built in parallel per run (capped at 32); raises in-flight HTTP calls, so size it against the API. |
+| `AUTO_HTML_REPORT_BLOCK_TIMEOUT_SECONDS` | `60` | Per-attempt budget for one block. |
+| `AUTO_HTML_REPORT_BLOCK_RETRIES` | `2` | Retries after the first attempt (capped at 10). |
+| `AUTO_HTML_REPORT_PROCESSING_LIMIT` | `500` | Events one processing run takes from the queue (capped at 10,000). |
+| `AUTO_HTML_REPORT_FAIL_ON_BLOCK_ERROR` | `true` | Treat a failed block as a failed event, so the run exits non-zero. |
 
 Invalid values are reported together in one `ConfigurationError`, not one typo per CI run.
 

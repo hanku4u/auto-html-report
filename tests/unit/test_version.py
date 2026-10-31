@@ -10,8 +10,8 @@ from importlib.metadata import PackageNotFoundError, version
 
 import pytest
 
-import auto_inform
-from auto_inform import _version
+import auto_html_report
+from auto_html_report import _version
 
 
 def test_get_version_with_installed_distribution_should_agree_with_the_distribution_metadata() -> (
@@ -21,7 +21,7 @@ def test_get_version_with_installed_distribution_should_agree_with_the_distribut
     # when the version is resolved at runtime
     # then it agrees with the installed metadata, which is what makes pyproject.toml the single
     # source of truth: there is no second copy that could disagree
-    assert _version.get_version() == version("auto-inform")
+    assert _version.get_version() == version("auto-html-report")
 
 
 def test_get_version_without_installed_metadata_should_report_unknown_rather_than_guess(
@@ -49,4 +49,4 @@ def test_unknown_version_should_be_visibly_unknown() -> None:
 def test_the_package_should_expose_the_version_it_resolves() -> None:
     # given the conventional `__version__` attribute a consumer reaches for
     # then it is computed from the resolver, never a hard-coded copy that could drift
-    assert auto_inform.__version__ == _version.get_version()
+    assert auto_html_report.__version__ == _version.get_version()

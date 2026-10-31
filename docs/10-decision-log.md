@@ -12,7 +12,8 @@ proposing a design change: the alternatives you are about to suggest have probab
 considered.
 
 Format: **context** → **decision** → **consequences**. Entries are append-only. A decision is
-revisited by adding a new ADR that supersedes the old one, never by editing it.
+revisited by adding a new ADR that supersedes the old one, never by editing it. For that reason, entries
+written before ADR-0032 keep the package's original name, `auto_inform`; read it as `auto_html_report`.
 
 ---
 

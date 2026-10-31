@@ -13,7 +13,7 @@ snippet is tested against the real file. The reasoning is in ADR-0032 to ADR-003
 
 ## 1. Identity
 
-| | Today | Target |
+| | Original | Target |
 | --- | --- | --- |
 | Distribution name | `auto-inform` | `auto-html-report` |
 | Import name | `auto_inform` | `auto_html_report` |

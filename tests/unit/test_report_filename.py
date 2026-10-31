@@ -12,8 +12,8 @@ from datetime import datetime
 
 import pytest
 
-from auto_inform._naming import DEFAULT_MAX_LENGTH
-from auto_inform.generate import report_filename
+from auto_html_report._naming import DEFAULT_MAX_LENGTH
+from auto_html_report.generate import report_filename
 from tests.support.builders import make_report, make_row
 
 

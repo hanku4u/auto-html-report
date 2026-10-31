@@ -14,11 +14,11 @@ from pathlib import Path
 
 import pytest
 
-from auto_inform import registry
-from auto_inform.domain.block import Block
-from auto_inform.domain.errors import ConfigurationError
-from auto_inform.domain.event import Event
-from auto_inform.domain.report import ReportDefinition
+from auto_html_report import registry
+from auto_html_report.domain.block import Block
+from auto_html_report.domain.errors import ConfigurationError
+from auto_html_report.domain.event import Event
+from auto_html_report.domain.report import ReportDefinition
 from tests.support.clocks import DEFAULT_START
 from tests.support.contexts import make_report_context
 from tests.support.http import FakeHttpClient

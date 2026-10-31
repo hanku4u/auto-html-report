@@ -12,7 +12,7 @@ from datetime import datetime
 
 import pytest
 
-from auto_inform.application.ports import Clock
+from auto_html_report.application.ports import Clock
 from tests.support.clocks import DEFAULT_START, FakeClock
 
 

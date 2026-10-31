@@ -2,7 +2,7 @@
 
 ``docs/04-events-and-stores.md`` calls for one suite run against every implementation. ``STORE_FACTORIES``
 carries SQLite, the in-memory runner double, and PostgreSQL; the PostgreSQL parameter is marked
-``postgres`` and skipped unless ``AUTO_INFORM_TEST_POSTGRES_DSN`` is set, and runs in its own schema
+``postgres`` and skipped unless ``AUTO_HTML_REPORT_TEST_POSTGRES_DSN`` is set, and runs in its own schema
 (``tests/support/postgres.py``) rather than the database the DSN otherwise names.
 
 **A case belongs here only if it is a property of the port.** Anything that needs to see a row's raw
@@ -23,10 +23,10 @@ from pathlib import Path
 
 import pytest
 
-from auto_inform.application.ports import EventStore
-from auto_inform.domain.errors import StoreError
-from auto_inform.infrastructure.stores.postgres_store import PostgresEventStore
-from auto_inform.infrastructure.stores.sqlite_store import SqliteEventStore
+from auto_html_report.application.ports import EventStore
+from auto_html_report.domain.errors import StoreError
+from auto_html_report.infrastructure.stores.postgres_store import PostgresEventStore
+from auto_html_report.infrastructure.stores.sqlite_store import SqliteEventStore
 from tests.support.builders import make_event
 from tests.support.clocks import DEFAULT_START
 from tests.support.postgres import postgres_test_dsn

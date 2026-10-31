@@ -9,7 +9,7 @@ from __future__ import annotations
 import time
 from datetime import UTC
 
-from auto_inform.infrastructure.clock import SystemClock
+from auto_html_report.infrastructure.clock import SystemClock
 
 
 def test_now_should_be_timezone_aware_and_in_utc() -> None:

@@ -8,7 +8,7 @@ The contract, which ``docs/09-testing-and-acceptance.md`` §1 states and this mo
    rather than costing real seconds.
 3. ``sleep()`` never actually waits.
 
-Implements the ``Clock`` port in ``src/auto_inform/application/ports.py``. It lives in the test support
+Implements the ``Clock`` port in ``src/auto_html_report/application/ports.py``. It lives in the test support
 package rather than in the product because it is a double, and doubles are not shipped to consumers.
 """
 

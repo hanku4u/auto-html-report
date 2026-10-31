@@ -1,6 +1,6 @@
 """A canned-response HTTP client for tests.
 
-The port's contract (``src/auto_inform/application/ports.py``) requires ``timeout`` on every call and
+The port's contract (``src/auto_html_report/application/ports.py``) requires ``timeout`` on every call and
 says implementations must be thread-safe, because one instance is shared by every block in a report and
 blocks run concurrently. This double honours both, so a test that passes here is not passing because the
 double was easier to satisfy than the real thing.
@@ -9,7 +9,7 @@ It records the **timeout** as well as the path and parameters, because "every HT
 timeout" is a rule a test should be able to check rather than a habit (`docs/02-block-authoring.md` §5).
 
 The production stub -- ``StubHttpClient``, which demo reports run against -- lands with stage 7 and
-lives in ``auto_inform/infrastructure/http_stub.py``. This one exists so that stage 4's blocks can be
+lives in ``auto_html_report/infrastructure/http_stub.py``. This one exists so that stage 4's blocks can be
 tested without waiting for it, and so that the framework's own tests never depend on a shipped fixture.
 """
 

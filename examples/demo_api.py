@@ -7,7 +7,7 @@ stand in for the yield and maintenance APIs. With a real client the wiring chang
 
 from __future__ import annotations
 
-from auto_inform.infrastructure.http_stub import StubHttpClient
+from auto_html_report.infrastructure.http_stub import StubHttpClient
 
 #: The lots the demo API reports as failed, and the tool they ran on.
 LOT_IDS = ("L1001", "L1002")
