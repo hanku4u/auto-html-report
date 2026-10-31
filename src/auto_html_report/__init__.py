@@ -5,7 +5,8 @@ import. It grew in stages -- the author-facing names in stage 3, the report mode
 stages 5 and 6, the configuration factories in stage 7, the event store and discovery job in stage 8,
 the processing job and exit codes in stage 9, and the report family and examples in stage 10.
 Stage 11 added the optional PostgreSQL store and S3 writer, which import their drivers only when
-constructed.
+constructed. ``auto_html_report.testing`` is public too, but is not re-exported here, because production
+code has no use for it.
 
 Nothing here imports matplotlib or pyplot eagerly: a report built only from HTML tables never pays for
 them, and a test in ``tests/unit/test_rendering_figures.py`` pins that in a subprocess.
@@ -23,8 +24,10 @@ from auto_html_report.application.discovery import (
     run_discovery,
 )
 from auto_html_report.application.ports import (
+    Clock,
     EventStore,
     FailureRecord,
+    HttpClient,
     OutputWriter,
     SaveResult,
 )
@@ -84,6 +87,7 @@ __all__ = [
     "BlockError",
     "BlockOutcome",
     "BlockStatus",
+    "Clock",
     "ConfigurationError",
     "Discoverer",
     "DiscoveryContext",
@@ -95,6 +99,7 @@ __all__ = [
     "EventStore",
     "ExitCode",
     "FailureRecord",
+    "HttpClient",
     "LocalDirectoryWriter",
     "OutputError",
     "OutputLocation",

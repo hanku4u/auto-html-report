@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime
 
 import pytest
 
+from auto_html_report import Block, BlockStatus, ReportDefinition, generate_report
+from auto_html_report.application.context import DiscoveryContext, RenderContext, ReportContext
 from auto_html_report.domain.errors import ConfigurationError
 from auto_html_report.infrastructure.clock import SystemClock
 from auto_html_report.infrastructure.factories import (
@@ -14,10 +17,10 @@ from auto_html_report.infrastructure.factories import (
     new_discovery_context,
     new_report_context,
 )
-from auto_html_report.infrastructure.http_stub import StubHttpClient
 from auto_html_report.infrastructure.settings import Settings, load_settings
 from auto_html_report.infrastructure.writers.local_writer import LocalDirectoryWriter
 from auto_html_report.infrastructure.writers.s3_writer import S3Writer
+from auto_html_report.testing import StubHttpClient
 from tests.support.clocks import FakeClock
 
 
@@ -34,8 +37,54 @@ def test_new_report_context_should_wire_the_settings_and_a_fresh_run_id() -> Non
     assert first.settings is settings
     assert first.run.run_id != second.run.run_id
     assert isinstance(first.clock, SystemClock)
-    assert isinstance(first.http, StubHttpClient)
     assert first.logger.name == "auto_html_report"
+
+
+@pytest.mark.parametrize("factory", [new_report_context, new_discovery_context])
+@pytest.mark.parametrize("method", ["get_json", "get_bytes"])
+def test_a_context_without_an_http_client_should_fail_on_use_and_name_the_argument(
+    factory: Callable[[Settings], ReportContext | DiscoveryContext], method: str
+) -> None:
+    # given a context built with no client, which is legitimate for a report with no HTTP blocks
+    http = factory(load_settings({})).http
+
+    # when a block calls it anyway
+    with pytest.raises(ConfigurationError, match=r"no HTTP client configured.*http="):
+        getattr(http, method)("/x", timeout=1.0)
+
+    # then the error names the fix: a production job that forgot http= must not be told about fixtures
+
+
+def test_generate_report_without_an_http_client_should_isolate_the_block_that_needs_one() -> None:
+    # given a report mixing a block with no I/O and a block that calls the unconfigured client
+    class LocalBlock(Block[str]):
+        display_name = "Local"
+
+        def collect(self, context: ReportContext) -> str:
+            return "local data"
+
+        def render(self, data: str, context: RenderContext) -> str:
+            return data
+
+    class RemoteBlock(Block[str]):
+        display_name = "Remote"
+
+        def collect(self, context: ReportContext) -> str:
+            return str(context.http.get_json("/x", timeout=1.0))
+
+        def render(self, data: str, context: RenderContext) -> str:
+            return data
+
+    definition = ReportDefinition(title="Mixed", blocks=[LocalBlock(), RemoteBlock()])
+
+    # when it is generated without a client
+    result = generate_report(definition, context=new_report_context(load_settings({})))
+
+    # then the local block succeeds, and only the remote block fails, with the fix in its error cell
+    local, remote = result.report.rows
+    assert local.outcome.status is BlockStatus.OK
+    assert remote.outcome.status is BlockStatus.FAILED
+    assert "no HTTP client configured" in result.html
 
 
 def test_factories_should_accept_injected_dependencies() -> None:

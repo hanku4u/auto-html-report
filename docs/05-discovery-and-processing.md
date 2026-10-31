@@ -334,8 +334,7 @@ returning a run, so their exit codes are the script's to choose. The examples ab
 for readability; a production script wraps the setup:
 
 ```python
-from auto_html_report import ExitCode
-from auto_html_report.domain.errors import ConfigurationError, OutputError, StoreError
+from auto_html_report import ConfigurationError, ExitCode, OutputError, StoreError
 
 
 def main() -> int:

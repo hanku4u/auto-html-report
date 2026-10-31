@@ -8,6 +8,9 @@ metadata, and the names the docs tell block authors to import actually resolve.
 import subprocess
 import sys
 from importlib.metadata import metadata, version
+from importlib.resources import files
+
+import pytest
 
 import auto_html_report
 
@@ -62,6 +65,27 @@ def test_the_public_surface_should_declare_everything_it_exposes() -> None:
     assert len(auto_html_report.__all__) == len(set(auto_html_report.__all__))
     for name in auto_html_report.__all__:
         assert hasattr(auto_html_report, name), name
+
+
+def test_the_ports_a_consumer_implements_should_be_importable_from_the_root() -> None:
+    # given the protocols a consumer writes an adapter against (ADR-0035)
+    # then they are public, rather than reachable only through a private path
+    assert {"Clock", "HttpClient", "EventStore", "OutputWriter"} <= set(auto_html_report.__all__)
+
+
+def test_the_testing_module_should_expose_the_stub_client() -> None:
+    # given the module a consumer's tests import
+    from auto_html_report.testing import StubHttpClient, StubNotConfiguredError
+
+    # then an unknown path raises the documented error, so a consumer's test fails loudly
+    with pytest.raises(StubNotConfiguredError):
+        StubHttpClient().get_json("/missing", timeout=1.0)
+
+
+def test_the_package_should_carry_the_typing_marker() -> None:
+    # given the installed package
+    # then py.typed is present: without it a consumer's type checker may ignore these annotations
+    assert files("auto_html_report").joinpath("py.typed").is_file()
 
 
 def test_the_import_advertised_in_the_specification_should_be_callable() -> None:

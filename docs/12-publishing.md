@@ -6,9 +6,8 @@ description: The move from a git-installed internal tool to the public PyPI pack
 # 12 — Publishing to PyPI
 
 This document specifies the target state and the order of work. It is `proposed`: every statement below
-describes what the change will do, not what the repository does today. [08](08-packaging.md) remains the
-description of the current package until the stages in [§7](#7-dev-plan) land, because its `pyproject.toml`
-snippet is tested against the real file. The reasoning is in ADR-0032 to ADR-0035 of
+describes what the change will do, and the stages in [§7](#7-dev-plan) move each part into the code and
+into the document that owns it. The reasoning is in ADR-0032 to ADR-0035 of
 [10-decision-log.md](10-decision-log.md).
 
 ## 1. Identity
@@ -37,17 +36,16 @@ as instances, which needs no registration.
 Runtime dependencies and extras move from exact pins to ranges with an upper bound at the next major
 version. `uv.lock` continues to pin everything for this repository's own development and CI.
 
-| Package | Today | Target | Where |
+| Package | Original | Target | Where |
 | --- | --- | --- | --- |
 | `jinja2` | `==3.1.6` | `>=3.1,<4` | required |
-| `matplotlib` | `==3.11.2` | `>=F,<4` | required |
-| `numpy` | `==2.4.6` | `>=F,<3` | required |
-| `psycopg[binary]` | `==3.3.6` | `>=F,<4` | `postgres` extra |
-| `boto3` | `==1.43.114` | `>=F,<2` | `s3` extra |
+| `matplotlib` | `==3.11.2` | `>=3.7,<4` | required |
+| `numpy` | `==2.4.6` | `>=1.24,<3` | required |
+| `psycopg[binary]` | `==3.3.6` | `>=3.1,<4` | `postgres` extra |
+| `boto3` | `==1.43.114` | `>=1.28,<2` | `s3` extra |
 
-`F` is the oldest release the full suite passes against on Python 3.11, found when stage 3 of §7 lands and
-written into this table at that point. Choosing a floor by guesswork is exactly what the
-`lowest-direct` job in [§5](#5-continuous-integration) exists to prevent.
+Each floor is the oldest release the full suite passes against on Python 3.11, verified when stage 3 of §7
+landed. The `lowest-direct` job in [§5](#5-continuous-integration) keeps that true.
 
 numpy and matplotlib stay required. `wafer_map.py` imports numpy at module scope and the registry scan
 imports every module under `blocks/`, so a base install without numpy would break block lookup.
@@ -60,7 +58,7 @@ ADR-0033 does not apply to them.
 | Change | Why |
 | --- | --- |
 | Export `HttpClient` and `Clock` from the package root | A consumer has to implement or annotate against them, and today only private paths reach them. |
-| Add `auto_html_report.testing`, exporting `StubHttpClient` and `StubNotConfiguredError` | A public home for the fixture client, so consumers can test their blocks and `examples/` stops importing `infrastructure`. |
+| Add `auto_html_report.testing`, holding `StubHttpClient` and `StubNotConfiguredError` | A public home for the fixture client, so consumers can test their blocks and `examples/` stops importing `infrastructure`. It sits at the package root and imports no adapter, so the root layering rule still holds. |
 | Add a `py.typed` marker | Without it a type checker may ignore the package's annotations. |
 | Keep `register_block` private | Consumers pass block instances; nothing outside this package needs it. |
 
@@ -68,8 +66,8 @@ ADR-0033 does not apply to them.
 
 The package ships no real client (ADR-0035). `new_report_context()` and `new_discovery_context()` keep
 `http` optional, because the quick start and any report whose blocks do no HTTP must keep working without
-one. What changes is the default. Today it is `StubHttpClient()`, which fails on first use with a message
-about missing *fixtures*, which misdescribes a production job that forgot `http=`.
+one. What changes is the default. It was `StubHttpClient()`, which failed on first use with a message about
+missing *fixtures*, misdescribing a production job that forgot `http=`.
 
 The new default is a small private client whose two methods raise `ConfigurationError`, saying that no HTTP
 client was configured and that `http=` is how to supply one. The failure stays per-block, as an error cell,

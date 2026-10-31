@@ -22,6 +22,9 @@ uv pip install --python "$python" "$scratch"/dist/*.whl >/dev/null
 PYTHONPATH= "$python" -c "
 import auto_html_report
 import auto_html_report.reports.manufacturing as manufacturing
+import auto_html_report.testing
+from importlib.resources import files
+assert files('auto_html_report').joinpath('py.typed').is_file(), 'py.typed is missing from the wheel'
 print(f'imported {auto_html_report.__version__} and {manufacturing.WAFER_FAILURE_EVENT}')
 "
 

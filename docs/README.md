@@ -67,11 +67,12 @@ This set specifies **auto_html_report v0.1** — package version `0.1.0`, see
 ### Dependencies
 
 - This project uses [uv](https://docs.astral.sh/uv/) for dependency management. Direct dependencies
-  are declared in `pyproject.toml` with exact `==` pins; the resolved transitive closure lives in the
-  committed `uv.lock`. There is no `requirements.txt`.
+  are declared in `pyproject.toml`: runtime dependencies and extras with a tested floor and an upper bound
+  at the next major version, development tools with exact `==` pins. The resolved transitive closure lives
+  in the committed `uv.lock`. There is no `requirements.txt`.
 - Documents that introduce or alter a third-party dependency must document it in a
-  **Dependency changes** section, listing the exact pin, consistent with `pyproject.toml`. Floating
-  version ranges are not acceptable in this project; see [08-packaging.md](08-packaging.md).
+  **Dependency changes** section, listing the range or pin, consistent with `pyproject.toml`. An untested
+  floor or a missing upper bound is not acceptable in this project; see [08-packaging.md](08-packaging.md).
 
 ### Acceptance criteria
 
@@ -97,7 +98,7 @@ Document 12 is `proposed`: it describes the planned move to PyPI, not the code a
 | 05 | [05-discovery-and-processing.md](05-discovery-and-processing.md) | active | The two scheduled jobs: the `Discoverer` port, `run_discovery`, `run_processing`, throughput policy, and CI exit codes. |
 | 06 | [06-output-html.md](06-output-html.md) | active | Output writers, file naming, the HTML document contract, the escaping trust boundary, and figure embedding. |
 | 07 | [07-configuration-and-logging.md](07-configuration-and-logging.md) | active | Environment variables and their `Settings` attributes, the HTTP stub, and the structured logging contract. |
-| 08 | [08-packaging.md](08-packaging.md) | active | Distribution name, exact dependency pins, optional extras, package data, and install instructions. |
+| 08 | [08-packaging.md](08-packaging.md) | active | Distribution name, dependency ranges, optional extras, package data, and install instructions. |
 | 09 | [09-testing-and-acceptance.md](09-testing-and-acceptance.md) | active | The testing strategy per layer, hermeticity rules, and the v1 acceptance criteria. |
 | 10 | [10-decision-log.md](10-decision-log.md) | active | ADR-0001 to ADR-0035: each ratified decision, its context, and the alternatives rejected. |
 | 11 | [11-implementation-plan.md](11-implementation-plan.md) | active | The staged build order for v1, with review boundaries and a definition of done per stage. |

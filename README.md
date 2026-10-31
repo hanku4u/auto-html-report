@@ -260,9 +260,11 @@ Running both writes two reports, each with a wafer-map chart and a maintenance-h
 `-m` rather than the script path: running the file directly puts `examples/` on `sys.path` instead of
 the repository root, and the shared fixtures in `examples.demo_api` would not import.
 
-`examples/demo_api.py` supplies the fixtures through `StubHttpClient`. v1 ships **no real HTTP
-client**: every `get_json()` call is answered from a fixture table. Blocks and discoverers are written
-against the `HttpClient` port, so swapping in a real client later is a wiring change, not a rewrite.
+`examples/demo_api.py` supplies the fixtures through `auto_html_report.testing.StubHttpClient`, which
+answers every `get_json()` call from a fixture table. The package ships **no real HTTP client**: you write
+a small adapter for the `HttpClient` protocol and pass it as `http=`, and a block that needs a client when
+none was given fails in its own cell with an error saying so.
+[`docs/02-block-authoring.md`](docs/02-block-authoring.md) §5.2 has a recipe.
 
 See [`docs/05-discovery-and-processing.md`](docs/05-discovery-and-processing.md) for the job model,
 throughput settings, and worked job scripts.
@@ -325,15 +327,16 @@ did not infer fails there instead of at first report. CI also installs the packa
 to the commit — the same form as the Installation section, using `file://` for the checked-out tree so a
 private repository needs no token.
 
-Dependencies are pinned exactly in `pyproject.toml` and resolved in the committed `uv.lock`. Change a
-dependency, run `uv lock` in the same commit, or `uv lock --check` will fail.
+Runtime dependencies are declared as ranges in `pyproject.toml`, and everything is pinned in the committed
+`uv.lock` for this repository's own environments. Change a dependency, run `uv lock` in the same commit, or
+`uv lock --check` will fail.
 
 ## Status
 
 v1 is complete: stages 1–11 of [`docs/11-implementation-plan.md`](docs/11-implementation-plan.md).
 Local directory output and SQLite are the defaults; the `s3` and `postgres` extras are implemented and
-optional. The HTTP layer is still a stub (`StubHttpClient`) — v1 ships no real API client, and blocks and
-discoverers are written against the `HttpClient` port so that swapping one in is wiring, not a rewrite.
+optional. There is no built-in API client: blocks and discoverers are written against the `HttpClient`
+protocol, and you supply the implementation.
 
 ## Where to look
 

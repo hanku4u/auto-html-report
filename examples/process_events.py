@@ -18,8 +18,11 @@ import sys
 
 import auto_html_report.reports.manufacturing  # noqa: F401 - importing registers the factory
 from auto_html_report import (
+    ConfigurationError,
     ExitCode,
+    OutputError,
     Settings,
+    StoreError,
     build_output_writer,
     configure_logging,
     exit_code_for,
@@ -27,7 +30,6 @@ from auto_html_report import (
     new_report_context,
     run_processing,
 )
-from auto_html_report.domain.errors import ConfigurationError, OutputError, StoreError
 from examples.demo_api import demo_http
 from examples.store import open_store
 

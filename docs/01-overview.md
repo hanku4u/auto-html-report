@@ -108,7 +108,7 @@ and nothing would have noticed.
    (`infrastructure.settings`), and the shared private helpers at the package root (`_naming`,
    `_version`) — in either the `from auto_html_report._naming import slug` or the
    `from auto_html_report import _naming` form. Nothing else under `auto_html_report` — in particular no concrete
-   adapter (`infrastructure.stores`, `infrastructure.writers`, `infrastructure.http_stub`, a real clock)
+   adapter (`infrastructure.stores`, `infrastructure.writers`, a real clock)
    and no `rendering`. Those arrive by injection, per rule 3. The audit enforces this as an **allowlist**,
    so a newly added adapter is forbidden by default rather than permitted until somebody remembers to
    extend a tuple; granting a genuine new permission means changing this rule as well as the test.
@@ -170,7 +170,7 @@ PROCESSING JOB  (e.g. every hour via CI scheduler)
 
 ```
 auto-html-report/
-├── pyproject.toml                  # uv_build; exact pins, extras, dependency groups
+├── pyproject.toml                  # uv_build; ranges, extras, dependency groups
 ├── uv.lock                         # resolved dependency closure (committed)
 ├── .python-version                 # 3.11 — the supported floor
 ├── README.md                       # user-facing: install, quick start, two-phase model, blocks
@@ -196,7 +196,6 @@ auto-html-report/
 │       │   ├── settings.py         # load_settings(): env-var parsing -> Settings (frozen)
 │       │   ├── clock.py            # SystemClock: the real now()/monotonic()/sleep()
 │       │   ├── logging_setup.py    # JSON / console formatters, configure_logging()
-│       │   ├── http_stub.py        # StubHttpClient (canned fixtures, no network)
 │       │   ├── factories.py        # new_report_context, new_discovery_context, build_output_writer
 │       │   ├── stores/
 │       │   │   ├── sqlite_store.py
@@ -213,6 +212,8 @@ auto-html-report/
 │       │   └── templates/
 │       │       ├── report.html.j2  # page shell (package data)
 │       │       └── report.css      # inlined stylesheet, included by the template
+│       ├── testing.py             # public: StubHttpClient, for consumers' tests and demo reports
+│       ├── py.typed               # marks the package as typed for consumers' type checkers
 │       ├── _version.py            # resolves the version at runtime; source of truth is pyproject.toml
 │       ├── _naming.py             # slug(): shared by the row id and the report filename
 │       ├── generate.py            # generate_report(), report_filename(): the composition entry point
