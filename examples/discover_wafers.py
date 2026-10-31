@@ -20,18 +20,19 @@ import sys
 from collections.abc import Iterable
 
 from auto_html_report import (
+    ConfigurationError,
     Discoverer,
     DiscoveryContext,
     Event,
     ExitCode,
     Settings,
+    StoreError,
     configure_logging,
     exit_code_for,
     load_settings,
     new_discovery_context,
     run_discovery,
 )
-from auto_html_report.domain.errors import ConfigurationError, StoreError
 from examples.demo_api import TOOL_ID, demo_http
 from examples.store import open_store
 

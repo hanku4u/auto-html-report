@@ -1,6 +1,6 @@
 ---
 status: active
-description: Distribution name, uv-managed exact dependency pins, optional extras, package data, and install instructions for CI.
+description: Distribution name, uv-managed dependency ranges, optional extras, package data, and install instructions for CI.
 replaces: docs/SPEC.md §8
 ---
 
@@ -15,7 +15,7 @@ replaces: docs/SPEC.md §8
 | Repository | `git@github.com:hanku4u/auto-html-report.git` |
 | Requires Python | `>=3.11` (`.python-version` pinned to `3.11`) |
 | Dependency manager | `uv` (ADR-0021) |
-| Published to PyPI | No (ADR-0015) |
+| Published to PyPI | Not yet; planned in [12](12-publishing.md) (ADR-0032) |
 | Installed from | git tag or commit SHA |
 
 The import name has an underscore and the distribution name a hyphen. pip is inconsistent about
@@ -24,31 +24,34 @@ underscore form**: `auto_html_report[s3]`.
 
 ## 2. Dependency changes
 
-The project uses [uv](https://docs.astral.sh/uv/) for dependency management. Every direct dependency
-below is pinned exactly with `==`, per the project's pinning convention; floating ranges are not
-acceptable. The resolved transitive closure, with hashes, lives in the committed `uv.lock`. All pins
-were resolved against the package index at the time of writing.
+The project uses [uv](https://docs.astral.sh/uv/) for dependency management. Runtime dependencies and
+extras declare a tested floor and an upper bound at the next major version (ADR-0033). The resolved
+transitive closure, with hashes, lives in the committed `uv.lock`.
 
-> **Why exact pins survive alongside a lockfile.** `uv.lock` governs *this repository's* development
-> and CI environments. It is not shipped in the wheel and no consumer reads it: a package installed
-> from git resolves against `pyproject.toml` alone. So the lock makes *our* builds reproducible, while
-> the `==` pins are the only thing that makes *consumers'* installs deterministic. Keep both. See
-> ADR-0021.
+> **Why ranges here and pins in the lock.** `uv.lock` governs *this repository's* development and CI
+> environments. It is not shipped in the wheel and no consumer reads it. A consumer's resolver sees only
+> `pyproject.toml`, and exact pins there would make the package uninstallable beside any other version of
+> numpy or boto3. So the ranges keep the package installable, the lock keeps *our* builds reproducible, and
+> an application that wants determinism uses its own lockfile.
+
+**A floor is the oldest release the suite passes against on Python 3.11.** They were verified on
+2026-10-31 with `--resolution lowest-direct`, including the PostgreSQL suite against a real server. They
+are not support promises beyond that: a floor can be raised in any release that needs it.
 
 ### 2.1 New runtime dependencies
 
-| Package | Exact pin | Why | Notes |
+| Package | Range | Why | Notes |
 | --- | --- | --- | --- |
-| `jinja2` | `==3.1.6` | Renders the page shell, autoescaped by default (ADR-0010). | Single template, loaded via `importlib.resources`. |
-| `matplotlib` | `==3.11.2` | Renders charts to PNG for embedding (ADR-0009). | Imported lazily, so HTML-only reports never load it. Its own `requires_python` is `>=3.11`, which independently confirms the Python floor. |
-| `numpy` | `==2.4.6` | Numeric block data is handled as arrays: the wafer-map block types its payload as an `ndarray`. | Was already present transitively through matplotlib, which requires `>=1.23`. Pinned explicitly now that a block imports it directly, because importing an undeclared transitive dependency is how a dependency set rots. |
+| `jinja2` | `>=3.1,<4` | Renders the page shell, autoescaped by default (ADR-0010). | Single template, loaded via `importlib.resources`. |
+| `matplotlib` | `>=3.7,<4` | Renders charts to PNG for embedding (ADR-0009). | Imported lazily, so HTML-only reports never load it. |
+| `numpy` | `>=1.24,<3` | Numeric block data is handled as arrays: the wafer-map block types its payload as an `ndarray`. | Required rather than an extra, because the registry scan imports `wafer_map.py`, which imports numpy at module scope. |
 
 ### 2.2 New optional dependencies
 
-| Package | Exact pin | Extra | Why |
+| Package | Range | Extra | Why |
 | --- | --- | --- | --- |
-| `psycopg[binary]` | `==3.3.6` | `postgres` | PostgreSQL event store. |
-| `boto3` | `==1.43.114` | `s3` | S3 output writer. Imported lazily. |
+| `psycopg[binary]` | `>=3.1,<4` | `postgres` | PostgreSQL event store. |
+| `boto3` | `>=1.28,<2` | `s3` | S3 output writer. Imported lazily. |
 
 ### 2.3 New development dependencies
 
@@ -58,25 +61,24 @@ were resolved against the package index at the time of writing.
 | `ruff` | `==0.17.1` | Linting and formatting. |
 | `mypy` | `==2.4.0` | Static typing; `strict` mode is required. |
 
-Development tools live in the PEP 735 `dev` dependency group, not in an extra, so they are never part
-of the published metadata. Any further development tool must be added to that group with an exact pin
+Development tools keep exact pins, because they never reach a consumer. They live in the PEP 735 `dev`
+dependency group, not in an extra, so they are never part of the published metadata. Any further development tool must be added to that group with an exact pin
 at the moment it is introduced, not afterwards, and `uv lock` re-run in the same change.
 
 ### 2.4 Transitive dependencies
 
 Transitive dependencies are **not** listed in this document. `uv.lock` records the fully resolved
 closure, with hashes, and is committed so that CI and developer machines resolve identically.
-Regenerate it with `uv lock` whenever a direct pin changes, and never hand-edit it.
+Regenerate it with `uv lock` whenever a direct dependency changes, and never hand-edit it.
 
 Nothing here depends on a transitive pin remaining stable, and no code imports a transitive package
 directly.
 
-### 2.5 The one deliberate range
+### 2.5 The build backend
 
 `[build-system] requires` uses a range — `uv_build>=0.13.0,<0.14.0` — because the build backend has to
 be provisioned *before* the project's own lockfile can be honoured. This is uv's own generated
-convention and the only non-exact `requires` in the project. It never reaches a consumer's runtime
-environment.
+convention. It never reaches a consumer's runtime environment.
 
 Coverage tooling is deliberately **not** included in the `dev` group. Coverage percentage is not an
 enforced gate in v1 ([09 §5](09-testing-and-acceptance.md#5-ci)); the acceptance criteria are.
@@ -85,8 +87,8 @@ enforced gate in v1 ([09 §5](09-testing-and-acceptance.md#5-ci)); the acceptanc
 
 ```toml
 [build-system]
-# The one deliberate range in the project: the build backend must be provisioned
-# before our own lockfile can be honoured. uv's own generated convention.
+# A range because the build backend must be provisioned before our own lockfile can be
+# honoured. uv's own generated convention.
 requires = ["uv_build>=0.13.0,<0.14.0"]
 build-backend = "uv_build"
 
@@ -97,14 +99,14 @@ description = "Dynamic HTML report generator: composable blocks, concurrent coll
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "jinja2==3.1.6",
-    "matplotlib==3.11.2",
-    "numpy==2.4.6",
+    "jinja2>=3.1,<4",
+    "matplotlib>=3.7,<4",
+    "numpy>=1.24,<3",
 ]
 
 [project.optional-dependencies]
-postgres = ["psycopg[binary]==3.3.6"]
-s3       = ["boto3==1.43.114"]
+postgres = ["psycopg[binary]>=3.1,<4"]
+s3       = ["boto3>=1.28,<2"]
 
 [dependency-groups]
 dev = [
@@ -149,11 +151,11 @@ directly, which avoids a self-referential dependency that resolvers have no reas
 transitive — with hashes, and is committed. It exists so that CI and a developer's machine resolve to
 byte-identical package sets, and so that this document has a single place to stay consistent with.
 
-- Regenerate it with `uv lock` whenever a direct pin changes, in the same commit as the change.
+- Regenerate it with `uv lock` whenever a direct dependency changes, in the same commit as the change.
 - Never hand-edit it, and never resolve a conflict inside it by choosing sides; regenerate instead.
 - CI runs `uv lock --check` to fail loudly when the lockfile and `pyproject.toml` have drifted.
 - It is **not** shipped in the wheel or sdist, and consumers never read it. That asymmetry is why §2
-  keeps exact pins rather than delegating pinning to the lock (ADR-0021).
+  declares ranges and leaves pinning to the lock (ADR-0033).
 
 ## 5. Two packaging details that used to cost an afternoon
 
@@ -217,12 +219,10 @@ Two properties are load-bearing, and both were verified rather than assumed:
 - **The lookup is name-normalised.** Both `auto-html-report` and `auto_html_report` resolve, so the constant in
   `_version.py` cannot become a portability trap.
 
-**Deferred, with a trigger.** A VCS-derived version (`uv-dynamic-versioning` or `hatch-vcs`, with
-`dynamic = ["version"]`) is the better long-term answer, because it makes the git tag *be* the version
-and drift structurally impossible — which suits ADR-0015's install-from-a-tag model exactly. Adopt it
-at the first release, or the first time a tag and `pyproject.toml` disagree, whichever comes first.
-Until then it is scaffolding around a release process that does not exist, and it would add a pinned
-build-time dependency needing its own entry in §2.
+**Static, and checked against the tag.** ADR-0023 planned a VCS-derived version for the first release, but
+`uv_build` refuses `dynamic = ["version"]`, so that would mean replacing the build backend. The version stays
+a literal in `pyproject.toml`, set with `uv version --bump`, and the release workflow refuses a tag that
+differs from it (ADR-0034).
 
 ## Testing
 
@@ -233,6 +233,7 @@ build-time dependency needing its own entry in §2.
   `uv_build` there is no `force-include` to regress, but the resource-loading path itself still can.
 - `requires-python` is asserted against the interpreter running CI, so the floor cannot drift below
   what matplotlib needs.
+- A test asserts `py.typed` is present, and `scripts/check_install.sh` asserts it is in the built wheel.
 - `uv lock --check` passes, and `uv sync --frozen` succeeds from the committed lockfile alone with no
   network re-resolution.
 

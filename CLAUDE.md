@@ -6,8 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `auto_html_report` is a Python library (no CLI, no service) that turns `Block` classes into one self-contained
 HTML report: inline CSS, charts as base64 PNG data URIs, no JavaScript, no external requests. It is installed
-from git, not PyPI. The distribution is `auto-html-report`; the import name is `auto_html_report`. v1 ships no real HTTP
-client: `StubHttpClient` answers from fixtures, and real clients would plug in behind the `HttpClient` port.
+from git, not PyPI. The distribution is `auto-html-report`; the import name is `auto_html_report`. It ships no real HTTP
+client: consumers implement the `HttpClient` port and pass `http=`; `auto_html_report.testing.StubHttpClient`
+answers from fixtures for tests and demos.
 
 ## Commands
 
@@ -41,7 +42,8 @@ uv run python -m examples.discover_wafers
 uv run python -m examples.process_events
 ```
 
-Dependencies are pinned exactly (`==`) in `pyproject.toml`. Run `uv lock` in the same commit as any change.
+Runtime dependencies are ranges with tested floors, dev tools are exact pins, and `uv.lock` pins everything for
+this repo. Run `uv lock` in the same commit as any change.
 
 ## The spec drives the code
 
@@ -52,7 +54,7 @@ Module docstrings cite the sections and ADRs they implement, so follow those ref
 - Read `docs/10-decision-log.md` (ADR-0001 onward) before proposing a design change. It records alternatives
   already rejected.
 - A decision goes in the log as the *why*; the affected document records the *what*. A new dependency needs a
-  **Dependency changes** section with its exact pin.
+  **Dependency changes** section with its range or pin.
 - `docs/` is checked by tests (`tests/unit/test_doc_*.py`). They fail on a broken link or anchor, a name a
   document imports that `auto_html_report` does not export, a `docs/08` `pyproject.toml` snippet that differs from
   the real file, a stale ADR range or next-document number, missing frontmatter, or a document over 250 lines

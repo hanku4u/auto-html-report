@@ -1,8 +1,8 @@
-"""The deterministic stand-in for the real API client.
+"""Test helpers for block and discoverer authors: a fixture-backed ``HttpClient``.
 
-Every external call is a stub in v1 (``docs/07-configuration-and-logging.md`` §2). Blocks and discoverers
-are written against the ``HttpClient`` port, so replacing this with a real client later is a wiring change
-and nothing else.
+Pass a :class:`StubHttpClient` as ``http=`` to exercise a block or a discoverer without a network
+(``docs/07-configuration-and-logging.md`` §2). Blocks and discoverers are written against the ``HttpClient``
+port, so moving from this to a real client is a wiring change and nothing else.
 
 The stub enforces the two rules that would otherwise make a real client a bad retrofit:
 

@@ -1,8 +1,8 @@
 """The context factories: the seam between the environment and injected dependencies.
 
 These build the four context objects and the output writer from a frozen ``Settings``, and they live in
-``infrastructure/`` because they are the one place that may see every concrete adapter — the system clock,
-the stub client, the writers. Nothing above this layer names an adapter.
+``infrastructure/`` because they are the one place that may see every concrete adapter — the system clock
+and the writers. Nothing above this layer names an adapter.
 
 Each returns a value rather than registering a global, so a long-lived process can build several contexts
 with different settings without them contaminating each other, and each run gets a fresh ``run_id``, which
@@ -11,18 +11,21 @@ is what makes a report traceable back to the log lines that produced it.
 The keyword arguments that override a dependency are an addition to the signatures in
 ``docs/07`` §3: they default to the production choice, so the documented call still works, and they make
 these factories testable and usable by a demo job that wants canned fixtures.
+
+**The package ships no HTTP client** (ADR-0035). ``http`` stays optional, because a report whose blocks do
+no HTTP needs none; omitting it installs a client that fails on first use and says what to do about it.
 """
 
 from __future__ import annotations
 
 import logging
 import uuid
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from auto_html_report.application.context import DiscoveryContext, ReportContext, RunMetadata
 from auto_html_report.domain.errors import ConfigurationError
 from auto_html_report.infrastructure.clock import SystemClock
-from auto_html_report.infrastructure.http_stub import StubHttpClient
 from auto_html_report.infrastructure.writers.local_writer import LocalDirectoryWriter
 from auto_html_report.infrastructure.writers.s3_writer import S3Writer
 
@@ -31,6 +34,41 @@ if TYPE_CHECKING:
     from auto_html_report.infrastructure.settings import Settings
 
 _LOGGER_NAME = "auto_html_report"
+
+
+class _UnconfiguredHttpClient:
+    """The default when a job supplies no client: every call raises ``ConfigurationError``.
+
+    Raising on use rather than at construction keeps reports with no HTTP blocks working, and leaves the
+    failure per-block: the block that needed a client gets an error cell naming the fix.
+    """
+
+    def get_json(
+        self,
+        path: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        timeout: float,
+        headers: Mapping[str, str] | None = None,
+    ) -> Any:
+        raise self._unconfigured(path)
+
+    def get_bytes(
+        self,
+        path: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        timeout: float,
+        headers: Mapping[str, str] | None = None,
+    ) -> bytes:
+        raise self._unconfigured(path)
+
+    @staticmethod
+    def _unconfigured(path: str) -> ConfigurationError:
+        return ConfigurationError(
+            f"no HTTP client configured for {path!r}; pass http= to new_report_context() or "
+            "new_discovery_context()"
+        )
 
 
 def new_report_context(
@@ -49,7 +87,7 @@ def new_report_context(
     resolved_clock = clock if clock is not None else SystemClock()
     return ReportContext(
         settings=settings,
-        http=http if http is not None else StubHttpClient(),
+        http=http if http is not None else _UnconfiguredHttpClient(),
         logger=logger if logger is not None else logging.getLogger(_LOGGER_NAME),
         clock=resolved_clock,
         run=_new_run(resolved_clock),
@@ -67,7 +105,7 @@ def new_discovery_context(
     resolved_clock = clock if clock is not None else SystemClock()
     return DiscoveryContext(
         settings=settings,
-        http=http if http is not None else StubHttpClient(),
+        http=http if http is not None else _UnconfiguredHttpClient(),
         logger=logger if logger is not None else logging.getLogger(_LOGGER_NAME),
         clock=resolved_clock,
         run=_new_run(resolved_clock),

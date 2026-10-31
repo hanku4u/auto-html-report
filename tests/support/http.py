@@ -9,7 +9,7 @@ It records the **timeout** as well as the path and parameters, because "every HT
 timeout" is a rule a test should be able to check rather than a habit (`docs/02-block-authoring.md` §5).
 
 The production stub -- ``StubHttpClient``, which demo reports run against -- lands with stage 7 and
-lives in ``auto_html_report/infrastructure/http_stub.py``. This one exists so that stage 4's blocks can be
+lives in ``auto_html_report/testing.py``. This one exists so that stage 4's blocks can be
 tested without waiting for it, and so that the framework's own tests never depend on a shipped fixture.
 """
 
