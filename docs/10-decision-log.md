@@ -1,6 +1,6 @@
 ---
 status: active
-description: ADR-0001 to ADR-0031 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
+description: ADR-0001 to ADR-0035 — each ratified design decision with its context, the alternatives rejected, and the consequences accepted.
 replaces: docs/SPEC.md §11, §12
 ---
 
@@ -483,6 +483,83 @@ is that constructing an adapter performs I/O — which is the point, because a s
 during setup. Rejected: module-level imports of the optional dependencies (breaks the base
 install) and lazy client creation (moves a configuration failure to the first report, after work has been
 done).
+
+---
+
+### ADR-0032 — Published to public PyPI as `auto-html-report`
+
+**Context:** ADR-0015 kept this an internal tool installed from git, which gave it no release process and
+no index presence. The owner now wants a package anyone can install by name, and has approved releasing the
+source publicly. The repository is public, with no tags, so nothing depends on the old name.
+
+**Decision:** supersedes ADR-0015. The package is published to PyPI under Apache-2.0, chosen over MIT for its
+explicit patent grant. Every name moves together, with no compatibility shim: distribution `auto-html-report`,
+import `auto_html_report`, environment prefix `AUTO_HTML_REPORT_`, and the repository. Publishing uses trusted
+publishing from a tag-triggered workflow, with owner approval on the production environment. See
+[12](12-publishing.md).
+
+**Consequences:** consumers get `pip install auto-html-report` and normal version resolution, and this project
+takes on a release process and a compatibility obligation once `0.1.0` ships. Rejected: a private index (the
+owner wants it open source); GitHub Releases only (no version resolution for consumers); renaming only the
+distribution (`uv_build` infers the module from the project name, and two names for one package is a permanent
+cost paid to avoid a one-time one).
+
+---
+
+### ADR-0033 — Runtime dependencies use ranges; the lockfile pins this repository
+
+**Context:** ADR-0021 kept exact `==` pins on runtime dependencies because a lockfile does not constrain
+consumers. That reasoning is correct, and its conclusion suits an application. For a library on an index it
+fails: a consumer with any other numpy or boto3 version cannot resolve the package at all, and boto3 in
+particular releases almost daily.
+
+**Decision:** supersedes ADR-0021's pinning rule; the rest of ADR-0021 stands (uv, `uv_build`, the committed
+lockfile, the `dev` group). Runtime dependencies and extras declare a tested floor and an upper bound at the
+next major version. Development tools keep exact pins, because they never reach a consumer. A CI job at
+`--resolution lowest-direct` keeps the floors honest.
+
+**Consequences:** the package can coexist with what consumers already use, and determinism for an application
+becomes that application's own lockfile, which is where it belongs. The cost is that a consumer can meet a
+combination we did not test, which the matrix and the floor job narrow but cannot eliminate. Rejected: no upper
+bounds (a new major version of a dependency breaks every existing install at once); and floors chosen by
+judgement, untested (a floor nothing exercises is a guess that reads as a promise).
+
+---
+
+### ADR-0034 — The version stays a static literal, checked against the tag
+
+**Context:** ADR-0023 deferred VCS-derived versions with a trigger: adopt them at the first release. That
+release is now planned, so the trigger has fired. Tested against `uv 0.13.6`, `uv_build` refuses
+`dynamic = ["version"]` with ``missing field `version` ``, so a derived version would mean replacing the build
+backend.
+
+**Decision:** resolves ADR-0023's trigger by declining it. The version remains a literal in `pyproject.toml`,
+set with `uv version --bump`, and the release workflow fails if the tag differs from it.
+
+**Consequences:** drift between tag and version, the risk the trigger existed to remove, becomes a failed
+release before anything is published instead of a structural impossibility. Keeping `uv_build` also keeps its
+verified template packaging (ADR-0021). The cost is one manual bump per release, in a reviewable commit.
+Rejected: `hatch-vcs` or `uv-dynamic-versioning` on another backend (a new build dependency and a re-verification
+of package data, to save one line in a PR).
+
+---
+
+### ADR-0035 — Consumers bring their own HTTP client, and forgetting one says so
+
+**Context:** v1 ships only `StubHttpClient`, and `new_report_context()` uses it when `http` is omitted. That
+default was harmless while the package was internal, but a public consumer who forgets `http=` is told that a
+*fixture* is missing, and the `HttpClient` protocol they would need to implement is not exported. Requiring
+`http` outright would break the quick start and any report whose blocks do no HTTP.
+
+**Decision:** the package ships no real client. `HttpClient` and `Clock` are exported; `StubHttpClient` moves to
+a public `testing` module; `http` stays optional, and its default becomes a client that raises
+`ConfigurationError` on use, naming `http=`. The block-authoring document gains an adapter recipe.
+
+**Consequences:** no HTTP dependency, and no decisions about authentication or connection pooling made on behalf
+of APIs this project has never seen. Each consumer writes a short adapter and is responsible for the error
+mapping in [02 §5.1](02-block-authoring.md#51-normative-error-mapping), which is what retry behaviour rests on.
+Rejected: an `httpx` client behind an extra (more surface to maintain, and authentication would still need
+designing); raising at context construction (breaks reports that need no HTTP).
 
 ---
 
