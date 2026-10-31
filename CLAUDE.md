@@ -43,6 +43,9 @@ uv run python -m examples.discover_wafers
 uv run python -m examples.process_events
 ```
 
+Releases are tag-driven; `docs/12-publishing.md` §6.1 has the steps. Don't rename `release.yml` or the `PyPI` and
+`TestPyPI` environments without updating the trusted publishers on both indexes.
+
 Runtime dependencies are ranges with tested floors, dev tools are exact pins, and `uv.lock` pins everything for
 this repo. Run `uv lock` in the same commit as any change.
 

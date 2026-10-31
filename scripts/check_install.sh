@@ -5,17 +5,26 @@
 # directory the build backend did not infer, an import that only resolves because the repository is the
 # working directory. CI's packaging job runs exactly this script, and the README quotes the same commands
 # a developer runs by hand.
+#
+# With a path, checks that wheel instead of building one: the release workflow passes the file it will publish.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 scratch="$(mktemp -d)"
 trap 'rm -rf "$scratch"' EXIT
 
-cd "$root"
-uv build --wheel --out-dir "$scratch/dist" >/dev/null
+# Resolved before the `cd`, because a relative path means the caller's directory.
+if [ $# -gt 0 ]; then
+    wheel="$(realpath "$1")"
+    cd "$root"
+else
+    cd "$root"
+    uv build --wheel --out-dir "$scratch/dist" >/dev/null
+    wheel="$(echo "$scratch"/dist/*.whl)"
+fi
 uv venv "$scratch/venv" >/dev/null
 python="$scratch/venv/bin/python"
-uv pip install --python "$python" "$scratch"/dist/*.whl >/dev/null
+uv pip install --python "$python" "$wheel" >/dev/null
 
 # Every top-level subpackage, because a wheel missing one is exactly what this script exists to catch
 # -- and the report family was once missing from a commit while every source-tree test stayed green.

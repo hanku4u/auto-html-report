@@ -118,19 +118,27 @@ tag v* ─► verify ─► checks ─► build ─► check wheel ─► TestPy
 2. **checks** reuses the `ci.yml` checks, so a tag cannot release what CI would reject.
 3. **build** runs `uv build` once and uploads `dist/` as a workflow artifact. Every later job uses those
    files; nothing is rebuilt, so what was tested is what ships.
-4. **check wheel** installs that wheel into a clean environment and runs the quick start, as
-   `scripts/check_install.sh` does.
+4. **check wheel** runs `scripts/check_install.sh` on that wheel: a clean environment, then the quick start.
 5. **TestPyPI** publishes with `uv publish` in the `TestPyPI` environment.
-6. **PyPI** publishes in the `PyPI` environment, and waits there for approval. A pre-release tag (one
-   containing `a`, `b` or `rc` after the version digits) stops after TestPyPI.
+6. **PyPI** publishes in the `PyPI` environment, and waits there for approval. Any version other than plain
+   digits and dots, such as `0.1.0rc1`, stops after TestPyPI, so an unusual version fails safe.
 7. **GitHub Release** is created from the tag with the `dist/` files attached, and its notes taken from the
-   version's section of `CHANGELOG.md`.
+   version's section of `CHANGELOG.md`. A pre-release gets none, because it stopped at TestPyPI.
 
 Publishing uses trusted publishing (OIDC). No PyPI token exists anywhere, and `id-token: write` is granted
 only to the two publish jobs. Each index needs a publisher registered against the repository name,
 `release.yml`, and the environment name, spelled exactly `PyPI` and `TestPyPI`.
 
 A published version cannot be replaced on either index. A bad release is yanked and a new version is cut.
+
+### 6.1 Cutting a release
+
+1. In a PR, run `uv version <version>`. For a final release, also rename `[Unreleased]` in `CHANGELOG.md` to
+   `[<version>]` and start a new empty `[Unreleased]`. The workflow refuses a final release with no notes.
+2. Merge it, then tag that commit on `main` and push the tag: `git tag v<version> && git push origin v<version>`.
+3. For a final release, approve the `PyPI` deployment on the workflow run once TestPyPI has succeeded.
+
+A failed run can be re-run: `--check-url` makes the publish jobs skip files already on the index.
 
 ## 7. Dev plan
 

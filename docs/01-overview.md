@@ -180,6 +180,7 @@ auto-html-report/
 ├── examples/                       # runnable: quick_start.py and the two job scripts
 ├── scripts/check_install.sh        # wheel install + quick start; also CI's packaging job
 ├── .github/workflows/ci.yml        # the checks of docs/09 §5, the floors, packaging and secret scan
+├── .github/workflows/release.yml   # tag-triggered publishing to TestPyPI and PyPI (docs/12 §6)
 ├── .github/dependabot.yml          # weekly updates for the action pins and uv.lock
 ├── src/
 │   └── auto_html_report/
