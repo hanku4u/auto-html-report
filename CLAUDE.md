@@ -12,7 +12,8 @@ answers from fixtures for tests and demos.
 
 ## Commands
 
-The environment is managed by uv. CI (`.github/workflows/ci.yml`) runs these in this order:
+The environment is managed by uv. CI (`.github/workflows/ci.yml`) runs these in this order on Python 3.11 to
+3.14, plus a run at the dependency floors, the wheel install check and a history secret scan:
 
 ```bash
 uv sync --frozen --all-extras   # --all-extras is required: tests exercise psycopg and boto3 paths

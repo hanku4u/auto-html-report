@@ -311,8 +311,10 @@ uv run mypy                     # types, strict
 uv run pytest                   # tests
 ```
 
-`.github/workflows/ci.yml` runs exactly these commands in this order, so a green local run means a
-green CI run — no service to start, and no network beyond fetching the pinned packages.
+`.github/workflows/ci.yml` runs exactly these commands in this order on Python 3.11 to 3.14, so a green
+local run on your interpreter is a good predictor of green CI — no service to start, and no network beyond
+fetching the pinned packages. CI also runs the suite at the oldest dependency versions the package allows,
+exercises the PostgreSQL store against a real server, and scans the git history for secrets.
 
 One more check catches what a source-tree test cannot:
 
