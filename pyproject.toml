@@ -7,7 +7,7 @@ build-backend = "uv_build"
 [project]
 name = "auto-html-report"
 version = "0.1.0"
-description = "Dynamic HTML report generator: composable blocks, concurrent collection, one file."
+description = "Turn a list of blocks into one self-contained HTML report, fetching shared data only once."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
@@ -28,19 +28,16 @@ classifiers = [
 ]
 dependencies = [
     "jinja2>=3.1,<4",
-    "matplotlib>=3.7,<4",
-    "numpy>=1.24,<3",
 ]
 
 [project.urls]
 Homepage = "https://github.com/hanku4u/auto-html-report"
-Documentation = "https://github.com/hanku4u/auto-html-report/tree/main/docs"
+Documentation = "https://github.com/hanku4u/auto-html-report#readme"
 Issues = "https://github.com/hanku4u/auto-html-report/issues"
 Changelog = "https://github.com/hanku4u/auto-html-report/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
-postgres = ["psycopg[binary]>=3.1,<4"]
-s3       = ["boto3>=1.28,<2"]
+charts = ["matplotlib>=3.9,<4"]
 
 [dependency-groups]
 dev = [
@@ -52,7 +49,6 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q --strict-markers"
-markers = ["postgres: requires AUTO_HTML_REPORT_TEST_POSTGRES_DSN"]
 # Lets tests import the shared builders as tests.support.*. The repository root holds no package
 # named auto_html_report (that lives under src/), so this cannot shadow the installed distribution.
 pythonpath = ["."]
@@ -62,10 +58,6 @@ line-length = 100
 target-version = "py311"
 
 [tool.ruff.format]
-# Ruff's formatter also formats Python snippets embedded in Markdown. docs/ is specification
-# prose containing illustrative snippets, not code, and formatting them rewrites the deliberate
-# comment alignment that makes them readable. This costs no lint coverage: `ruff check` does not
-# lint Markdown. Without this, `uv run ruff format --check` fails on the specification itself.
 exclude = ["docs", "*.md"]
 
 [tool.mypy]
@@ -73,4 +65,4 @@ python_version = "3.11"
 strict = true
 # mypy has no default target: without this, a bare `uv run mypy` fails with
 # "Missing target module, package, files, or command."
-files = ["src", "tests", "examples"]
+files = ["src", "tests", "examples", "scripts"]

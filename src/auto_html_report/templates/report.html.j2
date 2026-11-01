@@ -1,0 +1,44 @@
+{#- Autoescaping is on. `row.html | safe` is the only exception: a block owns escaping what it returns. -#}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }}</title>
+  <style>{% include "report.css" %}</style>
+</head>
+<body class="ai-report">
+  <header class="ai-header">
+    <h1 class="ai-header__title">{{ title }}</h1>
+{% if subtitle %}
+    <p class="ai-header__subtitle">{{ subtitle }}</p>
+{% endif %}
+    <dl class="ai-header__meta">
+      <dt>Generated</dt><dd>{{ generated_at }}</dd>
+{% for name, value in metadata.items() %}
+      <dt>{{ name }}</dt><dd>{{ value }}</dd>
+{% endfor %}
+    </dl>
+  </header>
+
+  <table class="ai-table">
+    <colgroup>
+      <col class="ai-col--item"><col class="ai-col--data"><col class="ai-col--check">
+    </colgroup>
+    <thead>
+      <tr><th scope="col">Item</th><th scope="col">Data</th><th scope="col">Check</th></tr>
+    </thead>
+    <tbody>
+{% for row in rows %}
+      <tr class="ai-row">
+        <td class="ai-cell ai-cell--item">{{ row.title }}</td>
+        <td class="ai-cell ai-cell--data{% if row.error %} ai-cell--error{% endif %}">{{ row.html | safe }}</td>
+        <td class="ai-cell ai-cell--check"></td>
+      </tr>
+{% endfor %}
+    </tbody>
+  </table>
+
+  <footer class="ai-footer">auto_html_report {{ version }}</footer>
+</body>
+</html>

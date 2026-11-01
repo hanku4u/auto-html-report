@@ -1,13 +1,13 @@
 """A throwaway HTTP API on localhost, for exercising the plumbing without a real service.
 
-``StubHttpClient`` answers from a table and never opens a socket. This does: requests travel through a real
-adapter and a real server, so authentication, retries, timeouts and error mapping all run for real.
+Requests travel through a real client and a real server, so authentication, retries, timeouts and error
+mapping all run for real.
 
     with local_api() as api:
         client = UrllibHttpClient(api.url, token=api.token)
         client.get_json("/yield/failures", timeout=5.0)
 
-It serves the same data as ``examples.demo_api``, and these routes for testing failure handling:
+It serves the data in ``examples.demo_api``, and these routes for testing failure handling:
 
     /test/flaky      503 for the first two requests, then 200
     /test/error      always 500
@@ -35,7 +35,7 @@ from examples.demo_api import ROUTES
 
 LOCAL_API_TOKEN = "local-test-token"
 
-#: How many requests /test/flaky fails before recovering: within the default two retries.
+#: How many requests /test/flaky fails before recovering: within the default three retries.
 FLAKY_FAILURES = 2
 
 #: A backstop so a stuck request cannot outlive the process by long. Closing the server wakes it sooner.
