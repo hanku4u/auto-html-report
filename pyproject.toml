@@ -6,7 +6,7 @@ build-backend = "uv_build"
 
 [project]
 name = "auto-html-report"
-version = "0.1.0"
+version = "0.2.0"
 description = "Turn a list of blocks into one self-contained HTML report, fetching shared data only once."
 readme = "README.md"
 requires-python = ">=3.11"

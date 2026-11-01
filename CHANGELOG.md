@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-01
+
 The package is now only a report builder, with a much smaller API. Code written against 0.1.0 must be rewritten;
 0.1.0 stays on PyPI.
 
