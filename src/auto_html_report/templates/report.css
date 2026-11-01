@@ -1,0 +1,180 @@
+/* Inlined into the document, so a report is one file. No @import or url(): either would make it fetch
+ * something. Classes are prefixed ai- so a report survives being pasted into another page. */
+
+.ai-report {
+  margin: 0;
+  padding: 1.5rem;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #1a1a1a;
+  background: #ffffff;
+}
+
+/* --- header ------------------------------------------------------------- */
+
+.ai-header {
+  margin-bottom: 1.25rem;
+}
+
+.ai-header__title {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+.ai-header__subtitle {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  color: #444444;
+}
+
+.ai-header__meta {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.15rem 0.75rem;
+  font-size: 0.875rem;
+  color: #444444;
+}
+
+.ai-header__meta dt {
+  font-weight: 600;
+}
+
+.ai-header__meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* --- the report table --------------------------------------------------- */
+
+.ai-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed; /* a wide chart must never push the Check column off the page */
+}
+
+.ai-col--item {
+  width: 18%;
+}
+
+.ai-col--data {
+  width: 74%;
+}
+
+.ai-col--check {
+  width: 8%;
+}
+
+.ai-table th,
+.ai-table td {
+  border: 1px solid #d0d0d0;
+  padding: 0.5rem 0.6rem;
+  vertical-align: top;
+  text-align: left;
+}
+
+.ai-table thead th {
+  background: #f4f4f4;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.ai-cell--item {
+  font-weight: 600;
+  overflow-wrap: anywhere; /* a long tool or lot name must not overflow its column */
+}
+
+/* --- figures ------------------------------------------------------------ */
+
+.ai-figure {
+  display: block;
+  max-width: 100%; /* a 4000px wafer map must not produce a 4000px page */
+  height: auto;
+  border: 1px solid #e0e0e0;
+}
+
+/* --- tables a block rendered inside its own cell ------------------------ */
+
+.ai-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.ai-data-table th,
+.ai-data-table td {
+  border: 1px solid #e0e0e0;
+  padding: 0.25rem 0.4rem;
+  text-align: left;
+}
+
+.ai-data-table thead th {
+  background: #fafafa;
+}
+
+/* --- empty and error states --------------------------------------------- */
+
+.ai-empty {
+  margin: 0;
+  color: #666666;
+  font-style: italic;
+}
+
+/* Distinguishable without colour: a thick left border, a glyph, and a bold type name. Reports get
+ * printed, and "the red cell" is not a useful description in black and white. */
+.ai-cell--error {
+  border-left: 4px solid #8a1f11;
+  background: #fdf6f5;
+}
+
+.ai-error {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.15rem 0.5rem;
+  align-items: baseline;
+}
+
+.ai-error__icon {
+  grid-row: 1 / span 2;
+  font-size: 1.1rem;
+  line-height: 1.2;
+}
+
+.ai-error__type {
+  font-weight: 700;
+  color: #8a1f11;
+  overflow-wrap: anywhere;
+}
+
+.ai-error__message {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* --- footer ------------------------------------------------------------- */
+
+.ai-footer {
+  margin-top: 1rem;
+  font-size: 0.75rem;
+  color: #777777;
+}
+
+/* --- print -------------------------------------------------------------- */
+
+@media print {
+  .ai-report {
+    padding: 0;
+  }
+
+  .ai-table thead {
+    display: table-header-group; /* repeat the column headings on every page */
+  }
+
+  .ai-row {
+    break-inside: avoid;
+    page-break-inside: avoid; /* keep a row, and the chart in it, on one page */
+  }
+}

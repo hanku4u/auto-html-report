@@ -1,6 +1,6 @@
 name: Release
 
-# Publishing is specified in docs/12 §6. PyPI and TestPyPI trust this file by name, and the two environment
+# Publishing is specified in docs/publishing.md. PyPI and TestPyPI trust this file by name, and the two environment
 # names below, so renaming any of them means updating the trusted publishers too.
 on:
   push:

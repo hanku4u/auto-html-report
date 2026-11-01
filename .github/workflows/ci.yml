@@ -20,24 +20,6 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.12", "3.13", "3.14"]
-    # The optional store suite self-skips without a DSN; CI supplies one so the PostgreSQL backend is
-    # exercised on every push, not only by hand (docs/09 §5).
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: auto_html_report
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U test -d auto_html_report"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      AUTO_HTML_REPORT_TEST_POSTGRES_DSN: postgresql://test:test@localhost:5432/auto_html_report
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
@@ -50,30 +32,13 @@ jobs:
       - run: uv run ruff format --check
       - run: uv run mypy
       - run: uv run pytest
-      # Outside pytest because it opens real sockets, which the suite's rules forbid (docs/09 §2).
+      # Outside pytest because it opens real sockets, which the test suite doesn't do.
       - run: uv run python -m examples.plumbing_check "$RUNNER_TEMP/plumbing-check"
 
   lowest-direct:
     name: Tests at the dependency floors
     runs-on: ubuntu-latest
-    # The floors in pyproject.toml are only true while something runs them (ADR-0033). PostgreSQL is
-    # here for the same reason as above: without it the psycopg floor would go untested.
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: auto_html_report
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U test -d auto_html_report"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      AUTO_HTML_REPORT_TEST_POSTGRES_DSN: postgresql://test:test@localhost:5432/auto_html_report
+    # The floors in pyproject.toml are only true while something runs them.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
@@ -82,7 +47,7 @@ jobs:
       # `uv pip` rather than `uv sync`: the lockfile holds the newest versions, which is not the point.
       # --clear: setup-uv has already created .venv, because it was given a Python version.
       - run: uv venv --clear
-      - run: uv pip install --resolution lowest-direct -e ".[postgres,s3]" --group dev
+      - run: uv pip install --resolution lowest-direct -e ".[charts]" --group dev
       # Not `uv run`, which would sync the environment back to the lockfile first.
       - run: .venv/bin/python -m pytest
 

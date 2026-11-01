@@ -26,15 +26,15 @@ uv venv "$scratch/venv" >/dev/null
 python="$scratch/venv/bin/python"
 uv pip install --python "$python" "$wheel" >/dev/null
 
-# Every top-level subpackage, because a wheel missing one is exactly what this script exists to catch
-# -- and the report family was once missing from a commit while every source-tree test stayed green.
 PYTHONPATH= "$python" -c "
 import auto_html_report
-import auto_html_report.reports.manufacturing as manufacturing
-import auto_html_report.testing
 from importlib.resources import files
 assert files('auto_html_report').joinpath('py.typed').is_file(), 'py.typed is missing from the wheel'
-print(f'imported {auto_html_report.__version__} and {manufacturing.WAFER_FAILURE_EVENT}')
+assert files('auto_html_report').joinpath('templates', 'report.css').is_file(), 'templates are missing'
+docs = files('auto_html_report').joinpath('docs')
+assert 'build_report' in docs.joinpath('README.md').read_text(encoding='utf-8'), 'the guide is missing'
+assert docs.joinpath('design.md').is_file(), 'the design notes are missing'
+print(f'imported {auto_html_report.__version__}')
 "
 
 # The quick start is copied out of the repository and run in an empty directory: if it still works, the

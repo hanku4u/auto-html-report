@@ -17,14 +17,8 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 
-# auto_html_report output. Reports and the event store are generated artefacts:
-# they carry production data and never belong in the repository.
-# See docs/06-output-html.md and docs/04-events-and-stores.md.
-#
-# `/reports/` is anchored to the repository root: unanchored, it also matched
-# `src/auto_html_report/reports/`, so the report package silently never entered a commit (stage 10).
+# Generated reports: they can carry internal data.
 /reports/
-*.sqlite3
 
 # Review notes are working documents, not part of the repository.
 /FIXME.md
